@@ -1,0 +1,6 @@
+{
+  "name": "Vibe Code AIO",
+  "description": "An all-in-one utility tool for text processing, side-by-side comparison, data format conversion, and real-time HTML/CSS/JS preview.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -132,7 +132,7 @@ export default function App() {
     };
   }, [state.activeModule]);
 
-  // Sync state.activeModule back to URL hash
+  // Sync state.activeModule back to URL hash safely without triggering events
   useEffect(() => {
     const canonicalHash =
       state.activeModule === ActiveModule.TEXT_UTILS
@@ -148,7 +148,7 @@ export default function App() {
     
     // Only overwrite if current hash is empty or doesn't map to the active module at all
     if (!currentHash || matchedModule !== state.activeModule) {
-      window.location.hash = canonicalHash;
+      window.history.replaceState(null, "", `#${canonicalHash}`);
     }
   }, [state.activeModule]);
 

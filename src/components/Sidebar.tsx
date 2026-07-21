@@ -41,7 +41,7 @@ export default function Sidebar({
       label: "Text & Duplicates",
       description: "Counter, filters, sorting & regex search",
       icon: FileText,
-      hashId: "text-utilities",
+      hashId: "case-converter",
     },
     {
       id: ActiveModule.COMPARE_MERGE,

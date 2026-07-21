@@ -7,6 +7,32 @@ import DataConverterHtml from "./components/DataConverterHtml";
 
 const STORAGE_KEY = "vibe_code_aio_state";
 
+const HASH_MAP: Record<string, ActiveModule> = {
+  // Text Utilities hashes
+  "#text-utilities": ActiveModule.TEXT_UTILS,
+  "#text_utils": ActiveModule.TEXT_UTILS,
+  "#text-utils": ActiveModule.TEXT_UTILS,
+  "#text": ActiveModule.TEXT_UTILS,
+  "#tien-ich-text": ActiveModule.TEXT_UTILS,
+  "#tien-ich-van-ban": ActiveModule.TEXT_UTILS,
+
+  // Compare & Merge hashes
+  "#compare-merge": ActiveModule.COMPARE_MERGE,
+  "#compare_merge": ActiveModule.COMPARE_MERGE,
+  "#compare": ActiveModule.COMPARE_MERGE,
+  "#merge": ActiveModule.COMPARE_MERGE,
+  "#so-sanh-gop": ActiveModule.COMPARE_MERGE,
+  "#so-sanh": ActiveModule.COMPARE_MERGE,
+
+  // Data Converter hashes
+  "#data-converter": ActiveModule.DATA_CONVERTER,
+  "#data_converter": ActiveModule.DATA_CONVERTER,
+  "#converter": ActiveModule.DATA_CONVERTER,
+  "#sandbox": ActiveModule.DATA_CONVERTER,
+  "#chuyen-doi-du-lieu": ActiveModule.DATA_CONVERTER,
+  "#chuyen-doi": ActiveModule.DATA_CONVERTER,
+};
+
 const DEFAULT_STATE: AppState = {
   theme: "dark",
   activeModule: ActiveModule.TEXT_UTILS,
@@ -82,6 +108,41 @@ export default function App() {
       theme: prev.theme === "dark" ? "light" : "dark",
     }));
   };
+
+  // Sync state.activeModule based on URL Hash
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.toLowerCase();
+      if (hash) {
+        const matchedModule = HASH_MAP[hash];
+        if (matchedModule && matchedModule !== state.activeModule) {
+          setState((prev) => ({ ...prev, activeModule: matchedModule }));
+        }
+      }
+    };
+
+    // Run on initial load to support direct deep-linking
+    handleHashChange();
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => {
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, [state.activeModule]);
+
+  // Sync state.activeModule back to URL hash
+  useEffect(() => {
+    const canonicalHash =
+      state.activeModule === ActiveModule.TEXT_UTILS
+        ? "tien-ich-text"
+        : state.activeModule === ActiveModule.COMPARE_MERGE
+        ? "so-sanh-gop"
+        : "chuyen-doi-du-lieu";
+
+    if (window.location.hash !== `#${canonicalHash}`) {
+      window.location.hash = canonicalHash;
+    }
+  }, [state.activeModule]);
 
   const handleModuleStateChange = <K extends keyof AppState>(
     moduleKey: K,

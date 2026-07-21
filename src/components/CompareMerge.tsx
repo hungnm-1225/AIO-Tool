@@ -1,0 +1,592 @@
+import React, { useState } from "react";
+import { CompareMergeState } from "../types";
+import { diffLines, LineDiff, DiffToken } from "../utils/diff";
+import { 
+  GitCompare, 
+  Columns, 
+  PlusCircle, 
+  Copy, 
+  Check, 
+  CheckCircle, 
+  AlertTriangle,
+  RotateCcw,
+  Sparkles
+} from "lucide-react";
+
+interface CompareMergeProps {
+  state: CompareMergeState;
+  onChange: (newState: Partial<CompareMergeState>) => void;
+}
+
+export default function CompareMerge({ state, onChange }: CompareMergeProps) {
+  const [activeSubTab, setActiveSubTab] = useState<"diff" | "combine" | "autoinc">("diff");
+  const [diffResults, setDiffResults] = useState<LineDiff[] | null>(null);
+  const [isIdentical, setIsIdentical] = useState<boolean | null>(null);
+  const [combineOutput, setCombineOutput] = useState("");
+  const [autoIncOutput, setAutoIncOutput] = useState("");
+  const [paddingWidth, setPaddingWidth] = useState<number>(1);
+  
+  const [copiedText, setCopiedText] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string, isError = false) => {
+    if (isError) {
+      setErrorMessage(msg);
+      setTimeout(() => setErrorMessage(null), 4000);
+    } else {
+      setToastMessage(msg);
+      setTimeout(() => setToastMessage(null), 3000);
+    }
+  };
+
+  const handleCopy = async (text: string, identifier: string) => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedText(identifier);
+      showToast("Copied to clipboard!");
+      setTimeout(() => setCopiedText(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy", err);
+    }
+  };
+
+  // --- SUB-FEATURE 1: TEXT DIFF ---
+  const handleCompare = () => {
+    const orig = state.diffOriginal || "";
+    const mod = state.diffModified || "";
+    
+    if (!orig && !mod) {
+      showToast("Please enter both original and modified texts to compare!", true);
+      return;
+    }
+
+    if (orig === mod) {
+      setIsIdentical(true);
+      setDiffResults([]);
+      showToast("The files are completely identical!");
+    } else {
+      setIsIdentical(false);
+      const results = diffLines(orig, mod);
+      setDiffResults(results);
+      showToast("Differences detected!");
+    }
+  };
+
+  const renderCharDiff = (charDiff: DiffToken[] | undefined, filterType: "added" | "removed") => {
+    if (!charDiff) return null;
+    return (
+      <span className="break-all whitespace-pre-wrap">
+        {charDiff.map((token, idx) => {
+          if (token.type === "equal") {
+            return <span key={idx}>{token.value}</span>;
+          }
+          if (token.type === filterType) {
+            return (
+              <span 
+                key={idx} 
+                className={`px-0.5 rounded font-bold ${
+                  filterType === "removed" 
+                    ? "bg-rose-500/35 text-rose-200 line-through decoration-rose-600" 
+                    : "bg-emerald-500/35 text-emerald-200"
+                }`}
+              >
+                {token.value}
+              </span>
+            );
+          }
+          return null;
+        })}
+      </span>
+    );
+  };
+
+  // --- SUB-FEATURE 2: COLUMN COMBINER ---
+  const handleCombine = () => {
+    const col1 = state.combineCol1 || "";
+    const col2 = state.combineCol2 || "";
+
+    if (!col1.trim() && !col2.trim()) {
+      showToast("Please enter data for both columns!", true);
+      return;
+    }
+
+    const lines1 = col1.split(/\r?\n/);
+    const lines2 = col2.split(/\r?\n/);
+
+    const len1 = col1.trim() === "" ? 0 : lines1.length;
+    const len2 = col2.trim() === "" ? 0 : lines2.length;
+
+    if (len1 > 1 && len2 > 1 && len1 !== len2) {
+      showToast(
+        `Cannot merge columns! Line count mismatch: Column 1 has ${len1} lines, Column 2 has ${len2} lines. Please adjust or combine with a column containing exactly 1 line.`, 
+        true
+      );
+      return;
+    }
+
+    const maxLines = Math.max(len1, len2);
+    const merged: string[] = [];
+
+    for (let idx = 0; idx < maxLines; idx++) {
+      const val1 = len1 === 1 ? lines1[0] : (lines1[idx] !== undefined ? lines1[idx] : "");
+      const val2 = len2 === 1 ? lines2[0] : (lines2[idx] !== undefined ? lines2[idx] : "");
+      
+      merged.push(`${val1}${state.combineDelimiter}${val2}`);
+    }
+
+    setCombineOutput(merged.join("\n"));
+    showToast("Columns merged successfully!");
+  };
+
+  // --- SUB-FEATURE 3: AUTO-INCREMENT GENERATOR ---
+  const handleGenerateAutoInc = () => {
+    const template = state.autoIncTemplate || "";
+    if (!template) {
+      showToast("Please enter a template string (containing [x])!", true);
+      return;
+    }
+    if (!template.includes("[x]")) {
+      showToast("Template string must contain the [x] placeholder for auto-increment sequential replacement!", true);
+      return;
+    }
+
+    const start = state.autoIncStart ?? 1;
+    const step = state.autoIncStep ?? 1;
+    const count = state.autoIncCount ?? 10;
+
+    const list: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const currentNumber = start + i * step;
+      const formattedNum = String(currentNumber).padStart(paddingWidth, "0");
+      list.push(template.replace("[x]", formattedNum));
+    }
+
+    setAutoIncOutput(list.join("\n"));
+    showToast(`Successfully generated ${count} progressive records!`);
+  };
+
+  return (
+    <div className="flex-1 overflow-auto bg-slate-50 dark:bg-[#0B0F1A] p-6 space-y-6">
+      {/* Toast Alert */}
+      {toastMessage && (
+        <div className="fixed top-6 right-6 z-50 flex items-center gap-2 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-3 rounded-xl shadow-xl font-medium border border-slate-700/30 dark:border-slate-200 text-sm animate-fade-in">
+          <CheckCircle className="h-4 w-4 text-emerald-500" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Error Toast Alert */}
+      {errorMessage && (
+        <div className="fixed top-6 right-6 z-50 flex items-start gap-2 bg-rose-600 text-white px-5 py-3.5 rounded-xl shadow-xl font-medium border border-rose-500 text-sm max-w-md animate-bounce">
+          <AlertTriangle className="h-5 w-5 text-white flex-shrink-0 mt-0.5" />
+          <div>
+            <div className="font-bold mb-0.5">Operation Error</div>
+            <div className="text-xs text-rose-100 leading-normal">{errorMessage}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Header Info with Sub-navigation tabs */}
+      <div className="border-b border-slate-200 dark:border-slate-800/80 pb-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold font-sans tracking-tight text-slate-800 dark:text-slate-100">
+              Compare & Merge Workspace
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">
+              Compare text lines side-by-side, join text columns using flexible delimiters, and generate custom incremental sequential data.
+            </p>
+          </div>
+
+          {/* Sub tabs */}
+          <div className="flex bg-slate-100 dark:bg-[#111827] p-1 rounded-xl border border-slate-200/50 dark:border-slate-800/50">
+            <button
+              onClick={() => setActiveSubTab("diff")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                activeSubTab === "diff"
+                  ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-sm"
+                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+              }`}
+            >
+              <GitCompare className="h-3.5 w-3.5" /> Compare Text
+            </button>
+            <button
+              onClick={() => setActiveSubTab("combine")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                activeSubTab === "combine"
+                  ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-sm"
+                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+              }`}
+            >
+              <Columns className="h-3.5 w-3.5" /> Merge Columns
+            </button>
+            <button
+              onClick={() => setActiveSubTab("autoinc")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                activeSubTab === "autoinc"
+                  ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-sm"
+                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+              }`}
+            >
+              <PlusCircle className="h-3.5 w-3.5" /> Auto-Increment [x]
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* SUB-TAB 1: TEXT DIFF CHECKER */}
+      {activeSubTab === "diff" && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Original Input */}
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[280px]">
+              <div className="p-3 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
+                <span className="text-xs font-mono font-bold uppercase text-slate-500 dark:text-slate-400">
+                  Original Text
+                </span>
+                <button
+                  onClick={() => onChange({ diffOriginal: "" })}
+                  className="text-xs font-mono text-rose-500 hover:underline cursor-pointer"
+                >
+                  Clear
+                </button>
+              </div>
+              <textarea
+                className="w-full flex-1 p-4 bg-transparent text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none"
+                placeholder="Paste original data here..."
+                value={state.diffOriginal ?? ""}
+                onChange={(e) => onChange({ diffOriginal: e.target.value })}
+              />
+            </div>
+
+            {/* Modified Input */}
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[280px]">
+              <div className="p-3 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
+                <span className="text-xs font-mono font-bold uppercase text-indigo-600 dark:text-indigo-400">
+                   Modified Text
+                </span>
+                <button
+                  onClick={() => onChange({ diffModified: "" })}
+                  className="text-xs font-mono text-rose-500 hover:underline cursor-pointer"
+                >
+                  Clear
+                </button>
+              </div>
+              <textarea
+                className="w-full flex-1 p-4 bg-transparent text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none"
+                placeholder="Paste modified or updated data here..."
+                value={state.diffModified ?? ""}
+                onChange={(e) => onChange({ diffModified: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center">
+            <button
+              onClick={handleCompare}
+              className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-all shadow-md shadow-indigo-600/10 flex items-center gap-2 cursor-pointer"
+            >
+              <GitCompare className="h-4 w-4" /> Compare Text
+            </button>
+          </div>
+
+          {/* Diff Output Panel */}
+          {isIdentical !== null && (
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-3">
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  Detailed Comparison Result
+                </h3>
+                {isIdentical ? (
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 font-bold">
+                    100% Identical
+                  </span>
+                ) : (
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-rose-100 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 font-bold">
+                    Differences Found
+                  </span>
+                )}
+              </div>
+
+              {isIdentical ? (
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/25 rounded-xl text-emerald-700 dark:text-emerald-400 font-medium text-sm flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-emerald-500" />
+                  <span>The original and modified texts are completely identical!</span>
+                </div>
+              ) : (
+                <div className="font-mono text-sm space-y-1.5 border border-slate-100 dark:border-slate-800 rounded-xl p-4 bg-slate-50/50 dark:bg-[#0B0F1A]/50 max-h-[400px] overflow-auto">
+                  {diffResults?.map((line, idx) => {
+                    if (line.type === "equal") {
+                      return (
+                        <div key={idx} className="text-slate-500 dark:text-slate-400 pl-6 select-none opacity-85">
+                          {line.value}
+                        </div>
+                      );
+                    }
+                    if (line.type === "removed") {
+                      return (
+                        <div key={idx} className="bg-rose-500/10 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 border-l-4 border-rose-500 pl-2 py-0.5">
+                          <span className="text-rose-400/80 mr-2 inline-block w-3 select-none font-bold">-</span>
+                          {line.value}
+                        </div>
+                      );
+                    }
+                    if (line.type === "added") {
+                      return (
+                        <div key={idx} className="bg-emerald-500/10 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border-l-4 border-emerald-500 pl-2 py-0.5">
+                          <span className="text-emerald-400/80 mr-2 inline-block w-3 select-none font-bold">+</span>
+                          {line.value}
+                        </div>
+                      );
+                    }
+                    if (line.type === "modified") {
+                      return (
+                        <div key={idx} className="space-y-0.5 border-l-4 border-amber-500 bg-amber-500/5 dark:bg-amber-950/10 py-1 pl-2">
+                          {/* Top: Deleted Character highlighting */}
+                          <div className="text-rose-500/90 dark:text-rose-400">
+                            <span className="text-rose-400/80 mr-2 inline-block w-3 select-none font-bold">-</span>
+                            {renderCharDiff(line.charDiff, "removed")}
+                          </div>
+                          {/* Bottom: Added Character highlighting */}
+                          <div className="text-emerald-500/95 dark:text-emerald-400">
+                            <span className="text-emerald-400/80 mr-2 inline-block w-3 select-none font-bold">+</span>
+                            {renderCharDiff(line.charDiff, "added")}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* SUB-TAB 2: COLUMN COMBINER */}
+      {activeSubTab === "combine" && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Column 1 Input */}
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[280px]">
+              <div className="p-3 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
+                <span className="text-xs font-mono font-bold uppercase text-slate-500 dark:text-slate-400">
+                  Column 1
+                </span>
+                <span className="text-[10px] font-mono text-slate-400">
+                  {state.combineCol1 ? state.combineCol1.split(/\r?\n/).length : 0} lines
+                </span>
+              </div>
+              <textarea
+                className="w-full flex-1 p-4 bg-transparent text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none"
+                placeholder="Enter Column 1 data (one item per line)..."
+                value={state.combineCol1 ?? ""}
+                onChange={(e) => onChange({ combineCol1: e.target.value })}
+              />
+            </div>
+
+            {/* Column 2 Input */}
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[280px]">
+              <div className="p-3 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
+                <span className="text-xs font-mono font-bold uppercase text-slate-500 dark:text-slate-400">
+                  Column 2
+                </span>
+                <span className="text-[10px] font-mono text-slate-400">
+                  {state.combineCol2 ? state.combineCol2.split(/\r?\n/).length : 0} lines
+                </span>
+              </div>
+              <textarea
+                className="w-full flex-1 p-4 bg-transparent text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none"
+                placeholder="Enter Column 2 data (one item per line)..."
+                value={state.combineCol2 ?? ""}
+                onChange={(e) => onChange({ combineCol2: e.target.value })}
+              />
+            </div>
+          </div>
+
+          {/* Delimiter & Actions */}
+          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex-1 max-w-sm">
+              <label className="block text-xs font-bold uppercase text-slate-400 dark:text-slate-500 mb-2">
+                Delimiter
+              </label>
+              <input
+                type="text"
+                placeholder="Enter delimiter (e.g., |, comma, hyphen, space...)"
+                value={state.combineDelimiter ?? ""}
+                onChange={(e) => onChange({ combineDelimiter: e.target.value })}
+                className="w-full p-2.5 border border-slate-200 dark:border-slate-800 bg-transparent rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  onChange({ combineCol1: "", combineCol2: "", combineDelimiter: "" });
+                  setCombineOutput("");
+                  showToast("Cleared merger data!");
+                }}
+                className="px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold text-sm transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <RotateCcw className="h-4 w-4" /> Reset
+              </button>
+              <button
+                onClick={handleCombine}
+                className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-all shadow-md shadow-indigo-600/10 flex items-center gap-2 cursor-pointer"
+              >
+                <Columns className="h-4 w-4" /> Merge Columns
+              </button>
+            </div>
+          </div>
+
+          {/* Combine Output */}
+          {combineOutput && (
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[300px]">
+              <div className="p-3 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
+                <span className="text-xs font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" /> Merged Output
+                </span>
+                <button
+                  onClick={() => handleCopy(combineOutput, "combine")}
+                  className="text-xs font-mono text-indigo-600 dark:text-indigo-400 flex items-center gap-1 hover:underline cursor-pointer"
+                >
+                  {copiedText === "combine" ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiedText === "combine" ? "Copied" : "Copy Output"}
+                </button>
+              </div>
+              <textarea
+                readOnly
+                className="w-full flex-1 p-4 bg-slate-50/40 dark:bg-[#0B0F1A]/30 text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none"
+                value={combineOutput}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* SUB-TAB 3: AUTO-INCREMENT GENERATOR */}
+      {activeSubTab === "autoinc" && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Controls - Left */}
+          <div className="lg:col-span-4 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-5">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800/60 pb-3 flex items-center gap-2">
+              <PlusCircle className="h-4 w-4 text-indigo-500" /> Progressive Sequence Generator
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 dark:text-slate-500 mb-2">
+                  Template String
+                </label>
+                <input
+                  type="text"
+                  placeholder="Example: item_[x]_sku"
+                  value={state.autoIncTemplate ?? ""}
+                  onChange={(e) => onChange({ autoIncTemplate: e.target.value })}
+                  className="w-full p-2.5 border border-slate-200 dark:border-slate-800 bg-transparent rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono text-sm"
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block leading-normal">
+                  The placeholder <code className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-bold text-indigo-500">[x]</code> will be replaced with the progressive incremental sequence.
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-400 dark:text-slate-500 mb-2">
+                    Start Number
+                  </label>
+                  <input
+                    type="number"
+                    value={state.autoIncStart ?? ""}
+                    onChange={(e) => onChange({ autoIncStart: parseInt(e.target.value) || 0 })}
+                    className="w-full p-2.5 border border-slate-200 dark:border-slate-800 bg-transparent rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-400 dark:text-slate-500 mb-2">
+                    Increment Step
+                  </label>
+                  <input
+                    type="number"
+                    value={state.autoIncStep ?? ""}
+                    onChange={(e) => onChange({ autoIncStep: parseInt(e.target.value) || 0 })}
+                    className="w-full p-2.5 border border-slate-200 dark:border-slate-800 bg-transparent rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 dark:text-slate-500 mb-2">
+                  Item Count
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="5000"
+                  value={state.autoIncCount ?? ""}
+                  onChange={(e) => onChange({ autoIncCount: Math.min(5000, Math.max(1, parseInt(e.target.value) || 1)) })}
+                  className="w-full p-2.5 border border-slate-200 dark:border-slate-800 bg-transparent rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 dark:text-slate-500 mb-2">
+                  Digit Padding
+                </label>
+                <select
+                  value={paddingWidth}
+                  onChange={(e) => setPaddingWidth(parseInt(e.target.value) || 1)}
+                  className="w-full p-2.5 border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 text-sm cursor-pointer"
+                >
+                  <option value={1}>No padding (1, 2, 3...)</option>
+                  <option value={2}>2 digits (01, 02...)</option>
+                  <option value={3}>3 digits (001, 002...)</option>
+                  <option value={4}>4 digits (0001, 0002...)</option>
+                  <option value={5}>5 digits (00001, 00002...)</option>
+                </select>
+              </div>
+
+              <button
+                onClick={handleGenerateAutoInc}
+                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-all shadow-md shadow-indigo-600/15 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <PlusCircle className="h-4 w-4" /> Generate Sequence
+              </button>
+            </div>
+          </div>
+
+          {/* Result Output - Right */}
+          <div className="lg:col-span-8 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[480px]">
+            <div className="p-3.5 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
+              <span className="text-xs font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400">
+                Generated Auto-increment list
+              </span>
+              {autoIncOutput && (
+                <button
+                  onClick={() => handleCopy(autoIncOutput, "autoinc")}
+                  className="text-xs font-mono text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 hover:underline cursor-pointer"
+                >
+                  {copiedText === "autoinc" ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiedText === "autoinc" ? "Copied" : "Copy List"}
+                </button>
+              )}
+            </div>
+            <textarea
+              readOnly
+              className="w-full flex-1 p-4 bg-slate-50/40 dark:bg-[#0B0F1A]/30 text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none"
+              placeholder="The progressive sequence list will be generated here..."
+              value={autoIncOutput}
+            />
+            <div className="p-3 bg-slate-50 dark:bg-[#0B0F1A]/50 border-t border-slate-100 dark:border-slate-800/60 rounded-b-2xl flex justify-between text-xs text-slate-400">
+              <span>Automatically generated using the progressive sequence generator.</span>
+              <span>Total: {autoIncOutput ? autoIncOutput.split(/\r?\n/).length : 0} items</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

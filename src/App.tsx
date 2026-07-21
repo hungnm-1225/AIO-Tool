@@ -9,10 +9,17 @@ const STORAGE_KEY = "vibe_code_aio_state";
 
 const HASH_MAP: Record<string, ActiveModule> = {
   // Text Utilities hashes
+  "#case-converter": ActiveModule.TEXT_UTILS,
+  "#case_converter": ActiveModule.TEXT_UTILS,
+  "#case": ActiveModule.TEXT_UTILS,
   "#text-utilities": ActiveModule.TEXT_UTILS,
   "#text_utils": ActiveModule.TEXT_UTILS,
   "#text-utils": ActiveModule.TEXT_UTILS,
   "#text": ActiveModule.TEXT_UTILS,
+  "#string-cutter": ActiveModule.TEXT_UTILS,
+  "#line-slicer": ActiveModule.TEXT_UTILS,
+  "#cutter": ActiveModule.TEXT_UTILS,
+  "#slicer": ActiveModule.TEXT_UTILS,
   "#tien-ich-text": ActiveModule.TEXT_UTILS,
   "#tien-ich-van-ban": ActiveModule.TEXT_UTILS,
 
@@ -144,7 +151,7 @@ export default function App() {
   useEffect(() => {
     const canonicalHash =
       state.activeModule === ActiveModule.TEXT_UTILS
-        ? "text-utilities"
+        ? "case-converter"
         : state.activeModule === ActiveModule.COMPARE_MERGE
         ? "compare-text"
         : "formatter";
@@ -179,7 +186,7 @@ export default function App() {
         setActiveModule={(mod) => {
           const canonicalHash =
             mod === ActiveModule.TEXT_UTILS
-              ? "text-utilities"
+              ? "case-converter"
               : mod === ActiveModule.COMPARE_MERGE
               ? "compare-text"
               : "formatter";

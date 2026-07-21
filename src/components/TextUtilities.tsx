@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { toast } from "react-toastify";
 import { TextUtilsState } from "../types";
 import { 
   Copy, 
@@ -42,7 +43,6 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
   const [copied, setCopied] = useState(false);
   const [originalTextBackup, setOriginalTextBackup] = useState("");
   const [lastUnsortedText, setLastUnsortedText] = useState("");
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<"none" | "remove" | "frequency" | "uniques">("none");
   const [activeSort, setActiveSort] = useState<"none" | "original" | "ascending" | "descending" | "shuffle">("original");
 
@@ -77,11 +77,8 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
     window.location.hash = tab;
   };
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 3000);
+  const showToast = (msg: string, type: "success" | "error" | "info" | "warning" = "info") => {
+    toast[type](msg);
   };
 
   // Helper to copy text to clipboard
@@ -402,14 +399,6 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
 
   return (
     <div className="flex-1 overflow-auto bg-slate-50 dark:bg-[#0B0F1A] p-6 space-y-6">
-      {/* Toast Alert */}
-      {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 flex items-center gap-2 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-3 rounded-xl shadow-xl font-medium border border-slate-700/30 dark:border-slate-200 text-sm animate-fade-in animate-duration-200">
-          <CheckCircle className="h-4 w-4 text-emerald-500" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
       {/* Header Info */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5">
         <div>

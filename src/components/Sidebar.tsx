@@ -9,7 +9,8 @@ import {
   Sliders,
   Sparkles,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  X
 } from "lucide-react";
 
 interface SidebarProps {
@@ -17,6 +18,7 @@ interface SidebarProps {
   setActiveModule: (module: ActiveModule) => void;
   theme: "dark" | "light";
   toggleTheme: () => void;
+  onCloseMobileDrawer?: () => void;
 }
 
 export default function Sidebar({
@@ -24,6 +26,7 @@ export default function Sidebar({
   setActiveModule,
   theme,
   toggleTheme,
+  onCloseMobileDrawer,
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem("sidebar-collapsed") === "true";
@@ -68,13 +71,23 @@ export default function Sidebar({
             <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20">
               <Sliders className="h-5 w-5" />
             </div>
-            <button
-              onClick={handleToggleCollapse}
-              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
-              title="Expand Sidebar"
-            >
-              <ChevronRight className="h-4.5 w-4.5" />
-            </button>
+            {onCloseMobileDrawer ? (
+              <button
+                onClick={onCloseMobileDrawer}
+                className="md:hidden p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
+                title="Close Menu"
+              >
+                <X className="h-4.5 w-4.5" />
+              </button>
+            ) : (
+              <button
+                onClick={handleToggleCollapse}
+                className="hidden md:inline-flex p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
+                title="Expand Sidebar"
+              >
+                <ChevronRight className="h-4.5 w-4.5" />
+              </button>
+            )}
           </div>
         ) : (
           <div className="p-6">
@@ -92,13 +105,24 @@ export default function Sidebar({
                   </span>
                 </div>
               </div>
-              <button
-                onClick={handleToggleCollapse}
-                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
-                title="Collapse Sidebar"
-              >
-                <ChevronLeft className="h-4.5 w-4.5" />
-              </button>
+              <div className="flex items-center gap-1">
+                {onCloseMobileDrawer && (
+                  <button
+                    onClick={onCloseMobileDrawer}
+                    className="md:hidden p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
+                    title="Close Menu"
+                  >
+                    <X className="h-4.5 w-4.5" />
+                  </button>
+                )}
+                <button
+                  onClick={handleToggleCollapse}
+                  className="hidden md:inline-flex p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
+                  title="Collapse Sidebar"
+                >
+                  <ChevronLeft className="h-4.5 w-4.5" />
+                </button>
+              </div>
             </div>
           </div>
         )}

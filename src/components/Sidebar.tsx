@@ -10,7 +10,8 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
-  X
+  X,
+  Image as ImageIcon
 } from "lucide-react";
 
 interface SidebarProps {
@@ -60,6 +61,13 @@ export default function Sidebar({
       icon: Terminal,
       hashId: "formatter",
     },
+    {
+      id: ActiveModule.H5P_BUILDER,
+      label: "H5P Builder",
+      description: "Generate H5P Image Presentation",
+      icon: ImageIcon,
+      hashId: "h5p-builder",
+    }
   ];
 
   return (

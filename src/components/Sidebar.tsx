@@ -41,21 +41,21 @@ export default function Sidebar({
       label: "Text & Duplicates",
       description: "Counter, filters, sorting & regex search",
       icon: FileText,
-      hashId: "tien-ich-text",
+      hashId: "text-utilities",
     },
     {
       id: ActiveModule.COMPARE_MERGE,
       label: "Compare & Merge",
       description: "Diff checker, column joiner & auto-inc",
       icon: GitCompare,
-      hashId: "so-sanh-gop",
+      hashId: "compare-text",
     },
     {
       id: ActiveModule.DATA_CONVERTER,
       label: "Data & HTML Runner",
       description: "Format, JSON-Grid, HTML Live Preview",
       icon: Terminal,
-      hashId: "chuyen-doi-du-lieu",
+      hashId: "formatter",
     },
   ];
 

@@ -17,6 +17,12 @@ const HASH_MAP: Record<string, ActiveModule> = {
   "#tien-ich-van-ban": ActiveModule.TEXT_UTILS,
 
   // Compare & Merge hashes
+  "#compare-text": ActiveModule.COMPARE_MERGE,
+  "#diff": ActiveModule.COMPARE_MERGE,
+  "#merge-columns": ActiveModule.COMPARE_MERGE,
+  "#combine": ActiveModule.COMPARE_MERGE,
+  "#auto-increment": ActiveModule.COMPARE_MERGE,
+  "#autoinc": ActiveModule.COMPARE_MERGE,
   "#compare-merge": ActiveModule.COMPARE_MERGE,
   "#compare_merge": ActiveModule.COMPARE_MERGE,
   "#compare": ActiveModule.COMPARE_MERGE,
@@ -25,10 +31,14 @@ const HASH_MAP: Record<string, ActiveModule> = {
   "#so-sanh": ActiveModule.COMPARE_MERGE,
 
   // Data Converter hashes
+  "#formatter": ActiveModule.DATA_CONVERTER,
+  "#format": ActiveModule.DATA_CONVERTER,
+  "#converter": ActiveModule.DATA_CONVERTER,
+  "#convert": ActiveModule.DATA_CONVERTER,
+  "#html-sandbox": ActiveModule.DATA_CONVERTER,
+  "#sandbox": ActiveModule.DATA_CONVERTER,
   "#data-converter": ActiveModule.DATA_CONVERTER,
   "#data_converter": ActiveModule.DATA_CONVERTER,
-  "#converter": ActiveModule.DATA_CONVERTER,
-  "#sandbox": ActiveModule.DATA_CONVERTER,
   "#chuyen-doi-du-lieu": ActiveModule.DATA_CONVERTER,
   "#chuyen-doi": ActiveModule.DATA_CONVERTER,
 };
@@ -134,12 +144,16 @@ export default function App() {
   useEffect(() => {
     const canonicalHash =
       state.activeModule === ActiveModule.TEXT_UTILS
-        ? "tien-ich-text"
+        ? "text-utilities"
         : state.activeModule === ActiveModule.COMPARE_MERGE
-        ? "so-sanh-gop"
-        : "chuyen-doi-du-lieu";
+        ? "compare-text"
+        : "formatter";
 
-    if (window.location.hash !== `#${canonicalHash}`) {
+    const currentHash = window.location.hash.toLowerCase();
+    const matchedModule = HASH_MAP[currentHash];
+    
+    // Only overwrite if current hash is empty or doesn't map to the active module at all
+    if (!currentHash || matchedModule !== state.activeModule) {
       window.location.hash = canonicalHash;
     }
   }, [state.activeModule]);
@@ -165,10 +179,10 @@ export default function App() {
         setActiveModule={(mod) => {
           const canonicalHash =
             mod === ActiveModule.TEXT_UTILS
-              ? "tien-ich-text"
+              ? "text-utilities"
               : mod === ActiveModule.COMPARE_MERGE
-              ? "so-sanh-gop"
-              : "chuyen-doi-du-lieu";
+              ? "compare-text"
+              : "formatter";
           window.location.hash = canonicalHash;
         }}
         theme={state.theme}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { toast } from "react-toastify";
 import { CompareMergeState } from "../types";
 import { diffLines, LineDiff, DiffToken } from "../utils/diff";
 import { 
@@ -58,16 +59,12 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
   const [paddingWidth, setPaddingWidth] = useState<number>(1);
   
   const [copiedText, setCopiedText] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const showToast = (msg: string, isError = false) => {
     if (isError) {
-      setErrorMessage(msg);
-      setTimeout(() => setErrorMessage(null), 4000);
+      toast.error(msg);
     } else {
-      setToastMessage(msg);
-      setTimeout(() => setToastMessage(null), 3000);
+      toast.success(msg);
     }
   };
 
@@ -200,24 +197,6 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
 
   return (
     <div className="flex-1 overflow-auto bg-slate-50 dark:bg-[#0B0F1A] p-6 space-y-6">
-      {/* Toast Alert */}
-      {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 flex items-center gap-2 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-3 rounded-xl shadow-xl font-medium border border-slate-700/30 dark:border-slate-200 text-sm animate-fade-in">
-          <CheckCircle className="h-4 w-4 text-emerald-500" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
-      {/* Error Toast Alert */}
-      {errorMessage && (
-        <div className="fixed top-6 right-6 z-50 flex items-start gap-2 bg-rose-600 text-white px-5 py-3.5 rounded-xl shadow-xl font-medium border border-rose-500 text-sm max-w-md animate-bounce">
-          <AlertTriangle className="h-5 w-5 text-white flex-shrink-0 mt-0.5" />
-          <div>
-            <div className="font-bold mb-0.5">Operation Error</div>
-            <div className="text-xs text-rose-100 leading-normal">{errorMessage}</div>
-          </div>
-        </div>
-      )}
 
       {/* Header Info with Sub-navigation tabs */}
       <div className="border-b border-slate-200 dark:border-slate-800/80 pb-4">

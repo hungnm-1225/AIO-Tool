@@ -24,7 +24,9 @@ import {
   RefreshCw,
   Plus,
   Trash2,
-  RotateCcw
+  RotateCcw,
+  Maximize2,
+  Minimize2
 } from "lucide-react";
 
 interface DataConverterHtmlProps {
@@ -34,6 +36,8 @@ interface DataConverterHtmlProps {
 
 export default function DataConverterHtml({ state, onChange }: DataConverterHtmlProps) {
   const [activeSubTab, setActiveSubTab] = useState<"format" | "convert" | "preview">("format");
+  const [isInputFullScreen, setIsInputFullScreen] = useState(false);
+  const [isPreviewFullScreen, setIsPreviewFullScreen] = useState(false);
 
   // Synchronize sub-tab from hash
   useEffect(() => {
@@ -619,68 +623,73 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
               </div>
 
               {/* Toggles & Excel Button */}
-              <div className="flex flex-wrap items-center gap-3">
-                {/* Collapsible buttons in Label-Value mode */}
-                {state.labelValueMode && Array.isArray(parsedJson) && parsedJson.length > 0 && (
+              <div className="flex flex-1 items-center justify-between md:justify-end gap-4 flex-wrap sm:flex-nowrap">
+                {/* Left group of controls */}
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Restore Sort Button if sortKey exists */}
+                  {sortKey && (
+                    <button
+                      onClick={resetSort}
+                      className="px-2.5 py-1.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/50 text-amber-600 dark:text-amber-400 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                      title="Restore original table sorting"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" /> Restore Original
+                    </button>
+                  )}
+
+                  {/* Label Value Toggle */}
                   <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-500 font-medium">Grid</span>
                     <button
-                      onClick={() => {
-                        const collapses: Record<number, boolean> = {};
-                        parsedJson.forEach((_, idx) => { collapses[idx] = true; });
-                        setCollapsedRecords(collapses);
-                      }}
-                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 font-semibold text-[11px] rounded-lg cursor-pointer transition-colors"
-                      title="Collapse all records"
+                      onClick={() => onChange({ labelValueMode: !state.labelValueMode })}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
                     >
-                      Collapse All
+                      {state.labelValueMode ? (
+                        <ToggleRight className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+                      ) : (
+                        <ToggleLeft className="h-6 w-6 text-slate-400" />
+                      )}
                     </button>
-                    <button
-                      onClick={() => setCollapsedRecords({})}
-                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 font-semibold text-[11px] rounded-lg cursor-pointer transition-colors"
-                      title="Expand all records"
-                    >
-                      Expand All
-                    </button>
-                    <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-1" />
+                    <span className="text-[11px] text-slate-500 font-medium">Label-Value</span>
                   </div>
-                )}
 
-                {/* Restore Sort Button if sortKey exists */}
-                {sortKey && (
-                  <button
-                    onClick={resetSort}
-                    className="px-2.5 py-1.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/50 text-amber-600 dark:text-amber-400 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
-                    title="Restore original table sorting"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" /> Restore Original
-                  </button>
-                )}
-
-                {/* Label Value Toggle */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-slate-500 font-medium">Grid</span>
-                  <button
-                    onClick={() => onChange({ labelValueMode: !state.labelValueMode })}
-                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
-                  >
-                    {state.labelValueMode ? (
-                      <ToggleRight className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
-                    ) : (
-                      <ToggleLeft className="h-6 w-6 text-slate-400" />
-                    )}
-                  </button>
-                  <span className="text-[11px] text-slate-500 font-medium">Label-Value</span>
+                  {/* Collapsible buttons in Label-Value mode, right of toggle switch */}
+                  {state.labelValueMode && Array.isArray(parsedJson) && parsedJson.length > 0 && (
+                    <>
+                      <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-1" />
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => {
+                            const collapses: Record<number, boolean> = {};
+                            parsedJson.forEach((_, idx) => { collapses[idx] = true; });
+                            setCollapsedRecords(collapses);
+                          }}
+                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 font-semibold text-[11px] rounded-lg cursor-pointer transition-colors"
+                          title="Collapse all records"
+                        >
+                          Collapse All
+                        </button>
+                        <button
+                          onClick={() => setCollapsedRecords({})}
+                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 font-semibold text-[11px] rounded-lg cursor-pointer transition-colors"
+                          title="Expand all records"
+                        >
+                          Expand All
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
 
-                <div className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
-
-                {/* Export to XLSX */}
-                <button
-                  onClick={handleExportToXlsx}
-                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
-                >
-                  <Download className="h-3.5 w-3.5" /> Excel (XLSX)
-                </button>
+                {/* Right group of controls: Push Excel XLSX to the far right */}
+                <div className="sm:ml-auto flex-shrink-0">
+                  <button
+                    onClick={handleExportToXlsx}
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Download className="h-3.5 w-3.5" /> Excel (XLSX)
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -885,35 +894,47 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
 
       {/* SUB-TAB 3: HTML LIVE PREVIEW */}
       {activeSubTab === "preview" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[580px]">
-          {/* Inputs - Left */}
-          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col h-full space-y-4">
+        <div className="flex flex-col gap-6">
+          {/* Inputs - Top (Doubled Width!) */}
+          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col space-y-4 h-[450px]">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-3">
               <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                 <Code className="h-4 w-4 text-indigo-500" /> Code Sandbox
               </h3>
 
-              {/* Mode Toggle */}
-              <div className="flex bg-slate-100 dark:bg-[#0B0F1A] p-1 rounded-lg border border-slate-200/40 dark:border-slate-800/40">
+              <div className="flex items-center gap-3">
+                {/* Mode Toggle */}
+                <div className="flex bg-slate-100 dark:bg-[#0B0F1A] p-1 rounded-lg border border-slate-200/40 dark:border-slate-800/40">
+                  <button
+                    onClick={() => onChange({ htmlPreviewMode: "single" })}
+                    className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                      state.htmlPreviewMode === "single"
+                        ? "bg-white dark:bg-[#111827] text-slate-800 dark:text-slate-200 shadow-sm"
+                        : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                    }`}
+                  >
+                    Single HTML
+                  </button>
+                  <button
+                    onClick={() => onChange({ htmlPreviewMode: "split" })}
+                    className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                      state.htmlPreviewMode === "split"
+                        ? "bg-white dark:bg-[#111827] text-slate-800 dark:text-slate-200 shadow-sm"
+                        : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                    }`}
+                  >
+                    Split Inputs
+                  </button>
+                </div>
+
+                <div className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
+
                 <button
-                  onClick={() => onChange({ htmlPreviewMode: "single" })}
-                  className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all cursor-pointer ${
-                    state.htmlPreviewMode === "single"
-                      ? "bg-white dark:bg-[#111827] text-slate-800 dark:text-slate-200 shadow-sm"
-                      : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                  }`}
+                  onClick={() => setIsInputFullScreen(true)}
+                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400 flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer"
+                  title="Open code editor in fullscreen"
                 >
-                  Single HTML
-                </button>
-                <button
-                  onClick={() => onChange({ htmlPreviewMode: "split" })}
-                  className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all cursor-pointer ${
-                    state.htmlPreviewMode === "split"
-                      ? "bg-white dark:bg-[#111827] text-slate-800 dark:text-slate-200 shadow-sm"
-                      : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                  }`}
-                >
-                  Split Inputs
+                  <Maximize2 className="h-3.5 w-3.5" /> Fullscreen
                 </button>
               </div>
             </div>
@@ -929,7 +950,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                 />
               </div>
             ) : (
-              <div className="flex-1 flex flex-col gap-3 min-h-0">
+              <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
                 <div className="flex-1 flex flex-col min-h-0">
                   <span className="text-[10px] text-slate-400 font-bold uppercase mb-1">HTML</span>
                   <textarea
@@ -961,18 +982,153 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
             )}
           </div>
 
-          {/* Iframe Preview Container - Right */}
-          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-full overflow-hidden">
+          {/* Iframe Preview Container - Bottom (Doubled Width!) */}
+          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[550px] overflow-hidden">
             <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50">
               <span className="text-xs font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                 <Play className="h-3.5 w-3.5" /> Interactive Sandbox Preview
               </span>
-              <button
-                onClick={handleRefreshCode}
-                className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 flex items-center gap-1 hover:underline cursor-pointer"
-              >
-                <RefreshCw className="h-3 w-3" /> Refresh Code
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleRefreshCode}
+                  className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 flex items-center gap-1 hover:underline cursor-pointer"
+                >
+                  <RefreshCw className="h-3 w-3" /> Refresh Code
+                </button>
+                <div className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
+                <button
+                  onClick={() => setIsPreviewFullScreen(true)}
+                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400 flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer"
+                  title="Open preview in fullscreen"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" /> Fullscreen
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 bg-white relative">
+              <iframe
+                title="HTML Live Sandbox"
+                className="w-full h-full border-none bg-white"
+                sandbox="allow-scripts"
+                srcDoc={iframeSrcDoc}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inputs Fullscreen Modal Overlay */}
+      {isInputFullScreen && (
+        <div className="fixed inset-0 z-50 p-4 md:p-6 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center animate-fade-in">
+          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-2xl flex flex-col w-full h-full max-w-7xl max-h-[92vh] space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-3">
+              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                <Code className="h-4 w-4 text-indigo-500" /> Fullscreen Code Sandbox
+              </h3>
+              
+              <div className="flex items-center gap-4">
+                {/* Mode Toggle */}
+                <div className="flex bg-slate-100 dark:bg-[#0B0F1A] p-1 rounded-lg border border-slate-200/40 dark:border-slate-800/40">
+                  <button
+                    onClick={() => onChange({ htmlPreviewMode: "single" })}
+                    className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                      state.htmlPreviewMode === "single"
+                        ? "bg-white dark:bg-[#111827] text-slate-800 dark:text-slate-200 shadow-sm"
+                        : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                    }`}
+                  >
+                    Single HTML
+                  </button>
+                  <button
+                    onClick={() => onChange({ htmlPreviewMode: "split" })}
+                    className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                      state.htmlPreviewMode === "split"
+                        ? "bg-white dark:bg-[#111827] text-slate-800 dark:text-slate-200 shadow-sm"
+                        : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                    }`}
+                  >
+                    Split Inputs
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => setIsInputFullScreen(false)}
+                  className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-300 flex items-center gap-1 text-xs font-semibold transition-all cursor-pointer"
+                >
+                  <Minimize2 className="h-4 w-4" /> Exit Fullscreen
+                </button>
+              </div>
+            </div>
+
+            {/* Editor Textareas */}
+            {state.htmlPreviewMode === "single" ? (
+              <div className="flex-1 flex flex-col">
+                <textarea
+                  className="w-full flex-1 p-4 bg-slate-50/50 dark:bg-[#0B0F1A]/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none focus:border-indigo-500"
+                  placeholder="<h1>Hello World</h1>"
+                  value={state.htmlSingleInput ?? ""}
+                  onChange={(e) => onChange({ htmlSingleInput: e.target.value })}
+                />
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
+                <div className="flex-1 flex flex-col min-h-0">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase mb-1">HTML</span>
+                  <textarea
+                    className="w-full flex-1 p-3 bg-slate-50/50 dark:bg-[#0B0F1A]/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none focus:border-indigo-500"
+                    placeholder="<div>My custom block</div>"
+                    value={state.htmlSplitInput ?? ""}
+                    onChange={(e) => onChange({ htmlSplitInput: e.target.value })}
+                  />
+                </div>
+                <div className="flex-1 flex flex-col min-h-0">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase mb-1">CSS</span>
+                  <textarea
+                    className="w-full flex-1 p-3 bg-slate-50/50 dark:bg-[#0B0F1A]/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none focus:border-indigo-500"
+                    placeholder="div { color: #4f46e5; }"
+                    value={state.cssSplitInput ?? ""}
+                    onChange={(e) => onChange({ cssSplitInput: e.target.value })}
+                  />
+                </div>
+                <div className="flex-1 flex flex-col min-h-0">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase mb-1">JavaScript</span>
+                  <textarea
+                    className="w-full flex-1 p-3 bg-slate-50/50 dark:bg-[#0B0F1A]/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none focus:border-indigo-500"
+                    placeholder="console.log('Running code');"
+                    value={state.jsSplitInput ?? ""}
+                    onChange={(e) => onChange({ jsSplitInput: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Preview Fullscreen Modal Overlay */}
+      {isPreviewFullScreen && (
+        <div className="fixed inset-0 z-50 p-4 md:p-6 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center animate-fade-in">
+          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl flex flex-col w-full h-full max-w-7xl max-h-[92vh] overflow-hidden">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50">
+              <span className="text-xs font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                <Play className="h-3.5 w-3.5" /> Interactive Sandbox Preview (Fullscreen)
+              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleRefreshCode}
+                  className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 flex items-center gap-1 hover:underline cursor-pointer"
+                >
+                  <RefreshCw className="h-3 w-3" /> Refresh Code
+                </button>
+                <div className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
+                <button
+                  onClick={() => setIsPreviewFullScreen(false)}
+                  className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-300 flex items-center gap-1 text-xs font-semibold transition-all cursor-pointer"
+                >
+                  <Minimize2 className="h-4 w-4" /> Exit Fullscreen
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 bg-white relative">

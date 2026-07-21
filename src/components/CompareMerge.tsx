@@ -51,6 +51,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
     window.location.hash = hash;
   };
   const [diffResults, setDiffResults] = useState<LineDiff[] | null>(null);
+  const [diffViewMode, setDiffViewMode] = useState<"unified" | "side-by-side">("unified");
   const [isIdentical, setIsIdentical] = useState<boolean | null>(null);
   const [combineOutput, setCombineOutput] = useState("");
   const [autoIncOutput, setAutoIncOutput] = useState("");
@@ -118,8 +119,8 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
                 key={idx} 
                 className={`px-0.5 rounded font-bold ${
                   filterType === "removed" 
-                    ? "bg-rose-500/35 text-rose-200 line-through decoration-rose-600" 
-                    : "bg-emerald-500/35 text-emerald-200"
+                    ? "bg-rose-500/25 dark:bg-rose-500/35 text-rose-900 dark:text-rose-200 line-through decoration-rose-600" 
+                    : "bg-emerald-500/25 dark:bg-emerald-500/35 text-emerald-900 dark:text-emerald-200"
                 }`}
               >
                 {token.value}
@@ -325,10 +326,37 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
           {/* Diff Output Panel */}
           {isIdentical !== null && (
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-3">
-                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                  Detailed Comparison Result
-                </h3>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-3 gap-2">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                    Detailed Comparison Result
+                  </h3>
+                  {/* View Mode Toggle */}
+                  {!isIdentical && (
+                    <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200/50 dark:border-slate-700/50 text-[11px]">
+                      <button
+                        onClick={() => setDiffViewMode("unified")}
+                        className={`px-2 py-1 rounded-md font-medium transition-all cursor-pointer ${
+                          diffViewMode === "unified"
+                            ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-xs font-semibold"
+                            : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                        }`}
+                      >
+                        Unified
+                      </button>
+                      <button
+                        onClick={() => setDiffViewMode("side-by-side")}
+                        className={`px-2 py-1 rounded-md font-medium transition-all cursor-pointer ${
+                          diffViewMode === "side-by-side"
+                            ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-xs font-semibold"
+                            : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                        }`}
+                      >
+                        Side by Side
+                      </button>
+                    </div>
+                  )}
+                </div>
                 {isIdentical ? (
                   <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 font-bold">
                     100% Identical
@@ -345,6 +373,73 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
                   <CheckCircle className="h-5 w-5 text-emerald-500" />
                   <span>The original and modified texts are completely identical!</span>
                 </div>
+              ) : diffViewMode === "side-by-side" ? (
+                <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-slate-50/50 dark:bg-[#0B0F1A]/50">
+                  {/* Side by side Headers */}
+                  <div className="grid grid-cols-2 border-b border-slate-200 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-900/40 text-xs font-semibold text-slate-500 dark:text-slate-400 font-sans">
+                    <div className="p-2.5 px-4 border-r border-slate-200 dark:border-slate-800">Original</div>
+                    <div className="p-2.5 px-4">Modified</div>
+                  </div>
+                  
+                  {/* Side by side Content */}
+                  <div className="max-h-[450px] overflow-auto divide-y divide-slate-100/80 dark:divide-slate-800/50">
+                    {diffResults?.map((line, idx) => {
+                      if (line.type === "equal") {
+                        return (
+                          <div key={idx} className="grid grid-cols-2 font-mono text-sm leading-relaxed min-h-[28px]">
+                            <div className="p-2 px-4 text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-slate-800/80 select-text whitespace-pre-wrap break-all">
+                              {line.value}
+                            </div>
+                            <div className="p-2 px-4 text-slate-600 dark:text-slate-400 select-text whitespace-pre-wrap break-all">
+                              {line.value}
+                            </div>
+                          </div>
+                        );
+                      }
+                      if (line.type === "removed") {
+                        return (
+                          <div key={idx} className="grid grid-cols-2 font-mono text-sm leading-relaxed min-h-[28px]">
+                            <div className="p-2 px-4 bg-rose-500/10 dark:bg-rose-950/20 text-rose-800 dark:text-rose-300 border-l-4 border-rose-500 border-r border-slate-200 dark:border-slate-800/80 select-text whitespace-pre-wrap break-all">
+                              <span className="text-rose-400/80 mr-2 inline select-none font-bold">-</span>
+                              {line.value}
+                            </div>
+                            <div className="p-2 px-4 bg-slate-100/20 dark:bg-slate-900/10 text-transparent select-none whitespace-pre-wrap">
+                              &nbsp;
+                            </div>
+                          </div>
+                        );
+                      }
+                      if (line.type === "added") {
+                        return (
+                          <div key={idx} className="grid grid-cols-2 font-mono text-sm leading-relaxed min-h-[28px]">
+                            <div className="p-2 px-4 bg-slate-100/20 dark:bg-slate-900/10 text-transparent select-none border-r border-slate-200 dark:border-slate-800/80 whitespace-pre-wrap">
+                              &nbsp;
+                            </div>
+                            <div className="p-2 px-4 bg-emerald-500/10 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 border-l-4 border-emerald-500 select-text whitespace-pre-wrap break-all">
+                              <span className="text-emerald-400/80 mr-2 inline select-none font-bold">+</span>
+                              {line.value}
+                            </div>
+                          </div>
+                        );
+                      }
+                      if (line.type === "modified") {
+                        return (
+                          <div key={idx} className="grid grid-cols-2 font-mono text-sm leading-relaxed min-h-[28px]">
+                            <div className="p-2 px-4 bg-rose-500/10 dark:bg-rose-950/20 text-rose-800 dark:text-rose-300 border-l-4 border-amber-500 border-r border-slate-200 dark:border-slate-800/80 select-text whitespace-pre-wrap break-all">
+                              <span className="text-rose-400/80 mr-2 inline select-none font-bold">-</span>
+                              {renderCharDiff(line.charDiff, "removed")}
+                            </div>
+                            <div className="p-2 px-4 bg-emerald-500/10 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 border-l-4 border-amber-500 select-text whitespace-pre-wrap break-all">
+                              <span className="text-emerald-400/80 mr-2 inline select-none font-bold">+</span>
+                              {renderCharDiff(line.charDiff, "added")}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+                </div>
               ) : (
                 <div className="font-mono text-sm space-y-1.5 border border-slate-100 dark:border-slate-800 rounded-xl p-4 bg-slate-50/50 dark:bg-[#0B0F1A]/50 max-h-[400px] overflow-auto">
                   {diffResults?.map((line, idx) => {
@@ -357,7 +452,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
                     }
                     if (line.type === "removed") {
                       return (
-                        <div key={idx} className="bg-rose-500/10 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 border-l-4 border-rose-500 pl-2 py-0.5">
+                        <div key={idx} className="bg-rose-500/10 dark:bg-rose-950/20 text-rose-800 dark:text-rose-300 border-l-4 border-rose-500 pl-2 py-0.5">
                           <span className="text-rose-400/80 mr-2 inline-block w-3 select-none font-bold">-</span>
                           {line.value}
                         </div>
@@ -365,7 +460,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
                     }
                     if (line.type === "added") {
                       return (
-                        <div key={idx} className="bg-emerald-500/10 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border-l-4 border-emerald-500 pl-2 py-0.5">
+                        <div key={idx} className="bg-emerald-500/10 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 border-l-4 border-emerald-500 pl-2 py-0.5">
                           <span className="text-emerald-400/80 mr-2 inline-block w-3 select-none font-bold">+</span>
                           {line.value}
                         </div>
@@ -375,12 +470,12 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
                       return (
                         <div key={idx} className="space-y-0.5 border-l-4 border-amber-500 bg-amber-500/5 dark:bg-amber-950/10 py-1 pl-2">
                           {/* Top: Deleted Character highlighting */}
-                          <div className="text-rose-500/90 dark:text-rose-400">
+                          <div className="text-rose-800 dark:text-rose-300">
                             <span className="text-rose-400/80 mr-2 inline-block w-3 select-none font-bold">-</span>
                             {renderCharDiff(line.charDiff, "removed")}
                           </div>
                           {/* Bottom: Added Character highlighting */}
-                          <div className="text-emerald-500/95 dark:text-emerald-400">
+                          <div className="text-emerald-800 dark:text-emerald-300">
                             <span className="text-emerald-400/80 mr-2 inline-block w-3 select-none font-bold">+</span>
                             {renderCharDiff(line.charDiff, "added")}
                           </div>

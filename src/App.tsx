@@ -76,7 +76,12 @@ export default function App() {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        return {
+          ...DEFAULT_STATE,
+          ...parsed,
+          h5pBuilder: parsed.h5pBuilder || DEFAULT_STATE.h5pBuilder
+        };
       }
     } catch (e) {
       console.warn("Could not parse stored app state", e);

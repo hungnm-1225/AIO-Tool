@@ -162,7 +162,15 @@ export default function App() {
       {/* Sidebar Navigation */}
       <Sidebar
         activeModule={state.activeModule}
-        setActiveModule={(mod) => setState((prev) => ({ ...prev, activeModule: mod }))}
+        setActiveModule={(mod) => {
+          const canonicalHash =
+            mod === ActiveModule.TEXT_UTILS
+              ? "tien-ich-text"
+              : mod === ActiveModule.COMPARE_MERGE
+              ? "so-sanh-gop"
+              : "chuyen-doi-du-lieu";
+          window.location.hash = canonicalHash;
+        }}
         theme={state.theme}
         toggleTheme={toggleTheme}
       />

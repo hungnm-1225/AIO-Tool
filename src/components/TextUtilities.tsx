@@ -19,6 +19,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
   const [outputText, setOutputText] = useState("");
   const [copied, setCopied] = useState(false);
   const [originalTextBackup, setOriginalTextBackup] = useState("");
+  const [lastUnsortedText, setLastUnsortedText] = useState("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<"none" | "remove" | "frequency" | "uniques">("none");
   const [activeSort, setActiveSort] = useState<"none" | "original" | "ascending" | "descending" | "shuffle">("original");
@@ -99,7 +100,9 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
     }
     const result = uniqueLines.join("\n");
     setOutputText(result);
+    setLastUnsortedText(result);
     setActiveFilter("remove");
+    setActiveSort("original");
     showToast("Duplicate lines removed!");
   };
 
@@ -122,8 +125,11 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
     }
 
     const reportLines = order.map(line => `[x${frequencyMap[line]}] ${line}`);
-    setOutputText(reportLines.join("\n"));
+    const result = reportLines.join("\n");
+    setOutputText(result);
+    setLastUnsortedText(result);
     setActiveFilter("frequency");
+    setActiveSort("original");
     showToast("Line frequencies calculated!");
   };
 
@@ -141,32 +147,40 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
     }
 
     const strictlyUniques = lines.filter(line => frequencyMap[line] === 1);
-    setOutputText(strictlyUniques.join("\n"));
+    const result = strictlyUniques.join("\n");
+    setOutputText(result);
+    setLastUnsortedText(result);
     setActiveFilter("uniques");
+    setActiveSort("original");
     showToast("Strictly unique lines filtered!");
   };
 
   // 3. Sorting & Shuffling
   const handleSort = (type: "original" | "ascending" | "descending" | "shuffle") => {
-    const text = state.inputText || "";
-    if (!text) {
+    // Sắp xếp dựa trên dữ liệu đang có ở cột Processed Output (outputText), nếu chưa có thì dùng Input Dataset
+    const baseText = outputText || state.inputText || "";
+    if (!baseText) {
       showToast("Please enter text first!");
       return;
     }
-    const lines = text.split(/\r?\n/);
 
-    let sortedLines: string[] = [];
     if (type === "original") {
       setActiveSort("original");
-      if (originalTextBackup) {
-        onChange({ inputText: originalTextBackup });
-        setOutputText(originalTextBackup);
-        showToast("Restored to original order!");
-        return;
-      } else {
-        sortedLines = [...lines];
-      }
-    } else if (type === "ascending") {
+      const restored = lastUnsortedText || state.inputText || "";
+      setOutputText(restored);
+      showToast("Restored to original order!");
+      return;
+    }
+
+    // Capture current unsorted state if we are starting a sort/shuffle
+    if (activeSort === "original" || activeSort === "none") {
+      setLastUnsortedText(baseText);
+    }
+
+    const lines = baseText.split(/\r?\n/);
+    let sortedLines: string[] = [];
+
+    if (type === "ascending") {
       sortedLines = [...lines].sort((a, b) => a.localeCompare(b));
       setActiveSort("ascending");
       showToast("Sorted ascending (A → Z)!");
@@ -189,23 +203,26 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
 
   // 4. Search & Replace
   const handleSearchReplace = () => {
-    const text = state.inputText || "";
-    if (!text) {
+    // Thay thế dựa trên dữ liệu đang có ở cột Processed Output (outputText), nếu chưa có thì dùng Input Dataset
+    const baseText = outputText || state.inputText || "";
+    if (!baseText) {
       showToast("Please enter text first!");
       return;
     }
     const find = state.findQuery || "";
     const replace = state.replaceQuery || "";
 
-    let newText = text;
+    let newText = baseText;
     try {
       if (state.isRegex) {
         const regex = new RegExp(find, "g");
-        newText = text.replace(regex, replace);
+        newText = baseText.replace(regex, replace);
       } else {
-        newText = text.split(find).join(replace);
+        newText = baseText.split(find).join(replace);
       }
       setOutputText(newText);
+      setLastUnsortedText(newText);
+      setActiveSort("original"); // Reset sort state to original since it has been modified
       showToast("Find and replace completed!");
     } catch (err: any) {
       showToast(`Regex Error: ${err.message}`);

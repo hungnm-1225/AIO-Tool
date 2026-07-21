@@ -41,18 +41,21 @@ export default function Sidebar({
       label: "Text & Duplicates",
       description: "Counter, filters, sorting & regex search",
       icon: FileText,
+      hashId: "tien-ich-text",
     },
     {
       id: ActiveModule.COMPARE_MERGE,
       label: "Compare & Merge",
       description: "Diff checker, column joiner & auto-inc",
       icon: GitCompare,
+      hashId: "so-sanh-gop",
     },
     {
       id: ActiveModule.DATA_CONVERTER,
       label: "Data & HTML Runner",
       description: "Format, JSON-Grid, HTML Live Preview",
       icon: Terminal,
+      hashId: "chuyen-doi-du-lieu",
     },
   ];
 
@@ -105,11 +108,11 @@ export default function Sidebar({
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeModule === item.id;
-            
-            if (isCollapsed) {
+                        if (isCollapsed) {
               return (
                 <button
                   key={item.id}
+                  id={item.hashId}
                   onClick={() => setActiveModule(item.id)}
                   className={`h-11 w-11 flex items-center justify-center rounded-xl transition-all duration-200 group relative cursor-pointer ${
                     isActive
@@ -126,6 +129,7 @@ export default function Sidebar({
             return (
               <button
                 key={item.id}
+                id={item.hashId}
                 onClick={() => setActiveModule(item.id)}
                 className={`w-full flex items-start gap-3.5 p-3.5 rounded-xl text-left transition-all duration-200 group cursor-pointer ${
                   isActive

@@ -650,17 +650,26 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                 <span className="text-xs font-mono font-bold uppercase text-indigo-600 dark:text-indigo-400">
                   Input Dataset
                 </span>
-                <button 
-                  onClick={() => {
-                    onChange({ inputText: "" });
-                    setOriginalTextBackup("");
-                    showToast("Cleared input text!");
-                  }}
-                  className="text-slate-400 hover:text-rose-500 transition-colors p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                  title="Clear input"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleRemoveEmptyLines}
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-200/50 dark:border-slate-800/50 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+                    title="Remove empty lines from input"
+                  >
+                    Remove Empty Lines
+                  </button>
+                  <button 
+                    onClick={() => {
+                      onChange({ inputText: "" });
+                      setOriginalTextBackup("");
+                      showToast("Cleared input text!");
+                    }}
+                    className="text-slate-400 hover:text-rose-500 transition-colors p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                    title="Clear input"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
               
               <textarea
@@ -733,12 +742,6 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                 }`}
               >
                 Remove Duplicates
-              </button>
-              <button
-                onClick={handleRemoveEmptyLines}
-                className="w-full text-xs font-semibold py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                Remove Empty Lines
               </button>
               <button
                 onClick={handleCountFrequency}

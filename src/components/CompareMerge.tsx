@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { CompareMergeState } from "../types";
 import { diffLines, LineDiff, DiffToken } from "../utils/diff";
 import { 
@@ -20,6 +20,36 @@ interface CompareMergeProps {
 
 export default function CompareMerge({ state, onChange }: CompareMergeProps) {
   const [activeSubTab, setActiveSubTab] = useState<"diff" | "combine" | "autoinc">("diff");
+
+  // Synchronize sub-tab from hash
+  useEffect(() => {
+    const syncSubTab = () => {
+      const hash = window.location.hash.toLowerCase();
+      if (hash === "#compare-text" || hash === "#diff") {
+        setActiveSubTab("diff");
+      } else if (hash === "#merge-columns" || hash === "#combine") {
+        setActiveSubTab("combine");
+      } else if (hash === "#auto-increment" || hash === "#autoinc") {
+        setActiveSubTab("autoinc");
+      }
+    };
+
+    syncSubTab();
+
+    window.addEventListener("hashchange", syncSubTab);
+    return () => window.removeEventListener("hashchange", syncSubTab);
+  }, []);
+
+  const handleTabChange = (tab: "diff" | "combine" | "autoinc") => {
+    setActiveSubTab(tab);
+    const hash =
+      tab === "diff"
+        ? "compare-text"
+        : tab === "combine"
+        ? "merge-columns"
+        : "auto-increment";
+    window.location.hash = hash;
+  };
   const [diffResults, setDiffResults] = useState<LineDiff[] | null>(null);
   const [isIdentical, setIsIdentical] = useState<boolean | null>(null);
   const [combineOutput, setCombineOutput] = useState("");
@@ -203,7 +233,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
           {/* Sub tabs */}
           <div className="flex bg-slate-100 dark:bg-[#111827] p-1 rounded-xl border border-slate-200/50 dark:border-slate-800/50">
             <button
-              onClick={() => setActiveSubTab("diff")}
+              onClick={() => handleTabChange("diff")}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 activeSubTab === "diff"
                   ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-sm"
@@ -213,7 +243,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
               <GitCompare className="h-3.5 w-3.5" /> Compare Text
             </button>
             <button
-              onClick={() => setActiveSubTab("combine")}
+              onClick={() => handleTabChange("combine")}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 activeSubTab === "combine"
                   ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-sm"
@@ -223,7 +253,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
               <Columns className="h-3.5 w-3.5" /> Merge Columns
             </button>
             <button
-              onClick={() => setActiveSubTab("autoinc")}
+              onClick={() => handleTabChange("autoinc")}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 activeSubTab === "autoinc"
                   ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-sm"

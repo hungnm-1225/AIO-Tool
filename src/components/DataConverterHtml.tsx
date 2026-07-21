@@ -34,6 +34,36 @@ interface DataConverterHtmlProps {
 
 export default function DataConverterHtml({ state, onChange }: DataConverterHtmlProps) {
   const [activeSubTab, setActiveSubTab] = useState<"format" | "convert" | "preview">("format");
+
+  // Synchronize sub-tab from hash
+  useEffect(() => {
+    const syncSubTab = () => {
+      const hash = window.location.hash.toLowerCase();
+      if (hash === "#formatter" || hash === "#format") {
+        setActiveSubTab("format");
+      } else if (hash === "#converter" || hash === "#convert") {
+        setActiveSubTab("convert");
+      } else if (hash === "#html-sandbox" || hash === "#preview" || hash === "#sandbox") {
+        setActiveSubTab("preview");
+      }
+    };
+
+    syncSubTab();
+
+    window.addEventListener("hashchange", syncSubTab);
+    return () => window.removeEventListener("hashchange", syncSubTab);
+  }, []);
+
+  const handleTabChange = (tab: "format" | "convert" | "preview") => {
+    setActiveSubTab(tab);
+    const hash =
+      tab === "format"
+        ? "formatter"
+        : tab === "convert"
+        ? "converter"
+        : "html-sandbox";
+    window.location.hash = hash;
+  };
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedIdentifier, setCopiedIdentifier] = useState<string | null>(null);
@@ -357,7 +387,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
 
           <div className="flex bg-slate-100 dark:bg-[#111827] p-1 rounded-xl border border-slate-200/50 dark:border-slate-800/50">
             <button
-              onClick={() => setActiveSubTab("format")}
+              onClick={() => handleTabChange("format")}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 activeSubTab === "format"
                   ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-sm"
@@ -367,7 +397,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
               <Code className="h-3.5 w-3.5" /> Beautifier & Minifier
             </button>
             <button
-              onClick={() => setActiveSubTab("convert")}
+              onClick={() => handleTabChange("convert")}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 activeSubTab === "convert"
                   ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-sm"
@@ -377,7 +407,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
               <Table className="h-3.5 w-3.5" /> Visual Grid Table
             </button>
             <button
-              onClick={() => setActiveSubTab("preview")}
+              onClick={() => handleTabChange("preview")}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 activeSubTab === "preview"
                   ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-sm"

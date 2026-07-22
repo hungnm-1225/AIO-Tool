@@ -4,7 +4,6 @@ import Sidebar from "./components/Sidebar";
 import TextUtilities from "./components/TextUtilities";
 import CompareMerge from "./components/CompareMerge";
 import DataConverterHtml from "./components/DataConverterHtml";
-import H5pBuilder from "./components/H5pBuilder";
 import { Menu, Sun, Moon, Sliders } from "lucide-react";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -23,7 +22,6 @@ const HASH_MAP: Record<string, ActiveModule> = {
   "#data_converter": ActiveModule.DATA_CONVERTER,
   "#chuyen-doi-du-lieu": ActiveModule.DATA_CONVERTER,
   "#chuyen-doi": ActiveModule.DATA_CONVERTER,
-  "#h5p-builder": ActiveModule.H5P_BUILDER,
 };
 
 const DEFAULT_STATE: AppState = {
@@ -65,9 +63,6 @@ const DEFAULT_STATE: AppState = {
     cssSplitInput: "body {\n  font-family: system-ui, -apple-system, sans-serif;\n  background: #0f172a;\n  color: #f8fafc;\n  display: flex;\n  justify-content: center;\n  align-items: center;\n  height: 100vh;\n  margin: 0;\n}\n.greeting {\n  text-align: center;\n  padding: 2.5rem;\n  background: #1e293b;\n  border: 1px solid #334155;\n  border-radius: 1.5rem;\n  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);\n}\nbutton {\n  background: #6366f1;\n  color: white;\n  border: none;\n  padding: 0.6rem 1.2rem;\n  font-weight: bold;\n  border-radius: 0.5rem;\n  cursor: pointer;\n  margin-top: 1rem;\n  transition: opacity 0.2s;\n}\nbutton:hover {\n  opacity: 0.9;\n}",
     jsSplitInput: "const btn = document.getElementById('action-btn');\nif (btn) {\n  btn.addEventListener('click', () => {\n    console.log('Button interactive click action!');\n  });\n}",
   },
-  h5pBuilder: {
-    images: []
-  }
 };
 
 export default function App() {
@@ -80,7 +75,6 @@ export default function App() {
         return {
           ...DEFAULT_STATE,
           ...parsed,
-          h5pBuilder: parsed.h5pBuilder || DEFAULT_STATE.h5pBuilder
         };
       }
     } catch (e) {
@@ -139,8 +133,6 @@ export default function App() {
         ? "case-converter"
         : state.activeModule === ActiveModule.COMPARE_MERGE
         ? "compare-text"
-        : state.activeModule === ActiveModule.H5P_BUILDER
-        ? "h5p-builder"
         : "formatter";
 
     const currentHash = window.location.hash.toLowerCase();
@@ -213,8 +205,6 @@ export default function App() {
                 ? "case-converter"
                 : mod === ActiveModule.COMPARE_MERGE
                 ? "compare-text"
-                : mod === ActiveModule.H5P_BUILDER
-                ? "h5p-builder"
                 : "formatter";
             window.location.hash = canonicalHash;
             setIsMobileMenuOpen(false); // Auto-close drawer on selection!
@@ -243,12 +233,6 @@ export default function App() {
           <DataConverterHtml
             state={state.dataConverter}
             onChange={(subState) => handleModuleStateChange("dataConverter", subState)}
-          />
-        )}
-        {state.activeModule === ActiveModule.H5P_BUILDER && (
-          <H5pBuilder
-            state={state.h5pBuilder}
-            onChange={(subState) => handleModuleStateChange("h5pBuilder", subState)}
           />
         )}
       </main>

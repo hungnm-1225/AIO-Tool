@@ -724,6 +724,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
               </h3>
               <button
                 onClick={handleRemoveDuplicates}
+                title="Remove duplicate lines while preserving first occurrences"
                 className={`w-full text-xs font-semibold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   activeFilter === "remove"
                     ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs font-bold border-indigo-600"
@@ -734,6 +735,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
               </button>
               <button
                 onClick={handleCountFrequency}
+                title="Count occurrences of each line and prepend [xN] frequency count"
                 className={`w-full text-xs font-semibold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   activeFilter === "frequency"
                     ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs font-bold border-indigo-600"
@@ -744,6 +746,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
               </button>
               <button
                 onClick={handleFilterUniques}
+                title="Filter lines that appear strictly once in the dataset, discarding all duplicates"
                 className={`w-full text-xs font-semibold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   activeFilter === "uniques"
                     ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs font-bold border-indigo-600"
@@ -762,6 +765,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => handleSort("ascending")}
+                  title="Sort lines alphabetically from A to Z"
                   className={`text-xs font-medium py-2 px-2.5 rounded-lg border transition-colors cursor-pointer ${
                     activeSort === "ascending"
                       ? "bg-indigo-600 border-indigo-600 text-white shadow-xs font-bold"
@@ -772,6 +776,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                 </button>
                 <button
                   onClick={() => handleSort("descending")}
+                  title="Sort lines reverse-alphabetically from Z to A"
                   className={`text-xs font-medium py-2 px-2.5 rounded-lg border transition-colors cursor-pointer ${
                     activeSort === "descending"
                       ? "bg-indigo-600 border-indigo-600 text-white shadow-xs font-bold"
@@ -782,6 +787,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                 </button>
                 <button
                   onClick={() => handleSort("shuffle")}
+                  title="Randomly shuffle the line order"
                   className={`text-xs font-medium py-2 px-2.5 rounded-lg border transition-colors cursor-pointer ${
                     activeSort === "shuffle"
                       ? "bg-indigo-600 border-indigo-600 text-white shadow-xs font-bold"
@@ -792,6 +798,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                 </button>
                 <button
                   onClick={() => handleSort("original")}
+                  title="Restore input lines back to their original sequence order"
                   className={`text-xs font-medium py-2 px-2.5 rounded-lg border transition-colors cursor-pointer ${
                     activeSort === "original"
                       ? "bg-indigo-600 border-indigo-600 text-white shadow-xs font-bold"

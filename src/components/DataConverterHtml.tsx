@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
+import { toast } from "react-toastify";
 import { DataConverterState } from "../types";
+import CodeEditor from "./CodeEditor";
 import { 
   beautifyJson, minifyJson,
   beautifyHtml, minifyHtml,
@@ -26,7 +28,10 @@ import {
   Trash2,
   RotateCcw,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Monitor,
+  Tablet,
+  Smartphone
 } from "lucide-react";
 
 interface DataConverterHtmlProps {
@@ -38,6 +43,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
   const [activeSubTab, setActiveSubTab] = useState<"format" | "convert" | "preview">("format");
   const [isInputFullScreen, setIsInputFullScreen] = useState(false);
   const [isPreviewFullScreen, setIsPreviewFullScreen] = useState(false);
+  const [viewportMode, setViewportMode] = useState<"desktop" | "tablet" | "mobile">("desktop");
 
   // Synchronize sub-tab from hash
   useEffect(() => {
@@ -68,8 +74,6 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
         : "html-sandbox";
     window.location.hash = hash;
   };
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedIdentifier, setCopiedIdentifier] = useState<string | null>(null);
 
   // Parse state for Visual Grid
@@ -138,11 +142,9 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
 
   const showToast = (msg: string, isError = false) => {
     if (isError) {
-      setErrorMessage(msg);
-      setTimeout(() => setErrorMessage(null), 4000);
+      toast.error(msg);
     } else {
-      setToastMessage(msg);
-      setTimeout(() => setToastMessage(null), 3000);
+      toast.success(msg);
     }
   };
 
@@ -358,24 +360,6 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
 
   return (
     <div className="flex-1 overflow-auto bg-slate-50 dark:bg-[#0B0F1A] p-6 space-y-6">
-      {/* Toast Alert */}
-      {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 flex items-center gap-2 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-3 rounded-xl shadow-xl font-medium border border-slate-700/30 dark:border-slate-200 text-sm animate-fade-in">
-          <CheckCircle className="h-4 w-4 text-emerald-500" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
-      {/* Error Toast Alert */}
-      {errorMessage && (
-        <div className="fixed top-6 right-6 z-50 flex items-start gap-2 bg-rose-600 text-white px-5 py-3.5 rounded-xl shadow-xl font-medium border border-rose-500 text-sm max-w-md animate-bounce">
-          <AlertTriangle className="h-5 w-5 text-white flex-shrink-0 mt-0.5" />
-          <div>
-            <div className="font-bold mb-0.5">System Error</div>
-            <div className="text-xs text-rose-100 leading-normal">{errorMessage}</div>
-          </div>
-        </div>
-      )}
 
       {/* Sub Navigation */}
       <div className="border-b border-slate-200 dark:border-slate-800/80 pb-4">
@@ -463,36 +447,19 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
           </div>
 
           {/* Formatter Input / Output Area */}
-          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[480px]">
-            <div className="p-3.5 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
-              <span className="text-xs font-mono font-bold uppercase text-slate-500 dark:text-slate-400">
-                Workspace Code Editor ({state.activeFormatType.toUpperCase()})
-              </span>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => onChange({ formatInput: "" })}
-                  className="text-xs font-mono text-rose-500 hover:underline cursor-pointer"
-                >
-                  Clear
-                </button>
-                <div className="h-3 w-px bg-slate-200 dark:bg-slate-800" />
-                <button
-                  onClick={() => handleCopy(state.formatInput, "format")}
-                  className="text-xs font-mono text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 hover:underline cursor-pointer"
-                >
-                  {copiedIdentifier === "format" ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                  {copiedIdentifier === "format" ? "Copied" : "Copy"}
-                </button>
-              </div>
-            </div>
-
-            <textarea
-              className="w-full flex-1 p-4 bg-transparent text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none"
-              placeholder={`Paste your ${state.activeFormatType.toUpperCase()} code here to format or minify...`}
-              value={state.formatInput ?? ""}
-              onChange={(e) => onChange({ formatInput: e.target.value })}
-            />
-          </div>
+          <CodeEditor
+            value={state.formatInput ?? ""}
+            onChange={(val) => onChange({ formatInput: val })}
+            language={state.activeFormatType}
+            height="h-[500px]"
+            title={`Workspace Editor (${state.activeFormatType.toUpperCase()})`}
+            showDownload={true}
+            showCopy={true}
+            showClear={true}
+            defaultFilename={`formatted_code.${
+              state.activeFormatType === "javascript" ? "js" : state.activeFormatType
+            }`}
+          />
         </div>
       )}
 
@@ -983,15 +950,57 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
           </div>
 
           {/* Iframe Preview Container - Bottom (Doubled Width!) */}
-          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[550px] overflow-hidden">
-            <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50">
+          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[580px] overflow-hidden">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 dark:bg-[#0B0F1A]/50">
               <span className="text-xs font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                 <Play className="h-3.5 w-3.5" /> Interactive Sandbox Preview
               </span>
+
+              {/* Viewport Mode Controls */}
+              <div className="flex bg-slate-200/60 dark:bg-[#0B0F1A] p-0.5 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                <button
+                  onClick={() => setViewportMode("desktop")}
+                  title="Desktop Mode (100% width)"
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    viewportMode === "desktop"
+                      ? "bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
+                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                  }`}
+                >
+                  <Monitor className="h-3.5 w-3.5" />
+                  <span>Desktop</span>
+                </button>
+                <button
+                  onClick={() => setViewportMode("tablet")}
+                  title="Tablet Mode (768px width)"
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    viewportMode === "tablet"
+                      ? "bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
+                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                  }`}
+                >
+                  <Tablet className="h-3.5 w-3.5" />
+                  <span>Tablet</span>
+                </button>
+                <button
+                  onClick={() => setViewportMode("mobile")}
+                  title="Mobile Mode (375px width)"
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    viewportMode === "mobile"
+                      ? "bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
+                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                  }`}
+                >
+                  <Smartphone className="h-3.5 w-3.5" />
+                  <span>Mobile</span>
+                </button>
+              </div>
+
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleRefreshCode}
                   className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 flex items-center gap-1 hover:underline cursor-pointer"
+                  title="Re-render iframe code"
                 >
                   <RefreshCw className="h-3 w-3" /> Refresh Code
                 </button>
@@ -1006,13 +1015,24 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
               </div>
             </div>
 
-            <div className="flex-1 bg-white relative">
-              <iframe
-                title="HTML Live Sandbox"
-                className="w-full h-full border-none bg-white"
-                sandbox="allow-scripts"
-                srcDoc={iframeSrcDoc}
-              />
+            {/* Viewport Frame Box */}
+            <div className="flex-1 bg-slate-100 dark:bg-[#0B0F1A] p-2 flex justify-center items-center overflow-auto relative">
+              <div
+                className={`h-full bg-white transition-all duration-300 shadow-md ${
+                  viewportMode === "mobile"
+                    ? "w-[375px] max-w-full rounded-2xl border-4 border-slate-800 my-1"
+                    : viewportMode === "tablet"
+                    ? "w-[768px] max-w-full rounded-xl border-4 border-slate-700 my-1"
+                    : "w-full"
+                }`}
+              >
+                <iframe
+                  title="HTML Live Sandbox"
+                  className="w-full h-full border-none rounded-lg bg-white"
+                  sandbox="allow-scripts"
+                  srcDoc={iframeSrcDoc}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -1110,10 +1130,51 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
       {isPreviewFullScreen && (
         <div className="fixed inset-0 z-50 p-4 md:p-6 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center animate-fade-in">
           <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl flex flex-col w-full h-full max-w-7xl max-h-[92vh] overflow-hidden">
-            <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 dark:bg-[#0B0F1A]/50">
               <span className="text-xs font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                 <Play className="h-3.5 w-3.5" /> Interactive Sandbox Preview (Fullscreen)
               </span>
+
+              {/* Viewport Mode Controls */}
+              <div className="flex bg-slate-200/60 dark:bg-[#0B0F1A] p-0.5 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                <button
+                  onClick={() => setViewportMode("desktop")}
+                  title="Desktop Mode (100% width)"
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    viewportMode === "desktop"
+                      ? "bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
+                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                  }`}
+                >
+                  <Monitor className="h-3.5 w-3.5" />
+                  <span>Desktop</span>
+                </button>
+                <button
+                  onClick={() => setViewportMode("tablet")}
+                  title="Tablet Mode (768px width)"
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    viewportMode === "tablet"
+                      ? "bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
+                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                  }`}
+                >
+                  <Tablet className="h-3.5 w-3.5" />
+                  <span>Tablet</span>
+                </button>
+                <button
+                  onClick={() => setViewportMode("mobile")}
+                  title="Mobile Mode (375px width)"
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    viewportMode === "mobile"
+                      ? "bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
+                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                  }`}
+                >
+                  <Smartphone className="h-3.5 w-3.5" />
+                  <span>Mobile</span>
+                </button>
+              </div>
+
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleRefreshCode}
@@ -1131,13 +1192,23 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
               </div>
             </div>
 
-            <div className="flex-1 bg-white relative">
-              <iframe
-                title="HTML Live Sandbox"
-                className="w-full h-full border-none bg-white"
-                sandbox="allow-scripts"
-                srcDoc={iframeSrcDoc}
-              />
+            <div className="flex-1 bg-slate-100 dark:bg-[#0B0F1A] p-2 flex justify-center items-center overflow-auto relative">
+              <div
+                className={`h-full bg-white transition-all duration-300 shadow-md ${
+                  viewportMode === "mobile"
+                    ? "w-[375px] max-w-full rounded-2xl border-4 border-slate-800 my-1"
+                    : viewportMode === "tablet"
+                    ? "w-[768px] max-w-full rounded-xl border-4 border-slate-700 my-1"
+                    : "w-full"
+                }`}
+              >
+                <iframe
+                  title="HTML Live Sandbox"
+                  className="w-full h-full border-none rounded-lg bg-white"
+                  sandbox="allow-scripts"
+                  srcDoc={iframeSrcDoc}
+                />
+              </div>
             </div>
           </div>
         </div>

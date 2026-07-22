@@ -248,60 +248,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
             newText = parts.join(replace);
           }
         } else {
-          const escaped = find.replace(/[.*+?^${}()|[\]\\]/g, '\\  const handleSlicerSearchReplace = () => {
-    const baseText = slicerOutputText || slicerInputText || "";
-    if (!baseText) {
-      showToast("Vui lòng nhập văn bản trước!", "warning");
-      return;
-    }
-    const find = slicerFindQuery || "";
-    const replace = slicerReplaceQuery || "";
-
-    if (!find) {
-      showToast("Vui lòng nhập từ khóa cần tìm!", "warning");
-      return;
-    }
-
-    let newText = baseText;
-    let matchCount = 0;
-
-    try {
-      if (slicerIsRegex) {
-        const flags = "g" + (slicerMatchCase ? "" : "i");
-        const regex = new RegExp(find, flags);
-        const matches = baseText.match(regex);
-        matchCount = matches ? matches.length : 0;
-        if (matchCount > 0) {
-          newText = baseText.replace(regex, replace);
-        }
-      } else {
-        if (slicerMatchCase) {
-          const parts = baseText.split(find);
-          matchCount = parts.length - 1;
-          if (matchCount > 0) {
-            newText = parts.join(replace);
-          }
-        } else {
           const escaped = find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const regex = new RegExp(escaped, "gi");
-          const matches = baseText.match(regex);
-          matchCount = matches ? matches.length : 0;
-          if (matchCount > 0) {
-            newText = baseText.replace(regex, replace);
-          }
-        }
-      }
-
-      if (matchCount === 0) {
-        showToast(`Không tìm thấy bản ghi nào khớp với "${find}"!`, "warning");
-      } else {
-        setSlicerOutputText(newText);
-        showToast(`Đã thay thế thành công ${matchCount} kết quả cho "${find}"!`, "success");
-      }
-    } catch (err: any) {
-      showToast(`Lỗi Cú Pháp Regex: ${err.message}`, "error");
-    }
-  };');
           const regex = new RegExp(escaped, "gi");
           const matches = baseText.match(regex);
           matchCount = matches ? matches.length : 0;
@@ -487,62 +434,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
             newText = parts.join(replace);
           }
         } else {
-          const escaped = find.replace(/[.*+?^${}()|[\]\\]/g, '\\  const handleSearchReplace = () => {
-    const baseText = outputText || state.inputText || "";
-    if (!baseText) {
-      showToast("Vui lòng nhập văn bản trước!", "warning");
-      return;
-    }
-    const find = state.findQuery || "";
-    const replace = state.replaceQuery || "";
-
-    if (!find) {
-      showToast("Vui lòng nhập từ khóa cần tìm!", "warning");
-      return;
-    }
-
-    let newText = baseText;
-    let matchCount = 0;
-
-    try {
-      if (state.isRegex) {
-        const flags = "g" + (state.matchCase ? "" : "i");
-        const regex = new RegExp(find, flags);
-        const matches = baseText.match(regex);
-        matchCount = matches ? matches.length : 0;
-        if (matchCount > 0) {
-          newText = baseText.replace(regex, replace);
-        }
-      } else {
-        if (state.matchCase) {
-          const parts = baseText.split(find);
-          matchCount = parts.length - 1;
-          if (matchCount > 0) {
-            newText = parts.join(replace);
-          }
-        } else {
           const escaped = find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const regex = new RegExp(escaped, "gi");
-          const matches = baseText.match(regex);
-          matchCount = matches ? matches.length : 0;
-          if (matchCount > 0) {
-            newText = baseText.replace(regex, replace);
-          }
-        }
-      }
-
-      if (matchCount === 0) {
-        showToast(`Không tìm thấy bản ghi nào khớp với "${find}"!`, "warning");
-      } else {
-        setOutputText(newText);
-        setLastUnsortedText(newText);
-        setActiveSort("original");
-        showToast(`Đã thay thế thành công ${matchCount} kết quả cho "${find}"!`, "success");
-      }
-    } catch (err: any) {
-      showToast(`Lỗi Cú Pháp Regex: ${err.message}`, "error");
-    }
-  };');
           const regex = new RegExp(escaped, "gi");
           const matches = baseText.match(regex);
           matchCount = matches ? matches.length : 0;

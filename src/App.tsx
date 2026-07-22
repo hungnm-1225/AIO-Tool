@@ -238,6 +238,7 @@ export default function App() {
       </main>
       
       <ToastContainer 
+        aria-label="Notifications"
         position="bottom-right" 
         autoClose={3000} 
         hideProgressBar={false} 

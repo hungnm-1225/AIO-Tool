@@ -10,7 +10,9 @@ import {
   Filter,
   CheckCircle,
   Type,
-  Scissors
+  Scissors,
+  HelpCircle,
+  Info
 } from "lucide-react";
 
 interface TextUtilitiesProps {
@@ -23,19 +25,20 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
   const [activeSubTab, setActiveSubTab] = useState<"case-converter" | "text-utilities" | "string-cutter">("case-converter");
 
   // State for Case Converter
-  const [caseInputText, setCaseInputText] = useState("");
+  const [caseInputText, setCaseInputText] = useState("Vibe Code AIO - Universal Developer Toolset\nHello Google AI Studio!\nJavascript & Typescript React App");
   const [caseOutputText, setCaseOutputText] = useState("");
   const [activeCaseFormat, setActiveCaseFormat] = useState<string>("");
   const [caseCopied, setCaseCopied] = useState(false);
 
   // State for Line Slicer / Cutter
-  const [slicerInputText, setSlicerInputText] = useState("");
+  const [slicerInputText, setSlicerInputText] = useState("john.doe@company.com\nsarah.smith@organization.org\nalex.developer@techhub.io\nmarketing.team@globalcorp.net");
   const [slicerOutputText, setSlicerOutputText] = useState("");
   const [sliceLength, setSliceLength] = useState<number>(19);
   const [slicePosition, setSlicePosition] = useState<"start" | "end">("start");
-  const [slicerFindQuery, setSlicerFindQuery] = useState("");
-  const [slicerReplaceQuery, setSlicerReplaceQuery] = useState("");
+  const [slicerFindQuery, setSlicerFindQuery] = useState("@");
+  const [slicerReplaceQuery, setSlicerReplaceQuery] = useState(" [at] ");
   const [slicerIsRegex, setSlicerIsRegex] = useState(false);
+  const [slicerMatchCase, setSlicerMatchCase] = useState(false);
   const [slicerCopied, setSlicerCopied] = useState(false);
 
   // Existing Text Utilities output & state
@@ -214,24 +217,108 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
   const handleSlicerSearchReplace = () => {
     const baseText = slicerOutputText || slicerInputText || "";
     if (!baseText) {
-      showToast("Please enter text first!");
+      showToast("Please enter text first!", "warning");
       return;
     }
     const find = slicerFindQuery || "";
     const replace = slicerReplaceQuery || "";
 
+    if (!find) {
+      showToast("Please enter a search keyword!", "warning");
+      return;
+    }
+
     let newText = baseText;
+    let matchCount = 0;
+
     try {
       if (slicerIsRegex) {
-        const regex = new RegExp(find, "g");
-        newText = baseText.replace(regex, replace);
+        const flags = "g" + (slicerMatchCase ? "" : "i");
+        const regex = new RegExp(find, flags);
+        const matches = baseText.match(regex);
+        matchCount = matches ? matches.length : 0;
+        if (matchCount > 0) {
+          newText = baseText.replace(regex, replace);
+        }
       } else {
-        newText = baseText.split(find).join(replace);
+        if (slicerMatchCase) {
+          const parts = baseText.split(find);
+          matchCount = parts.length - 1;
+          if (matchCount > 0) {
+            newText = parts.join(replace);
+          }
+        } else {
+          const escaped = find.replace(/[.*+?^${}()|[\]\\]/g, '\\  const handleSlicerSearchReplace = () => {
+    const baseText = slicerOutputText || slicerInputText || "";
+    if (!baseText) {
+      showToast("Vui lòng nhập văn bản trước!", "warning");
+      return;
+    }
+    const find = slicerFindQuery || "";
+    const replace = slicerReplaceQuery || "";
+
+    if (!find) {
+      showToast("Vui lòng nhập từ khóa cần tìm!", "warning");
+      return;
+    }
+
+    let newText = baseText;
+    let matchCount = 0;
+
+    try {
+      if (slicerIsRegex) {
+        const flags = "g" + (slicerMatchCase ? "" : "i");
+        const regex = new RegExp(find, flags);
+        const matches = baseText.match(regex);
+        matchCount = matches ? matches.length : 0;
+        if (matchCount > 0) {
+          newText = baseText.replace(regex, replace);
+        }
+      } else {
+        if (slicerMatchCase) {
+          const parts = baseText.split(find);
+          matchCount = parts.length - 1;
+          if (matchCount > 0) {
+            newText = parts.join(replace);
+          }
+        } else {
+          const escaped = find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex = new RegExp(escaped, "gi");
+          const matches = baseText.match(regex);
+          matchCount = matches ? matches.length : 0;
+          if (matchCount > 0) {
+            newText = baseText.replace(regex, replace);
+          }
+        }
       }
-      setSlicerOutputText(newText);
-      showToast("Find and replace completed!");
+
+      if (matchCount === 0) {
+        showToast(`Không tìm thấy bản ghi nào khớp với "${find}"!`, "warning");
+      } else {
+        setSlicerOutputText(newText);
+        showToast(`Đã thay thế thành công ${matchCount} kết quả cho "${find}"!`, "success");
+      }
     } catch (err: any) {
-      showToast(`Regex Error: ${err.message}`);
+      showToast(`Lỗi Cú Pháp Regex: ${err.message}`, "error");
+    }
+  };');
+          const regex = new RegExp(escaped, "gi");
+          const matches = baseText.match(regex);
+          matchCount = matches ? matches.length : 0;
+          if (matchCount > 0) {
+            newText = baseText.replace(regex, replace);
+          }
+        }
+      }
+
+      if (matchCount === 0) {
+        showToast(`No matches found for "${find}"!`, "warning");
+      } else {
+        setSlicerOutputText(newText);
+        showToast(`Successfully replaced ${matchCount} occurrence(s) of "${find}"!`, "success");
+      }
+    } catch (err: any) {
+      showToast(`Regex Syntax Error: ${err.message}`, "error");
     }
   };
 
@@ -369,26 +456,112 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
   const handleSearchReplace = () => {
     const baseText = outputText || state.inputText || "";
     if (!baseText) {
-      showToast("Please enter text first!");
+      showToast("Please enter text first!", "warning");
       return;
     }
     const find = state.findQuery || "";
     const replace = state.replaceQuery || "";
 
+    if (!find) {
+      showToast("Please enter a search keyword!", "warning");
+      return;
+    }
+
     let newText = baseText;
+    let matchCount = 0;
+
     try {
       if (state.isRegex) {
-        const regex = new RegExp(find, "g");
-        newText = baseText.replace(regex, replace);
+        const flags = "g" + (state.matchCase ? "" : "i");
+        const regex = new RegExp(find, flags);
+        const matches = baseText.match(regex);
+        matchCount = matches ? matches.length : 0;
+        if (matchCount > 0) {
+          newText = baseText.replace(regex, replace);
+        }
       } else {
-        newText = baseText.split(find).join(replace);
+        if (state.matchCase) {
+          const parts = baseText.split(find);
+          matchCount = parts.length - 1;
+          if (matchCount > 0) {
+            newText = parts.join(replace);
+          }
+        } else {
+          const escaped = find.replace(/[.*+?^${}()|[\]\\]/g, '\\  const handleSearchReplace = () => {
+    const baseText = outputText || state.inputText || "";
+    if (!baseText) {
+      showToast("Vui lòng nhập văn bản trước!", "warning");
+      return;
+    }
+    const find = state.findQuery || "";
+    const replace = state.replaceQuery || "";
+
+    if (!find) {
+      showToast("Vui lòng nhập từ khóa cần tìm!", "warning");
+      return;
+    }
+
+    let newText = baseText;
+    let matchCount = 0;
+
+    try {
+      if (state.isRegex) {
+        const flags = "g" + (state.matchCase ? "" : "i");
+        const regex = new RegExp(find, flags);
+        const matches = baseText.match(regex);
+        matchCount = matches ? matches.length : 0;
+        if (matchCount > 0) {
+          newText = baseText.replace(regex, replace);
+        }
+      } else {
+        if (state.matchCase) {
+          const parts = baseText.split(find);
+          matchCount = parts.length - 1;
+          if (matchCount > 0) {
+            newText = parts.join(replace);
+          }
+        } else {
+          const escaped = find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex = new RegExp(escaped, "gi");
+          const matches = baseText.match(regex);
+          matchCount = matches ? matches.length : 0;
+          if (matchCount > 0) {
+            newText = baseText.replace(regex, replace);
+          }
+        }
       }
-      setOutputText(newText);
-      setLastUnsortedText(newText);
-      setActiveSort("original");
-      showToast("Find and replace completed!");
+
+      if (matchCount === 0) {
+        showToast(`Không tìm thấy bản ghi nào khớp với "${find}"!`, "warning");
+      } else {
+        setOutputText(newText);
+        setLastUnsortedText(newText);
+        setActiveSort("original");
+        showToast(`Đã thay thế thành công ${matchCount} kết quả cho "${find}"!`, "success");
+      }
     } catch (err: any) {
-      showToast(`Regex Error: ${err.message}`);
+      showToast(`Lỗi Cú Pháp Regex: ${err.message}`, "error");
+    }
+  };');
+          const regex = new RegExp(escaped, "gi");
+          const matches = baseText.match(regex);
+          matchCount = matches ? matches.length : 0;
+          if (matchCount > 0) {
+            newText = baseText.replace(regex, replace);
+          }
+        }
+      }
+
+      if (matchCount === 0) {
+        showToast(`No matches found for "${find}"!`, "warning");
+      } else {
+        setOutputText(newText);
+        setLastUnsortedText(newText);
+        setActiveSort("original");
+        showToast(`Successfully replaced ${matchCount} occurrence(s) of "${find}"!`, "success");
+      }
+    } catch (err: any) {
+      showToast(`Regex Syntax Error: ${err.message}`, "error");
     }
   };
 
@@ -836,15 +1009,49 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                     className="w-full p-2 text-xs border border-slate-200 dark:border-slate-800 bg-transparent rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
                   />
                 </div>
-                <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-500 dark:text-slate-400">
-                  <input
-                    type="checkbox"
-                    checked={state.isRegex}
-                    onChange={(e) => onChange({ isRegex: e.target.checked })}
-                    className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span>Regex Search</span>
-                </label>
+                {/* Checkbox controls for Match Case & Regex Search */}
+                <div className="space-y-2 pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-600 dark:text-slate-300 font-medium">
+                    <input
+                      type="checkbox"
+                      checked={state.matchCase ?? false}
+                      onChange={(e) => onChange({ matchCase: e.target.checked })}
+                      className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span>Match Case</span>
+                  </label>
+
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-600 dark:text-slate-300 font-medium">
+                      <input
+                        type="checkbox"
+                        checked={state.isRegex}
+                        onChange={(e) => onChange({ isRegex: e.target.checked })}
+                        className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>Regex Search</span>
+                    </label>
+
+                    {/* Info Icon with Tooltip */}
+                    <div className="relative group cursor-help">
+                      <HelpCircle className="h-4 w-4 text-indigo-500 hover:text-indigo-600 transition-colors" />
+                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block w-72 p-3.5 bg-slate-900 text-slate-100 text-[11px] rounded-2xl shadow-2xl z-50 pointer-events-none border border-slate-700 font-sans leading-relaxed">
+                        <p className="font-bold text-indigo-300 mb-1 flex items-center gap-1">
+                          <Info className="h-3.5 w-3.5" /> What is Regex Search?
+                        </p>
+                        <p className="text-slate-300 mb-2 text-[10px]">
+                          Advanced pattern search using regular expression syntax:
+                        </p>
+                        <ul className="space-y-1 text-slate-300 font-mono text-[10px]">
+                          <li>• <span className="text-amber-300 font-bold">\d+</span> : Matches digit sequences (e.g., 123)</li>
+                          <li>• <span className="text-amber-300 font-bold">[a-z]+</span> : Matches lowercase words</li>
+                          <li>• <span className="text-amber-300 font-bold">^Line</span> : Lines starting with 'Line'</li>
+                          <li>• <span className="text-amber-300 font-bold">End$</span> : Lines ending with 'End'</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <button
                   onClick={handleSearchReplace}
                   className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-slate-100 transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
@@ -1029,15 +1236,48 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                     className="w-full p-2 text-xs border border-slate-200 dark:border-slate-800 bg-transparent rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
                   />
                 </div>
-                <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-500 dark:text-slate-400">
-                  <input
-                    type="checkbox"
-                    checked={slicerIsRegex}
-                    onChange={(e) => setSlicerIsRegex(e.target.checked)}
-                    className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span>Regex Search</span>
-                </label>
+                {/* Checkbox controls for Match Case & Regex Search */}
+                <div className="space-y-2 pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-600 dark:text-slate-300 font-medium">
+                    <input
+                      type="checkbox"
+                      checked={slicerMatchCase}
+                      onChange={(e) => setSlicerMatchCase(e.target.checked)}
+                      className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span>Match Case</span>
+                  </label>
+
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-600 dark:text-slate-300 font-medium">
+                      <input
+                        type="checkbox"
+                        checked={slicerIsRegex}
+                        onChange={(e) => setSlicerIsRegex(e.target.checked)}
+                        className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>Regex Search</span>
+                    </label>
+
+                    {/* Info Icon with Tooltip */}
+                    <div className="relative group cursor-help">
+                      <HelpCircle className="h-4 w-4 text-indigo-500 hover:text-indigo-600 transition-colors" />
+                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block w-72 p-3.5 bg-slate-900 text-slate-100 text-[11px] rounded-2xl shadow-2xl z-50 pointer-events-none border border-slate-700 font-sans leading-relaxed">
+                        <p className="font-bold text-indigo-300 mb-1 flex items-center gap-1">
+                          <Info className="h-3.5 w-3.5" /> What is Regex Search?
+                        </p>
+                        <p className="text-slate-300 mb-2 text-[10px]">
+                          Advanced pattern search using regular expression syntax:
+                        </p>
+                        <ul className="space-y-1 text-slate-300 font-mono text-[10px]">
+                          <li>• <span className="text-amber-300 font-bold">\d+</span> : Matches digit sequences</li>
+                          <li>• <span className="text-amber-300 font-bold">[a-z]+</span> : Matches lowercase words</li>
+                          <li>• <span className="text-amber-300 font-bold">@.*</span> : Matches from @ to end of line</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <button
                   onClick={handleSlicerSearchReplace}
                   className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-slate-100 transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"

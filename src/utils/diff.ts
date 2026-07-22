@@ -268,19 +268,41 @@ export function diffLines(origText: string, modText: string, options?: DiffOptio
   }
 
   const processed: LineDiff[] = [];
-  for (let k = 0; k < rawDiff.length; k++) {
-    const current = rawDiff[k];
-    const next = rawDiff[k + 1];
-    if (current.type === "removed" && next && next.type === "added") {
-      processed.push({
-        type: "modified",
-        value: next.value,
-        originalValue: current.value,
-        charDiff: diffWordsOrChars(current.value, next.value, options)
-      });
+  let k = 0;
+  while (k < rawDiff.length) {
+    if (rawDiff[k].type === "equal") {
+      processed.push(rawDiff[k]);
       k++;
     } else {
-      processed.push(current);
+      // Collect contiguous block of non-equal items
+      const removedList: string[] = [];
+      const addedList: string[] = [];
+      while (k < rawDiff.length && rawDiff[k].type !== "equal") {
+        if (rawDiff[k].type === "removed") {
+          removedList.push(rawDiff[k].value);
+        } else if (rawDiff[k].type === "added") {
+          addedList.push(rawDiff[k].value);
+        }
+        k++;
+      }
+
+      const maxLen = Math.max(removedList.length, addedList.length);
+      for (let idx = 0; idx < maxLen; idx++) {
+        const origVal = removedList[idx];
+        const newVal = addedList[idx];
+        if (origVal !== undefined && newVal !== undefined) {
+          processed.push({
+            type: "modified",
+            value: newVal,
+            originalValue: origVal,
+            charDiff: diffWordsOrChars(origVal, newVal, options)
+          });
+        } else if (origVal !== undefined) {
+          processed.push({ type: "removed", value: origVal });
+        } else if (newVal !== undefined) {
+          processed.push({ type: "added", value: newVal });
+        }
+      }
     }
   }
 

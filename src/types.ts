@@ -16,6 +16,7 @@ export interface TextUtilsState {
 export interface CompareMergeState {
   diffOriginal: string;
   diffModified: string;
+  ignoreCase?: boolean;
   combineCol1: string;
   combineCol2: string;
   combineDelimiter: string;

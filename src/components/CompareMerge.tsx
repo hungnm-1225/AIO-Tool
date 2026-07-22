@@ -90,13 +90,15 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
       return;
     }
 
-    if (orig === mod) {
+    const isSame = state.ignoreCase ? orig.toLowerCase() === mod.toLowerCase() : orig === mod;
+
+    if (isSame) {
       setIsIdentical(true);
       setDiffResults([]);
       showToast("The files are completely identical!");
     } else {
       setIsIdentical(false);
-      const results = diffLines(orig, mod);
+      const results = diffLines(orig, mod, { ignoreCase: !!state.ignoreCase });
       setDiffResults(results);
       showToast("Differences detected!");
     }
@@ -293,13 +295,27 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
             </div>
           </div>
 
-          <div className="flex items-center justify-center">
+          <div className="flex flex-wrap items-center justify-center gap-4">
             <button
               onClick={handleCompare}
+              title="Compare text lines and highlight additions, deletions, or modifications"
               className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-all shadow-md shadow-indigo-600/10 flex items-center gap-2 cursor-pointer"
             >
               <GitCompare className="h-4 w-4" /> Compare Text
             </button>
+
+            <label 
+              title="When checked, letters like 'A' and 'a' will be treated as identical during comparison"
+              className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 cursor-pointer bg-white dark:bg-[#111827] px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-indigo-300 dark:hover:border-indigo-700 transition-all select-none"
+            >
+              <input
+                type="checkbox"
+                checked={!!state.ignoreCase}
+                onChange={(e) => onChange({ ignoreCase: e.target.checked })}
+                className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+              />
+              <span>Ignore Case (Bỏ qua hoa thường)</span>
+            </label>
           </div>
 
           {/* Diff Output Panel */}

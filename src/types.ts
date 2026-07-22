@@ -11,6 +11,7 @@ export interface TextUtilsState {
   findQuery: string;
   replaceQuery: string;
   isRegex: boolean;
+  matchCase?: boolean;
 }
 
 export interface CompareMergeState {

@@ -908,43 +908,45 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
 
             {/* Editor Textareas */}
             {state.htmlPreviewMode === "single" ? (
-              <div className="flex-1 flex flex-col">
-                <textarea
-                  className="w-full flex-1 p-4 bg-slate-50/50 dark:bg-[#0B0F1A]/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-200 font-mono text-xs leading-relaxed resize-none focus:outline-none focus:border-indigo-500"
-                  placeholder="<h1>Hello World</h1>&#10;<p>Style it with inline CSS or script blocks</p>"
+              <div className="flex-1 flex flex-col min-h-0">
+                <CodeEditor
                   value={state.htmlSingleInput ?? ""}
-                  onChange={(e) => onChange({ htmlSingleInput: e.target.value })}
+                  onChange={(val) => onChange({ htmlSingleInput: val })}
+                  language="html"
+                  height="h-[360px]"
+                  title="HTML Code Editor"
+                  defaultFilename="index.html"
                 />
               </div>
             ) : (
               <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
-                <div className="flex-1 flex flex-col min-h-0">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase mb-1">HTML</span>
-                  <textarea
-                    className="w-full flex-1 p-3 bg-slate-50/50 dark:bg-[#0B0F1A]/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-200 font-mono text-xs leading-relaxed resize-none focus:outline-none focus:border-indigo-500"
-                    placeholder="<div>My custom block</div>"
-                    value={state.htmlSplitInput ?? ""}
-                    onChange={(e) => onChange({ htmlSplitInput: e.target.value })}
-                  />
-                </div>
-                <div className="flex-1 flex flex-col min-h-0">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase mb-1">CSS</span>
-                  <textarea
-                    className="w-full flex-1 p-3 bg-slate-50/50 dark:bg-[#0B0F1A]/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-200 font-mono text-xs leading-relaxed resize-none focus:outline-none focus:border-indigo-500"
-                    placeholder="div { color: #4f46e5; font-weight: bold; }"
-                    value={state.cssSplitInput ?? ""}
-                    onChange={(e) => onChange({ cssSplitInput: e.target.value })}
-                  />
-                </div>
-                <div className="flex-1 flex flex-col min-h-0">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase mb-1">JavaScript</span>
-                  <textarea
-                    className="w-full flex-1 p-3 bg-slate-50/50 dark:bg-[#0B0F1A]/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-200 font-mono text-xs leading-relaxed resize-none focus:outline-none focus:border-indigo-500"
-                    placeholder="console.log('App successfully running');"
-                    value={state.jsSplitInput ?? ""}
-                    onChange={(e) => onChange({ jsSplitInput: e.target.value })}
-                  />
-                </div>
+                <CodeEditor
+                  className="flex-1 min-h-0"
+                  value={state.htmlSplitInput ?? ""}
+                  onChange={(val) => onChange({ htmlSplitInput: val })}
+                  language="html"
+                  height="h-[360px]"
+                  title="HTML"
+                  defaultFilename="index.html"
+                />
+                <CodeEditor
+                  className="flex-1 min-h-0"
+                  value={state.cssSplitInput ?? ""}
+                  onChange={(val) => onChange({ cssSplitInput: val })}
+                  language="css"
+                  height="h-[360px]"
+                  title="CSS"
+                  defaultFilename="styles.css"
+                />
+                <CodeEditor
+                  className="flex-1 min-h-0"
+                  value={state.jsSplitInput ?? ""}
+                  onChange={(val) => onChange({ jsSplitInput: val })}
+                  language="javascript"
+                  height="h-[360px]"
+                  title="JavaScript"
+                  defaultFilename="script.js"
+                />
               </div>
             )}
           </div>
@@ -1083,43 +1085,45 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
 
             {/* Editor Textareas */}
             {state.htmlPreviewMode === "single" ? (
-              <div className="flex-1 flex flex-col">
-                <textarea
-                  className="w-full flex-1 p-4 bg-slate-50/50 dark:bg-[#0B0F1A]/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none focus:border-indigo-500"
-                  placeholder="<h1>Hello World</h1>"
+              <div className="flex-1 flex flex-col min-h-0">
+                <CodeEditor
                   value={state.htmlSingleInput ?? ""}
-                  onChange={(e) => onChange({ htmlSingleInput: e.target.value })}
+                  onChange={(val) => onChange({ htmlSingleInput: val })}
+                  language="html"
+                  height="h-full"
+                  title="HTML Code Editor"
+                  defaultFilename="index.html"
                 />
               </div>
             ) : (
               <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
-                <div className="flex-1 flex flex-col min-h-0">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase mb-1">HTML</span>
-                  <textarea
-                    className="w-full flex-1 p-3 bg-slate-50/50 dark:bg-[#0B0F1A]/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none focus:border-indigo-500"
-                    placeholder="<div>My custom block</div>"
-                    value={state.htmlSplitInput ?? ""}
-                    onChange={(e) => onChange({ htmlSplitInput: e.target.value })}
-                  />
-                </div>
-                <div className="flex-1 flex flex-col min-h-0">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase mb-1">CSS</span>
-                  <textarea
-                    className="w-full flex-1 p-3 bg-slate-50/50 dark:bg-[#0B0F1A]/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none focus:border-indigo-500"
-                    placeholder="div { color: #4f46e5; }"
-                    value={state.cssSplitInput ?? ""}
-                    onChange={(e) => onChange({ cssSplitInput: e.target.value })}
-                  />
-                </div>
-                <div className="flex-1 flex flex-col min-h-0">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase mb-1">JavaScript</span>
-                  <textarea
-                    className="w-full flex-1 p-3 bg-slate-50/50 dark:bg-[#0B0F1A]/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none focus:border-indigo-500"
-                    placeholder="console.log('Running code');"
-                    value={state.jsSplitInput ?? ""}
-                    onChange={(e) => onChange({ jsSplitInput: e.target.value })}
-                  />
-                </div>
+                <CodeEditor
+                  className="flex-1 min-h-0"
+                  value={state.htmlSplitInput ?? ""}
+                  onChange={(val) => onChange({ htmlSplitInput: val })}
+                  language="html"
+                  height="h-full"
+                  title="HTML"
+                  defaultFilename="index.html"
+                />
+                <CodeEditor
+                  className="flex-1 min-h-0"
+                  value={state.cssSplitInput ?? ""}
+                  onChange={(val) => onChange({ cssSplitInput: val })}
+                  language="css"
+                  height="h-full"
+                  title="CSS"
+                  defaultFilename="styles.css"
+                />
+                <CodeEditor
+                  className="flex-1 min-h-0"
+                  value={state.jsSplitInput ?? ""}
+                  onChange={(val) => onChange({ jsSplitInput: val })}
+                  language="javascript"
+                  height="h-full"
+                  title="JavaScript"
+                  defaultFilename="script.js"
+                />
               </div>
             )}
           </div>

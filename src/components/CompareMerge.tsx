@@ -314,7 +314,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
                 onChange={(e) => onChange({ ignoreCase: e.target.checked })}
                 className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4"
               />
-              <span>Ignore Case (Bỏ qua hoa thường)</span>
+              <span>Ignore Case</span>
             </label>
           </div>
 

@@ -12,14 +12,29 @@ const STORAGE_KEY = "vibe_code_aio_state";
 
 const HASH_MAP: Record<string, ActiveModule> = {
   "#case-converter": ActiveModule.TEXT_UTILS,
+  "#case_converter": ActiveModule.TEXT_UTILS,
+  "#case": ActiveModule.TEXT_UTILS,
   "#text-utilities": ActiveModule.TEXT_UTILS,
+  "#text_utils": ActiveModule.TEXT_UTILS,
+  "#text-utils": ActiveModule.TEXT_UTILS,
+  "#text": ActiveModule.TEXT_UTILS,
   "#string-cutter": ActiveModule.TEXT_UTILS,
+  "#line-slicer": ActiveModule.TEXT_UTILS,
+  "#cutter": ActiveModule.TEXT_UTILS,
+  "#slicer": ActiveModule.TEXT_UTILS,
+
   "#compare-text": ActiveModule.COMPARE_MERGE,
+  "#diff": ActiveModule.COMPARE_MERGE,
   "#merge-columns": ActiveModule.COMPARE_MERGE,
+  "#combine": ActiveModule.COMPARE_MERGE,
   "#auto-increment": ActiveModule.COMPARE_MERGE,
+  "#autoinc": ActiveModule.COMPARE_MERGE,
+
   "#formatter": ActiveModule.DATA_CONVERTER,
   "#data-converter": ActiveModule.DATA_CONVERTER,
   "#data_converter": ActiveModule.DATA_CONVERTER,
+  "#json-grid": ActiveModule.DATA_CONVERTER,
+  "#html-preview": ActiveModule.DATA_CONVERTER,
   "#chuyen-doi-du-lieu": ActiveModule.DATA_CONVERTER,
   "#chuyen-doi": ActiveModule.DATA_CONVERTER,
 };
@@ -68,6 +83,9 @@ const DEFAULT_STATE: AppState = {
 export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [state, setState] = useState<AppState>(() => {
+    const currentHash = window.location.hash.toLowerCase();
+    const hashMatchedModule = currentHash ? HASH_MAP[currentHash] : undefined;
+
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
@@ -75,12 +93,16 @@ export default function App() {
         return {
           ...DEFAULT_STATE,
           ...parsed,
+          activeModule: hashMatchedModule ?? parsed.activeModule ?? DEFAULT_STATE.activeModule,
         };
       }
     } catch (e) {
       console.warn("Could not parse stored app state", e);
     }
-    return DEFAULT_STATE;
+    return {
+      ...DEFAULT_STATE,
+      activeModule: hashMatchedModule ?? DEFAULT_STATE.activeModule,
+    };
   });
 
   // Persist state changes to Local Storage
@@ -111,38 +133,24 @@ export default function App() {
       const hash = window.location.hash.toLowerCase();
       if (hash) {
         const matchedModule = HASH_MAP[hash];
-        if (matchedModule && matchedModule !== state.activeModule) {
-          setState((prev) => ({ ...prev, activeModule: matchedModule }));
+        if (matchedModule) {
+          setState((prev) => (prev.activeModule === matchedModule ? prev : { ...prev, activeModule: matchedModule }));
         }
       }
     };
-
-    // Run on initial load to support direct deep-linking
-    handleHashChange();
 
     window.addEventListener("hashchange", handleHashChange);
     return () => {
       window.removeEventListener("hashchange", handleHashChange);
     };
-  }, [state.activeModule]);
+  }, []);
 
-  // Sync state.activeModule back to URL hash safely without triggering events
+  // Ensure default hash if URL hash is empty on initial load
   useEffect(() => {
-    const canonicalHash =
-      state.activeModule === ActiveModule.TEXT_UTILS
-        ? "case-converter"
-        : state.activeModule === ActiveModule.COMPARE_MERGE
-        ? "compare-text"
-        : "formatter";
-
-    const currentHash = window.location.hash.toLowerCase();
-    const matchedModule = HASH_MAP[currentHash];
-    
-    // Only overwrite if current hash is empty or doesn't map to the active module at all
-    if (!currentHash || matchedModule !== state.activeModule) {
-      window.history.replaceState(null, "", `#${canonicalHash}`);
+    if (!window.location.hash) {
+      window.history.replaceState(null, "", "#case-converter");
     }
-  }, [state.activeModule]);
+  }, []);
 
   const handleModuleStateChange = <K extends keyof AppState>(
     moduleKey: K,

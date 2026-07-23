@@ -5,6 +5,7 @@ import {
   GitCompare, 
   Terminal, 
   FileSpreadsheet,
+  Layers,
   Sun, 
   Moon, 
   Sliders,
@@ -67,6 +68,13 @@ export default function Sidebar({
       description: "Validate & split account creation templates",
       icon: FileSpreadsheet,
       hashId: "excel-splitter",
+    },
+    {
+      id: ActiveModule.EXCEL_MERGER,
+      label: "Excel Merger & Extractor",
+      description: "Merge XLSX files & extract credentials",
+      icon: Layers,
+      hashId: "excel-merger",
     }
   ];
 

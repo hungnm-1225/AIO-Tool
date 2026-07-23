@@ -4,6 +4,7 @@ import Sidebar from "./components/Sidebar";
 import TextUtilities from "./components/TextUtilities";
 import CompareMerge from "./components/CompareMerge";
 import DataConverterHtml from "./components/DataConverterHtml";
+import ExcelSplitterValidator from "./components/ExcelSplitterValidator";
 import { Menu, Sun, Moon, Sliders } from "lucide-react";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -37,6 +38,11 @@ const HASH_MAP: Record<string, ActiveModule> = {
   "#html-preview": ActiveModule.DATA_CONVERTER,
   "#chuyen-doi-du-lieu": ActiveModule.DATA_CONVERTER,
   "#chuyen-doi": ActiveModule.DATA_CONVERTER,
+
+  "#excel-splitter": ActiveModule.EXCEL_SPLITTER,
+  "#excel": ActiveModule.EXCEL_SPLITTER,
+  "#splitter": ActiveModule.EXCEL_SPLITTER,
+  "#account-template": ActiveModule.EXCEL_SPLITTER,
 };
 
 const DEFAULT_STATE: AppState = {
@@ -77,6 +83,12 @@ const DEFAULT_STATE: AppState = {
     htmlSplitInput: "<div class='greeting'>\n  <h3>Welcome to Vibe Code Sandbox!</h3>\n  <p>Modify HTML, CSS, and JS side-by-side to see immediate updates.</p>\n  <button id='action-btn'>Click Me</button>\n</div>",
     cssSplitInput: "body {\n  font-family: system-ui, -apple-system, sans-serif;\n  background: #0f172a;\n  color: #f8fafc;\n  display: flex;\n  justify-content: center;\n  align-items: center;\n  height: 100vh;\n  margin: 0;\n}\n.greeting {\n  text-align: center;\n  padding: 2.5rem;\n  background: #1e293b;\n  border: 1px solid #334155;\n  border-radius: 1.5rem;\n  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);\n}\nbutton {\n  background: #6366f1;\n  color: white;\n  border: none;\n  padding: 0.6rem 1.2rem;\n  font-weight: bold;\n  border-radius: 0.5rem;\n  cursor: pointer;\n  margin-top: 1rem;\n  transition: opacity 0.2s;\n}\nbutton:hover {\n  opacity: 0.9;\n}",
     jsSplitInput: "const btn = document.getElementById('action-btn');\nif (btn) {\n  btn.addEventListener('click', () => {\n    console.log('Button interactive click action!');\n  });\n}",
+  },
+  excelSplitter: {
+    maxRecordsPerFile: 50,
+    showErrorsOnly: false,
+    pageSize: 10,
+    exportFormat: "zip",
   },
 };
 
@@ -213,7 +225,9 @@ export default function App() {
                 ? "case-converter"
                 : mod === ActiveModule.COMPARE_MERGE
                 ? "compare-text"
-                : "formatter";
+                : mod === ActiveModule.DATA_CONVERTER
+                ? "formatter"
+                : "excel-splitter";
             window.location.hash = canonicalHash;
             setIsMobileMenuOpen(false); // Auto-close drawer on selection!
           }}
@@ -241,6 +255,12 @@ export default function App() {
           <DataConverterHtml
             state={state.dataConverter}
             onChange={(subState) => handleModuleStateChange("dataConverter", subState)}
+          />
+        )}
+        {state.activeModule === ActiveModule.EXCEL_SPLITTER && (
+          <ExcelSplitterValidator
+            state={state.excelSplitter}
+            onChange={(subState) => handleModuleStateChange("excelSplitter", subState)}
           />
         )}
       </main>

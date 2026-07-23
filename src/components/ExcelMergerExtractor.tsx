@@ -211,36 +211,134 @@ export default function ExcelMergerExtractor({
 
         if (rawAoa.length < 1) continue;
 
-        // Header row (Row 1)
-        const headerRow = rawAoa[0].map((h: any) => String(h).trim());
+        // Header row detection
+        let headerRowIdx = 0;
+        let maxScore = -1;
+        const keywords = ["first", "last", "user", "pass", "email", "phone", "mobile", "sdt", "birth", "dob", "role", "họ", "tên", "ngàysinh", "vaitro"];
+
+        for (let r = 0; r < Math.min(10, rawAoa.length); r++) {
+          const rowStr = (rawAoa[r] || []).map((c) => String(c).toLowerCase()).join(" ");
+          let score = 0;
+          keywords.forEach((kw) => {
+            if (rowStr.includes(kw)) score++;
+          });
+          if (score > maxScore) {
+            maxScore = score;
+            headerRowIdx = r;
+          }
+        }
+
+        const headerRow = (rawAoa[headerRowIdx] || []).map((h: any) => String(h).trim());
 
         // Dynamic column mapper
         const colIndexes: Record<string, number> = {};
         headerRow.forEach((colName, idx) => {
-          const norm = colName.toLowerCase().replace(/[^a-z0-9]/g, "");
-          if (norm.includes("first") || norm.includes("ten")) colIndexes["firstName"] = idx;
-          else if (norm.includes("last") || norm.includes("ho")) colIndexes["lastName"] = idx;
-          else if (norm.includes("username") || norm.includes("user")) colIndexes["username"] = idx;
-          else if (norm.includes("password") || norm.includes("pass")) colIndexes["password"] = idx;
-          else if (norm.includes("email")) colIndexes["email"] = idx;
-          else if (norm.includes("mobile") || norm.includes("phone") || norm.includes("sdt"))
+          const norm = colName
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]/g, "");
+          const rawLower = colName.toLowerCase();
+
+          // Phone / Mobile number
+          if (
+            norm.includes("mobile") ||
+            norm.includes("phone") ||
+            norm.includes("sdt") ||
+            norm.includes("dienthoai") ||
+            norm.includes("contact") ||
+            rawLower.includes("số đt") ||
+            rawLower.includes("sđt")
+          ) {
             colIndexes["mobileNumber"] = idx;
-          else if (norm.includes("birth") || norm.includes("dob") || norm.includes("ngay"))
+          }
+          // Email
+          else if (norm.includes("email") || norm.includes("mail")) {
+            colIndexes["email"] = idx;
+          }
+          // Username
+          else if (norm.includes("username") || norm.includes("user")) {
+            colIndexes["username"] = idx;
+          }
+          // Password
+          else if (norm.includes("password") || norm.includes("pass")) {
+            colIndexes["password"] = idx;
+          }
+          // DOB
+          else if (
+            norm.includes("birth") ||
+            norm.includes("dob") ||
+            norm.includes("ngaysinh") ||
+            rawLower.includes("ngày sinh")
+          ) {
             colIndexes["dob"] = idx;
-          else if (norm.includes("role") || norm.includes("vaitro")) colIndexes["role"] = idx;
+          }
+          // Role
+          else if (
+            norm.includes("role") ||
+            norm.includes("vaitro") ||
+            norm.includes("chucvu") ||
+            rawLower.includes("vai trò")
+          ) {
+            colIndexes["role"] = idx;
+          }
+          // First Name
+          else if (
+            norm === "first" ||
+            norm.includes("firstname") ||
+            norm === "ten" ||
+            norm.includes("tengoi") ||
+            norm.includes("givenname")
+          ) {
+            colIndexes["firstName"] = idx;
+          }
+          // Last Name
+          else if (
+            norm === "last" ||
+            norm.includes("lastname") ||
+            norm === "ho" ||
+            norm.includes("surname") ||
+            norm.includes("familyname")
+          ) {
+            colIndexes["lastName"] = idx;
+          }
+          // Full Name
+          else if (
+            norm.includes("fullname") ||
+            norm.includes("hovaten") ||
+            norm.includes("hoten")
+          ) {
+            colIndexes["firstName"] = idx;
+            colIndexes["lastName"] = idx;
+          }
         });
 
         // Positional fallbacks if header names differ
-        const fnIdx = colIndexes["firstName"] ?? 0;
-        const lnIdx = colIndexes["lastName"] ?? 1;
-        const unIdx = colIndexes["username"] ?? 2;
-        const pwIdx = colIndexes["password"] ?? 3;
-        const emIdx = colIndexes["email"] ?? 4;
-        const mbIdx = colIndexes["mobileNumber"] ?? 5;
-        const dbIdx = colIndexes["dob"] ?? 6;
-        const rlIdx = colIndexes["role"] ?? 7;
+        const assigned = new Set<number>(Object.values(colIndexes));
+        const findNextUnassigned = (preferred: number) => {
+          if (!assigned.has(preferred) && preferred < headerRow.length) {
+            assigned.add(preferred);
+            return preferred;
+          }
+          for (let i = 0; i < Math.max(headerRow.length, 10); i++) {
+            if (!assigned.has(i)) {
+              assigned.add(i);
+              return i;
+            }
+          }
+          return preferred;
+        };
 
-        const dataRows = rawAoa.slice(1);
+        const fnIdx = colIndexes["firstName"] ?? findNextUnassigned(0);
+        const lnIdx = colIndexes["lastName"] ?? findNextUnassigned(1);
+        const unIdx = colIndexes["username"] ?? findNextUnassigned(2);
+        const pwIdx = colIndexes["password"] ?? findNextUnassigned(3);
+        const emIdx = colIndexes["email"] ?? findNextUnassigned(4);
+        const mbIdx = colIndexes["mobileNumber"] ?? findNextUnassigned(5);
+        const dbIdx = colIndexes["dob"] ?? findNextUnassigned(6);
+        const rlIdx = colIndexes["role"] ?? findNextUnassigned(7);
+
+        const dataRows = rawAoa.slice(headerRowIdx + 1);
         const fileRecords: MergedRecord[] = [];
 
         dataRows.forEach((row, rowIdx) => {

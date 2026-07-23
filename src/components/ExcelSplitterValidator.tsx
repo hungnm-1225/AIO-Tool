@@ -22,7 +22,11 @@ import {
   Check,
   Archive,
   RotateCcw,
-  Layers
+  Layers,
+  ChevronDown,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown
 } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -212,7 +216,23 @@ export default function ExcelSplitterValidator({
   const [fileName, setFileName] = useState<string>("Account_Creation_Template.xlsx");
   const [isDragging, setIsDragging] = useState(false);
 
-  // Table filtering & pagination
+  // Table filtering & pagination & sorting
+  type SplitterSortField =
+    | "default"
+    | "rowIndex"
+    | "status"
+    | "firstName"
+    | "lastName"
+    | "phoneNumber"
+    | "email"
+    | "dob"
+    | "role";
+
+  const [sortField, setSortField] = useState<SplitterSortField>("default");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false);
+  const [pendingExportFormat, setPendingExportFormat] = useState<"zip" | "individual">("zip");
+
   const [filterMode, setFilterMode] = useState<"all" | "errors" | "valid">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -809,36 +829,6 @@ export default function ExcelSplitterValidator({
               </button>
             </div>
           )}
-
-          <button
-            onClick={handleDownloadSampleTemplate}
-            className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-2 shadow-xs cursor-pointer transition-all"
-            title="Download sample 5-row header Excel template"
-          >
-            <Download className="h-4 w-4 text-indigo-500" />
-            <span>Sample Template (.xlsx)</span>
-          </button>
-
-          {records.length > 0 && (
-            <>
-              <button
-                onClick={handleResetAll}
-                className="px-3.5 py-2 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2 shadow-xs cursor-pointer transition-all"
-                title="Clear selected file and reset all records"
-              >
-                <RotateCcw className="h-4 w-4" />
-                <span>Clear List</span>
-              </button>
-
-              <button
-                onClick={handleAddNewRecord}
-                className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-2 shadow-sm cursor-pointer transition-all"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Add Record</span>
-              </button>
-            </>
-          )}
         </div>
       </div>
 
@@ -867,16 +857,27 @@ export default function ExcelSplitterValidator({
             Upload your corporate template file. The system preserves the <strong>5-row header structure</strong>, validates roles (Teacher / Student), email requirements, and normalizes Date of Birth (DD/MM/YYYY) automatically.
           </p>
 
-          <label className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-md shadow-indigo-600/20 cursor-pointer transition-all flex items-center gap-2">
-            <FileSpreadsheet className="h-4 w-4" />
-            <span>Browse Excel File</span>
-            <input
-              type="file"
-              accept=".xlsx, .xls, .csv"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-          </label>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <label className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-md shadow-indigo-600/20 cursor-pointer transition-all flex items-center gap-2">
+              <FileSpreadsheet className="h-4 w-4" />
+              <span>Browse Excel File</span>
+              <input
+                type="file"
+                accept=".xlsx, .xls, .csv"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </label>
+
+            <button
+              onClick={handleDownloadSampleTemplate}
+              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center gap-2 cursor-pointer transition-all"
+              title="Download sample 5-row header Excel template"
+            >
+              <Download className="h-4 w-4 text-indigo-500" />
+              <span>Sample Template (.xlsx)</span>
+            </button>
+          </div>
         </div>
       ) : (
         <>

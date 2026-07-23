@@ -22,7 +22,8 @@ import {
   CheckCircle2,
   Key,
   UserCheck,
-  X
+  X,
+  GripVertical
 } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -84,6 +85,10 @@ export default function ExcelMergerExtractor({
   const [isDragging, setIsDragging] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<{ name: string; recordCount: number } | null>(null);
 
+  // Drag & drop file reordering state
+  const [draggedFileIndex, setDraggedFileIndex] = useState<number | null>(null);
+  const [dragOverFileIndex, setDragOverFileIndex] = useState<number | null>(null);
+
   // Sorting & Filtering
   const [sortField, setSortField] = useState<SortField>("default");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
@@ -109,19 +114,21 @@ export default function ExcelMergerExtractor({
     return String(val).trim();
   };
 
-  // Rebuild state dataset from fileStores with natural sorting
-  const rebuildFromStores = useCallback((stores: FileDataStore[]) => {
-    const sortedStores = [...stores].sort((a, b) =>
-      a.fileName.localeCompare(b.fileName, undefined, {
-        numeric: true,
-        sensitivity: "base"
-      })
-    );
+  // Rebuild state dataset from fileStores with natural or preserved custom order
+  const rebuildFromStores = useCallback((stores: FileDataStore[], preserveStoreOrder = false) => {
+    const finalStores = preserveStoreOrder
+      ? [...stores]
+      : [...stores].sort((a, b) =>
+          a.fileName.localeCompare(b.fileName, undefined, {
+            numeric: true,
+            sensitivity: "base"
+          })
+        );
 
     const newAllRecords: MergedRecord[] = [];
     const filesSummary: LoadedFileInfo[] = [];
 
-    sortedStores.forEach((store, fIdx) => {
+    finalStores.forEach((store, fIdx) => {
       const updatedStoreRecords = store.records.map((r, rIdx) => ({
         ...r,
         _originalFileIndex: fIdx,
@@ -137,7 +144,7 @@ export default function ExcelMergerExtractor({
       });
     });
 
-    setFileStores(sortedStores);
+    setFileStores(finalStores);
     setRecords(newAllRecords);
     setLoadedFiles(filesSummary);
     setSortField("default");
@@ -145,6 +152,27 @@ export default function ExcelMergerExtractor({
 
     return { allRecords: newAllRecords, summary: filesSummary };
   }, []);
+
+  // Reorder files via drag & drop
+  const handleReorderFiles = (fromIndex: number, toIndex: number) => {
+    if (
+      fromIndex === toIndex ||
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= fileStores.length ||
+      toIndex >= fileStores.length
+    ) {
+      return;
+    }
+    const updatedStores = [...fileStores];
+    const [movedStore] = updatedStores.splice(fromIndex, 1);
+    updatedStores.splice(toIndex, 0, movedStore);
+
+    rebuildFromStores(updatedStores, true);
+    toast.success(
+      `Reordered file sequence: "${movedStore.fileName}" moved to position #${toIndex + 1}`
+    );
+  };
 
   // Multiple File Processing with Natural Filename Sorting & Preservation of existing files
   const processFiles = useCallback(async (files: File[]) => {
@@ -578,16 +606,6 @@ export default function ExcelMergerExtractor({
               </button>
             </div>
           )}
-
-          {records.length > 0 && (
-            <button
-              onClick={handleClearAll}
-              className="px-3.5 py-2 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2 shadow-xs cursor-pointer transition-all"
-            >
-              <RotateCcw className="h-4 w-4" />
-              <span>Clear List</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -652,7 +670,7 @@ export default function ExcelMergerExtractor({
                     Merged Dataset: {records.length} Total Records across {loadedFiles.length} Files
                   </h4>
                   <p className="text-[11px] text-slate-400">
-                    Files naturally sorted numerically by filename.
+                    Drag & drop file badges below to reorder files and update table record sequence.
                   </p>
                 </div>
               </div>
@@ -680,30 +698,71 @@ export default function ExcelMergerExtractor({
               </div>
             </div>
 
-            {/* File List Badges (Natural Order) */}
+            {/* File List Badges with Drag and Drop Reordering */}
             <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/60">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Files (Natural Sequence):
+                Files (Drag & Drop to reorder):
               </span>
               {loadedFiles.map((f, idx) => (
-                <span
-                  key={idx}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/50 group"
+                <div
+                  key={f.name}
+                  draggable
+                  onDragStart={(e) => {
+                    setDraggedFileIndex(idx);
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", String(idx));
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    if (dragOverFileIndex !== idx) {
+                      setDragOverFileIndex(idx);
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverFileIndex === idx) {
+                      setDragOverFileIndex(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (draggedFileIndex !== null && draggedFileIndex !== idx) {
+                      handleReorderFiles(draggedFileIndex, idx);
+                    }
+                    setDraggedFileIndex(null);
+                    setDragOverFileIndex(null);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedFileIndex(null);
+                    setDragOverFileIndex(null);
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-mono font-medium border cursor-grab active:cursor-grabbing transition-all select-none ${
+                    draggedFileIndex === idx
+                      ? "opacity-40 border-dashed border-purple-500 bg-purple-100 dark:bg-purple-900/40"
+                      : dragOverFileIndex === idx
+                      ? "border-purple-500 bg-purple-100 dark:bg-purple-900/60 ring-2 ring-purple-500/50 scale-105"
+                      : "bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border-purple-200/60 dark:border-purple-800/50 hover:border-purple-400"
+                  }`}
+                  title="Click and drag to reorder file sequence"
                 >
-                  <span className="text-[10px] opacity-60">#{idx + 1}</span>
-                  <span>{f.name}</span>
-                  <span className="px-1.5 py-0.2 rounded-full bg-purple-200 dark:bg-purple-900 text-[10px] font-bold">
+                  <GripVertical className="h-3.5 w-3.5 text-purple-400/80 shrink-0" />
+                  <span className="text-[10px] opacity-60 font-bold">#{idx + 1}</span>
+                  <span className="font-semibold">{f.name}</span>
+                  <span className="px-1.5 py-0.2 rounded-full bg-purple-200/80 dark:bg-purple-900 text-[10px] font-bold">
                     {f.recordCount} recs
                   </span>
                   <button
                     type="button"
-                    onClick={() => handlePromptDeleteFile(f.name, f.recordCount)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePromptDeleteFile(f.name, f.recordCount);
+                    }}
                     className="ml-0.5 p-0.5 rounded-md hover:bg-rose-500 hover:text-white text-slate-400 dark:text-slate-400 transition-colors cursor-pointer"
                     title={`Delete ${f.name} and remove its data`}
                   >
                     <X className="h-3 w-3" />
                   </button>
-                </span>
+                </div>
               ))}
             </div>
           </div>

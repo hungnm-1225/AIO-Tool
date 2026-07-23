@@ -651,9 +651,29 @@ export default function ExcelSplitterValidator({
     return { total, valid, erroneous, teachers, students };
   }, [records]);
 
-  // Filtered Records
-  const filteredRecords = useMemo(() => {
-    return records.filter((rec) => {
+  const handleHeaderSort = (field: SplitterSortField) => {
+    if (sortField === field) {
+      if (sortDirection === "asc") {
+        setSortDirection("desc");
+      } else {
+        setSortField("default");
+        setSortDirection("asc");
+      }
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const handleRestoreDefaultOrder = () => {
+    setSortField("default");
+    setSortDirection("asc");
+    toast.info("Restored original Excel row order.");
+  };
+
+  // Filtered & Sorted Records
+  const filteredAndSortedRecords = useMemo(() => {
+    let list = records.filter((rec) => {
       // 1. Filter mode
       if (filterMode === "errors" && rec.isValid) return false;
       if (filterMode === "valid" && !rec.isValid) return false;
@@ -667,14 +687,35 @@ export default function ExcelSplitterValidator({
 
       return true;
     });
-  }, [records, filterMode, searchQuery]);
+
+    if (sortField === "default") {
+      list.sort((a, b) => a.rowIndex - b.rowIndex);
+    } else {
+      list.sort((a, b) => {
+        if (sortField === "rowIndex") {
+          return sortDirection === "asc" ? a.rowIndex - b.rowIndex : b.rowIndex - a.rowIndex;
+        } else if (sortField === "status") {
+          const valA = a.isValid ? 1 : 0;
+          const valB = b.isValid ? 1 : 0;
+          return sortDirection === "asc" ? valA - valB : valB - valA;
+        } else {
+          const valA = String(a[sortField as keyof ParsedRecord] || "").toLowerCase();
+          const valB = String(b[sortField as keyof ParsedRecord] || "").toLowerCase();
+          const cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: "base" });
+          return sortDirection === "asc" ? cmp : -cmp;
+        }
+      });
+    }
+
+    return list;
+  }, [records, filterMode, searchQuery, sortField, sortDirection]);
 
   // Pagination
-  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(filteredAndSortedRecords.length / pageSize));
   const paginatedRecords = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredRecords.slice(start, start + pageSize);
-  }, [filteredRecords, currentPage, pageSize]);
+    return filteredAndSortedRecords.slice(start, start + pageSize);
+  }, [filteredAndSortedRecords, currentPage, pageSize]);
 
   // Export & Split Handler
   const executeExport = async (recordsToExport: ParsedRecord[]) => {
@@ -992,12 +1033,12 @@ export default function ExcelSplitterValidator({
           {/* File Controls & Splitter Export Settings Bar */}
           <div className="p-4 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800/80 shadow-xs flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
             {/* Active File Label & Re-upload */}
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
-                <FileCheck className="h-4 w-4" />
+            <div className="flex flex-wrap items-center gap-3 min-w-0">
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                <FileCheck className="h-5 w-5" />
               </div>
-              <div className="min-w-0">
-                <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+              <div className="min-w-0 mr-2">
+                <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[200px] sm:max-w-xs">
                   {fileName}
                 </div>
                 <div className="text-[11px] text-slate-400">
@@ -1005,8 +1046,10 @@ export default function ExcelSplitterValidator({
                 </div>
               </div>
 
-              <label className="ml-2 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 cursor-pointer transition-colors shrink-0">
-                Change File
+              {/* Prominent Change File & Reset Buttons */}
+              <label className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-2 shadow-sm shadow-indigo-600/20 cursor-pointer transition-all shrink-0">
+                <Upload className="h-3.5 w-3.5" />
+                <span>Change File</span>
                 <input
                   type="file"
                   accept=".xlsx, .xls, .csv"
@@ -1017,15 +1060,15 @@ export default function ExcelSplitterValidator({
 
               <button
                 onClick={handleResetAll}
-                className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 cursor-pointer transition-colors shrink-0 flex items-center gap-1"
-                title="Clear selected file and all records"
+                className="px-3.5 py-2 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 font-semibold text-xs flex items-center gap-1.5 cursor-pointer transition-all shrink-0 shadow-xs"
+                title="Clear selected file and reset all records"
               >
-                <RotateCcw className="h-3 w-3" />
+                <RotateCcw className="h-3.5 w-3.5" />
                 <span>Reset</span>
               </button>
             </div>
 
-            {/* Split Export Configuration Controls */}
+            {/* Split Export Configuration Controls & Download Dropdown */}
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800">
                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400 pl-2">
@@ -1043,53 +1086,80 @@ export default function ExcelSplitterValidator({
                 />
               </div>
 
-              {/* Export Output Format Toggle: ZIP vs Individual XLSX */}
-              <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+              {/* Single Download Button with Dropdown Menu */}
+              <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setExportFormat("zip")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                    exportFormat === "zip"
-                      ? "bg-indigo-600 text-white shadow-xs"
-                      : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                  }`}
-                  title="Compress all output split files into a single ZIP archive"
+                  onClick={() => setIsDownloadMenuOpen((prev) => !prev)}
+                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-2 shadow-md shadow-emerald-600/20 cursor-pointer transition-all"
                 >
-                  <Archive className="h-3.5 w-3.5" />
-                  <span>ZIP Archive (.zip)</span>
+                  <Download className="h-4 w-4" />
+                  <span>Download</span>
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isDownloadMenuOpen ? "rotate-180" : ""}`} />
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => setExportFormat("individual")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                    exportFormat === "individual"
-                      ? "bg-indigo-600 text-white shadow-xs"
-                      : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                  }`}
-                  title="Download separate .xlsx files individually"
-                >
-                  <FileSpreadsheet className="h-3.5 w-3.5" />
-                  <span>Separate Files (.xlsx)</span>
-                </button>
-              </div>
+                {isDownloadMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setIsDownloadMenuOpen(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-2 space-y-1">
+                      <button
+                        onClick={() => {
+                          setIsDownloadMenuOpen(false);
+                          setExportFormat("zip");
+                          if (stats.erroneous > 0) {
+                            setPendingExportFormat("zip");
+                            setShowExportModal(true);
+                          } else {
+                            executeExport(records);
+                          }
+                        }}
+                        className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 flex items-start gap-2.5 group cursor-pointer transition-colors"
+                      >
+                        <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 mt-0.5 shrink-0">
+                          <Archive className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                            Download as ZIP (.zip)
+                          </div>
+                          <div className="text-[11px] text-slate-400 leading-snug mt-0.5">
+                            Compress all split files into a single ZIP archive
+                          </div>
+                        </div>
+                      </button>
 
-              <button
-                onClick={handleSplitAndExport}
-                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-2 shadow-md shadow-emerald-600/20 cursor-pointer transition-all"
-              >
-                {exportFormat === "zip" ? (
-                  <>
-                    <Archive className="h-4 w-4" />
-                    <span>Split & Download ZIP</span>
-                  </>
-                ) : (
-                  <>
-                    <Download className="h-4 w-4" />
-                    <span>Split & Download XLSX</span>
+                      <button
+                        onClick={() => {
+                          setIsDownloadMenuOpen(false);
+                          setExportFormat("individual");
+                          if (stats.erroneous > 0) {
+                            setPendingExportFormat("individual");
+                            setShowExportModal(true);
+                          } else {
+                            executeExport(records);
+                          }
+                        }}
+                        className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 flex items-start gap-2.5 group cursor-pointer transition-colors"
+                      >
+                        <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0">
+                          <FileSpreadsheet className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+                            Separate Files (.xlsx)
+                          </div>
+                          <div className="text-[11px] text-slate-400 leading-snug mt-0.5">
+                            Download individual split .xlsx files separately
+                          </div>
+                        </div>
+                      </button>
+                    </div>
                   </>
                 )}
-              </button>
+              </div>
             </div>
           </div>
 
@@ -1147,8 +1217,19 @@ export default function ExcelSplitterValidator({
                 </button>
               </div>
 
-              {/* Search Box & Page Size */}
-              <div className="flex items-center gap-3">
+              {/* Search Box, Page Size & Restore Default Order Button */}
+              <div className="flex flex-wrap items-center gap-3">
+                {sortField !== "default" && (
+                  <button
+                    onClick={handleRestoreDefaultOrder}
+                    className="px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
+                    title="Restore original Excel row order"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span>Restore Default Order</span>
+                  </button>
+                )}
+
                 <div className="relative flex-1 sm:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                   <input
@@ -1188,24 +1269,163 @@ export default function ExcelSplitterValidator({
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
-                    <th className="py-3 px-3 w-12 text-center">Row</th>
-                    <th className="py-3 px-3 w-20 text-center">Status</th>
-                    <th className="py-3 px-3 min-w-[120px]">
-                      First Name <span className="text-rose-500 font-bold ml-0.5">(*)</span>
+                    <th
+                      onClick={() => handleHeaderSort("rowIndex")}
+                      className="py-3 px-3 w-12 text-center cursor-pointer select-none hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors"
+                      title="Sort by Row number"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Row</span>
+                        {sortField === "rowIndex" ? (
+                          sortDirection === "asc" ? (
+                            <ArrowUp className="h-3 w-3 text-indigo-500" />
+                          ) : (
+                            <ArrowDown className="h-3 w-3 text-indigo-500" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="h-3 w-3 text-slate-400 opacity-50" />
+                        )}
+                      </div>
                     </th>
-                    <th className="py-3 px-3 min-w-[120px]">
-                      Last Name <span className="text-rose-500 font-bold ml-0.5">(*)</span>
+
+                    <th
+                      onClick={() => handleHeaderSort("status")}
+                      className="py-3 px-3 w-20 text-center cursor-pointer select-none hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors"
+                      title="Sort by Validation Status"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Status</span>
+                        {sortField === "status" ? (
+                          sortDirection === "asc" ? (
+                            <ArrowUp className="h-3 w-3 text-indigo-500" />
+                          ) : (
+                            <ArrowDown className="h-3 w-3 text-indigo-500" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="h-3 w-3 text-slate-400 opacity-50" />
+                        )}
+                      </div>
                     </th>
-                    <th className="py-3 px-3 min-w-[130px]">Phone Number</th>
-                    <th className="py-3 px-3 min-w-[180px]">
-                      Email <span className="text-rose-500 font-bold ml-0.5">(*)</span>
+
+                    <th
+                      onClick={() => handleHeaderSort("firstName")}
+                      className="py-3 px-3 min-w-[120px] cursor-pointer select-none hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors"
+                      title="Sort by First Name"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>First Name</span>
+                        <span className="text-rose-500 font-bold ml-0.5">(*)</span>
+                        {sortField === "firstName" ? (
+                          sortDirection === "asc" ? (
+                            <ArrowUp className="h-3 w-3 text-indigo-500" />
+                          ) : (
+                            <ArrowDown className="h-3 w-3 text-indigo-500" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="h-3 w-3 text-slate-400 opacity-50" />
+                        )}
+                      </div>
                     </th>
-                    <th className="py-3 px-3 min-w-[140px]">
-                      Date of Birth <span className="text-rose-500 font-bold ml-0.5">(*)</span>
+
+                    <th
+                      onClick={() => handleHeaderSort("lastName")}
+                      className="py-3 px-3 min-w-[120px] cursor-pointer select-none hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors"
+                      title="Sort by Last Name"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Last Name</span>
+                        <span className="text-rose-500 font-bold ml-0.5">(*)</span>
+                        {sortField === "lastName" ? (
+                          sortDirection === "asc" ? (
+                            <ArrowUp className="h-3 w-3 text-indigo-500" />
+                          ) : (
+                            <ArrowDown className="h-3 w-3 text-indigo-500" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="h-3 w-3 text-slate-400 opacity-50" />
+                        )}
+                      </div>
                     </th>
-                    <th className="py-3 px-3 min-w-[110px]">
-                      Role <span className="text-rose-500 font-bold ml-0.5">(*)</span>
+
+                    <th
+                      onClick={() => handleHeaderSort("phoneNumber")}
+                      className="py-3 px-3 min-w-[130px] cursor-pointer select-none hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors"
+                      title="Sort by Phone Number"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Phone Number</span>
+                        {sortField === "phoneNumber" ? (
+                          sortDirection === "asc" ? (
+                            <ArrowUp className="h-3 w-3 text-indigo-500" />
+                          ) : (
+                            <ArrowDown className="h-3 w-3 text-indigo-500" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="h-3 w-3 text-slate-400 opacity-50" />
+                        )}
+                      </div>
                     </th>
+
+                    <th
+                      onClick={() => handleHeaderSort("email")}
+                      className="py-3 px-3 min-w-[180px] cursor-pointer select-none hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors"
+                      title="Sort by Email"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Email</span>
+                        <span className="text-rose-500 font-bold ml-0.5">(*)</span>
+                        {sortField === "email" ? (
+                          sortDirection === "asc" ? (
+                            <ArrowUp className="h-3 w-3 text-indigo-500" />
+                          ) : (
+                            <ArrowDown className="h-3 w-3 text-indigo-500" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="h-3 w-3 text-slate-400 opacity-50" />
+                        )}
+                      </div>
+                    </th>
+
+                    <th
+                      onClick={() => handleHeaderSort("dob")}
+                      className="py-3 px-3 min-w-[140px] cursor-pointer select-none hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors"
+                      title="Sort by Date of Birth"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Date of Birth</span>
+                        <span className="text-rose-500 font-bold ml-0.5">(*)</span>
+                        {sortField === "dob" ? (
+                          sortDirection === "asc" ? (
+                            <ArrowUp className="h-3 w-3 text-indigo-500" />
+                          ) : (
+                            <ArrowDown className="h-3 w-3 text-indigo-500" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="h-3 w-3 text-slate-400 opacity-50" />
+                        )}
+                      </div>
+                    </th>
+
+                    <th
+                      onClick={() => handleHeaderSort("role")}
+                      className="py-3 px-3 min-w-[110px] cursor-pointer select-none hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors"
+                      title="Sort by Role"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Role</span>
+                        <span className="text-rose-500 font-bold ml-0.5">(*)</span>
+                        {sortField === "role" ? (
+                          sortDirection === "asc" ? (
+                            <ArrowUp className="h-3 w-3 text-indigo-500" />
+                          ) : (
+                            <ArrowDown className="h-3 w-3 text-indigo-500" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="h-3 w-3 text-slate-400 opacity-50" />
+                        )}
+                      </div>
+                    </th>
+
                     <th className="py-3 px-3 min-w-[200px]">Validation Details</th>
                     <th className="py-3 px-3 w-14 text-center">Action</th>
                   </tr>
@@ -1395,17 +1615,17 @@ export default function ExcelSplitterValidator({
               <div>
                 Showing{" "}
                 <span className="font-bold text-slate-700 dark:text-slate-300">
-                  {filteredRecords.length === 0
+                  {filteredAndSortedRecords.length === 0
                     ? 0
                     : (currentPage - 1) * pageSize + 1}
                 </span>{" "}
                 to{" "}
                 <span className="font-bold text-slate-700 dark:text-slate-300">
-                  {Math.min(currentPage * pageSize, filteredRecords.length)}
+                  {Math.min(currentPage * pageSize, filteredAndSortedRecords.length)}
                 </span>{" "}
                 of{" "}
                 <span className="font-bold text-slate-700 dark:text-slate-300">
-                  {filteredRecords.length}
+                  {filteredAndSortedRecords.length}
                 </span>{" "}
                 records
               </div>

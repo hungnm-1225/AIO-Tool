@@ -5,6 +5,7 @@ import TextUtilities from "./components/TextUtilities";
 import CompareMerge from "./components/CompareMerge";
 import DataConverterHtml from "./components/DataConverterHtml";
 import ExcelSplitterValidator from "./components/ExcelSplitterValidator";
+import ExcelMergerExtractor from "./components/ExcelMergerExtractor";
 import { Menu, Sun, Moon, Sliders } from "lucide-react";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -43,6 +44,12 @@ const HASH_MAP: Record<string, ActiveModule> = {
   "#excel": ActiveModule.EXCEL_SPLITTER,
   "#splitter": ActiveModule.EXCEL_SPLITTER,
   "#account-template": ActiveModule.EXCEL_SPLITTER,
+
+  "#excel-merger": ActiveModule.EXCEL_MERGER,
+  "#merger": ActiveModule.EXCEL_MERGER,
+  "#extractor": ActiveModule.EXCEL_MERGER,
+  "#excel-extractor": ActiveModule.EXCEL_MERGER,
+  "#account-merger": ActiveModule.EXCEL_MERGER,
 };
 
 const DEFAULT_STATE: AppState = {
@@ -89,6 +96,9 @@ const DEFAULT_STATE: AppState = {
     showErrorsOnly: false,
     pageSize: 10,
     exportFormat: "zip",
+  },
+  excelMerger: {
+    pageSize: 10,
   },
 };
 
@@ -227,6 +237,8 @@ export default function App() {
                 ? "compare-text"
                 : mod === ActiveModule.DATA_CONVERTER
                 ? "formatter"
+                : mod === ActiveModule.EXCEL_MERGER
+                ? "excel-merger"
                 : "excel-splitter";
             window.location.hash = canonicalHash;
             setIsMobileMenuOpen(false); // Auto-close drawer on selection!
@@ -261,6 +273,20 @@ export default function App() {
           <ExcelSplitterValidator
             state={state.excelSplitter}
             onChange={(subState) => handleModuleStateChange("excelSplitter", subState)}
+            onSwitchModule={(mod) => {
+              const canonicalHash = mod === ActiveModule.EXCEL_MERGER ? "excel-merger" : "excel-splitter";
+              window.location.hash = canonicalHash;
+            }}
+          />
+        )}
+        {state.activeModule === ActiveModule.EXCEL_MERGER && (
+          <ExcelMergerExtractor
+            state={state.excelMerger}
+            onChange={(subState) => handleModuleStateChange("excelMerger", subState)}
+            onSwitchModule={(mod) => {
+              const canonicalHash = mod === ActiveModule.EXCEL_MERGER ? "excel-merger" : "excel-splitter";
+              window.location.hash = canonicalHash;
+            }}
           />
         )}
       </main>

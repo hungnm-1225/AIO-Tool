@@ -21,7 +21,8 @@ import {
   FileCheck,
   CheckCircle2,
   Key,
-  UserCheck
+  UserCheck,
+  X
 } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -39,6 +40,11 @@ export interface MergedRecord {
   dob: string;
   role: string;
   extraCols: Record<string, string>;
+}
+
+export interface FileDataStore {
+  fileName: string;
+  records: MergedRecord[];
 }
 
 export interface LoadedFileInfo {
@@ -72,9 +78,11 @@ export default function ExcelMergerExtractor({
 }: ExcelMergerExtractorProps) {
 
   // State management
+  const [fileStores, setFileStores] = useState<FileDataStore[]>([]);
   const [records, setRecords] = useState<MergedRecord[]>([]);
   const [loadedFiles, setLoadedFiles] = useState<LoadedFileInfo[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<{ name: string; recordCount: number } | null>(null);
 
   // Sorting & Filtering
   const [sortField, setSortField] = useState<SortField>("default");
@@ -101,7 +109,44 @@ export default function ExcelMergerExtractor({
     return String(val).trim();
   };
 
-  // Multiple File Processing with Natural Filename Sorting
+  // Rebuild state dataset from fileStores with natural sorting
+  const rebuildFromStores = useCallback((stores: FileDataStore[]) => {
+    const sortedStores = [...stores].sort((a, b) =>
+      a.fileName.localeCompare(b.fileName, undefined, {
+        numeric: true,
+        sensitivity: "base"
+      })
+    );
+
+    const newAllRecords: MergedRecord[] = [];
+    const filesSummary: LoadedFileInfo[] = [];
+
+    sortedStores.forEach((store, fIdx) => {
+      const updatedStoreRecords = store.records.map((r, rIdx) => ({
+        ...r,
+        _originalFileIndex: fIdx,
+        _originalFileName: store.fileName,
+        _originalRowIndex: rIdx + 2
+      }));
+
+      newAllRecords.push(...updatedStoreRecords);
+      filesSummary.push({
+        name: store.fileName,
+        recordCount: updatedStoreRecords.length,
+        index: fIdx
+      });
+    });
+
+    setFileStores(sortedStores);
+    setRecords(newAllRecords);
+    setLoadedFiles(filesSummary);
+    setSortField("default");
+    setCurrentPage(1);
+
+    return { allRecords: newAllRecords, summary: filesSummary };
+  }, []);
+
+  // Multiple File Processing with Natural Filename Sorting & Preservation of existing files
   const processFiles = useCallback(async (files: File[]) => {
     if (!files || files.length === 0) return;
 
@@ -118,22 +163,12 @@ export default function ExcelMergerExtractor({
       return;
     }
 
-    // CRUCIAL: Natural sort files by filename
-    // Example: account.xlsx, account (1).xlsx, account (2).xlsx ... account (10).xlsx
-    const sortedFiles = [...validFiles].sort((a, b) =>
-      a.name.localeCompare(b.name, undefined, {
-        numeric: true,
-        sensitivity: "base"
-      })
-    );
+    const newParsedStores: FileDataStore[] = [];
 
-    const newRecords: MergedRecord[] = [];
-    const filesSummary: LoadedFileInfo[] = [];
+    toast.info(`Processing ${validFiles.length} uploaded file(s)...`);
 
-    toast.info(`Processing ${sortedFiles.length} file(s) in natural filename order...`);
-
-    for (let fileIdx = 0; fileIdx < sortedFiles.length; fileIdx++) {
-      const file = sortedFiles[fileIdx];
+    for (let fileIdx = 0; fileIdx < validFiles.length; fileIdx++) {
+      const file = validFiles[fileIdx];
       try {
         const buffer = await file.arrayBuffer();
         const workbook = XLSX.read(buffer, { type: "array", cellDates: false });
@@ -178,7 +213,7 @@ export default function ExcelMergerExtractor({
         const rlIdx = colIndexes["role"] ?? 7;
 
         const dataRows = rawAoa.slice(1);
-        let fileRecordCount = 0;
+        const fileRecords: MergedRecord[] = [];
 
         dataRows.forEach((row, rowIdx) => {
           const isAllEmpty = row.every(
@@ -207,11 +242,11 @@ export default function ExcelMergerExtractor({
             }
           });
 
-          newRecords.push({
-            id: `merge-rec-${fileIdx}-${rowIdx}-${Date.now()}`,
-            _originalFileIndex: fileIdx,
+          fileRecords.push({
+            id: `merge-rec-${file.name}-${rowIdx}-${Date.now()}`,
+            _originalFileIndex: 0,
             _originalFileName: file.name,
-            _originalRowIndex: rowIdx + 2, // 1-based row number in Excel
+            _originalRowIndex: rowIdx + 2,
             firstName,
             lastName,
             username,
@@ -222,14 +257,11 @@ export default function ExcelMergerExtractor({
             role,
             extraCols
           });
-
-          fileRecordCount++;
         });
 
-        filesSummary.push({
-          name: file.name,
-          recordCount: fileRecordCount,
-          index: fileIdx
+        newParsedStores.push({
+          fileName: file.name,
+          records: fileRecords
         });
       } catch (err: any) {
         console.error(`Error reading ${file.name}:`, err);
@@ -237,20 +269,27 @@ export default function ExcelMergerExtractor({
       }
     }
 
-    setRecords(newRecords);
-    setLoadedFiles(filesSummary);
-    setSortField("default");
-    setCurrentPage(1);
+    setFileStores((prevStores) => {
+      const existingMap = new Map<string, FileDataStore>();
+      prevStores.forEach((s) => existingMap.set(s.fileName, s));
+      newParsedStores.forEach((s) => existingMap.set(s.fileName, s));
 
-    toast.success(
-      `Successfully merged ${newRecords.length} record(s) from ${sortedFiles.length} file(s)!`
-    );
-  }, []);
+      const updatedStores = Array.from(existingMap.values());
+      const { allRecords, summary } = rebuildFromStores(updatedStores);
+
+      toast.success(
+        `Merged ${newParsedStores.length} file(s). Total dataset now has ${allRecords.length} record(s) across ${summary.length} file(s)!`
+      );
+
+      return updatedStores;
+    });
+  }, [rebuildFromStores]);
 
   // File Change Input Event Handler
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       processFiles(Array.from(e.target.files));
+      e.target.value = "";
     }
   };
 
@@ -298,47 +337,49 @@ export default function ExcelMergerExtractor({
       }
     ];
 
-    const demoRecords: MergedRecord[] = [];
-    const filesSummary: LoadedFileInfo[] = [];
+    const demoStores: FileDataStore[] = demoFilesData.map((f, fIdx) => ({
+      fileName: f.fileName,
+      records: f.records.map((r, rIdx) => ({
+        id: `demo-${fIdx}-${rIdx}`,
+        _originalFileIndex: fIdx,
+        _originalFileName: f.fileName,
+        _originalRowIndex: rIdx + 2,
+        firstName: r[0],
+        lastName: r[1],
+        username: r[2],
+        password: r[3],
+        email: r[4],
+        mobileNumber: r[5],
+        dob: r[6],
+        role: r[7],
+        extraCols: {}
+      }))
+    }));
 
-    demoFilesData.forEach((f, fIdx) => {
-      f.records.forEach((r, rIdx) => {
-        demoRecords.push({
-          id: `demo-${fIdx}-${rIdx}`,
-          _originalFileIndex: fIdx,
-          _originalFileName: f.fileName,
-          _originalRowIndex: rIdx + 2,
-          firstName: r[0],
-          lastName: r[1],
-          username: r[2],
-          password: r[3],
-          email: r[4],
-          mobileNumber: r[5],
-          dob: r[6],
-          role: r[7],
-          extraCols: {}
-        });
-      });
+    rebuildFromStores(demoStores);
+    toast.success("Loaded sample multi-file demo dataset!");
+  };
 
-      filesSummary.push({
-        name: f.fileName,
-        recordCount: f.records.length,
-        index: fIdx
-      });
-    });
+  // Prompt File Deletion Warning
+  const handlePromptDeleteFile = (fileName: string, recordCount: number) => {
+    setFileToDelete({ name: fileName, recordCount });
+  };
 
-    setRecords(demoRecords);
-    setLoadedFiles(filesSummary);
-    setSortField("default");
-    setCurrentPage(1);
+  // Confirm Delete File and remove its data
+  const handleConfirmDeleteFile = () => {
+    if (!fileToDelete) return;
+    const targetName = fileToDelete.name;
 
-    toast.success(
-      "Loaded sample multi-file demo dataset (account.xlsx, account (1).xlsx, account (2).xlsx, account (10).xlsx)!"
-    );
+    const remainingStores = fileStores.filter((s) => s.fileName !== targetName);
+    rebuildFromStores(remainingStores);
+
+    toast.success(`Removed ${targetName} and its ${fileToDelete.recordCount} record(s).`);
+    setFileToDelete(null);
   };
 
   // Clear All
   const handleClearAll = () => {
+    setFileStores([]);
     setRecords([]);
     setLoadedFiles([]);
     setSearchQuery("");
@@ -647,13 +688,21 @@ export default function ExcelMergerExtractor({
               {loadedFiles.map((f, idx) => (
                 <span
                   key={idx}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/50"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/50 group"
                 >
                   <span className="text-[10px] opacity-60">#{idx + 1}</span>
                   <span>{f.name}</span>
                   <span className="px-1.5 py-0.2 rounded-full bg-purple-200 dark:bg-purple-900 text-[10px] font-bold">
                     {f.recordCount} recs
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => handlePromptDeleteFile(f.name, f.recordCount)}
+                    className="ml-0.5 p-0.5 rounded-md hover:bg-rose-500 hover:text-white text-slate-400 dark:text-slate-400 transition-colors cursor-pointer"
+                    title={`Delete ${f.name} and remove its data`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
                 </span>
               ))}
             </div>
@@ -1047,6 +1096,49 @@ export default function ExcelMergerExtractor({
             )}
           </div>
         </>
+      )}
+
+      {/* File Delete Confirmation Modal */}
+      {fileToDelete && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
+              <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900/50">
+                <Trash2 className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                  Confirm File Deletion
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Remove file and all associated records
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Are you sure you want to remove <strong className="font-mono text-purple-600 dark:text-purple-400">{fileToDelete.name}</strong>?
+              This action will permanently delete <strong className="text-rose-600 dark:text-rose-400">{fileToDelete.recordCount} records</strong> from the merged dataset.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setFileToDelete(null)}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteFile}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs shadow-md shadow-rose-600/20 transition-all cursor-pointer"
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

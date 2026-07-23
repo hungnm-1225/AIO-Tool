@@ -64,17 +64,10 @@ export default function Sidebar({
     },
     {
       id: ActiveModule.EXCEL_SPLITTER,
-      label: "Excel Splitter & Validator",
-      description: "Validate & split account creation templates",
+      label: "Excel Account Suite",
+      description: "Split, validate, merge & extract credentials",
       icon: FileSpreadsheet,
       hashId: "excel-splitter",
-    },
-    {
-      id: ActiveModule.EXCEL_MERGER,
-      label: "Excel Merger & Extractor",
-      description: "Merge XLSX files & extract credentials",
-      icon: Layers,
-      hashId: "excel-merger",
     }
   ];
 
@@ -148,7 +141,10 @@ export default function Sidebar({
         <div className={`px-4 ${isCollapsed ? "mt-2 space-y-2 flex flex-col items-center" : "mt-2 space-y-1.5"}`}>
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeModule === item.id;
+            const isActive =
+              activeModule === item.id ||
+              (item.id === ActiveModule.EXCEL_SPLITTER &&
+                activeModule === ActiveModule.EXCEL_MERGER);
                         if (isCollapsed) {
               return (
                 <button

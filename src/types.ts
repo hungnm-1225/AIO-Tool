@@ -2,6 +2,7 @@ export enum ActiveModule {
   TEXT_UTILS = "text_utils",
   COMPARE_MERGE = "compare_merge",
   DATA_CONVERTER = "data_converter",
+  EXCEL_SPLITTER = "excel_splitter",
 }
 
 export interface TextUtilsState {
@@ -41,10 +42,18 @@ export interface DataConverterState {
   jsSplitInput: string;
 }
 
+export interface ExcelSplitterState {
+  maxRecordsPerFile: number;
+  showErrorsOnly: boolean;
+  pageSize: number;
+  exportFormat?: "individual" | "zip";
+}
+
 export interface AppState {
   theme: "dark" | "light";
   activeModule: ActiveModule;
   textUtils: TextUtilsState;
   compareMerge: CompareMergeState;
   dataConverter: DataConverterState;
+  excelSplitter: ExcelSplitterState;
 }

@@ -26,7 +26,9 @@ import {
   ChevronDown,
   ArrowUp,
   ArrowDown,
-  ArrowUpDown
+  ArrowUpDown,
+  Lock,
+  Unlock
 } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -238,6 +240,9 @@ export default function ExcelSplitterValidator({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  // Edit Lock Toggle State
+  const [isEditingLocked, setIsEditingLocked] = useState<boolean>(false);
+
   // Split Confirmation Modal for erroneous records
   const [showExportModal, setShowExportModal] = useState(false);
 
@@ -350,51 +355,179 @@ export default function ExcelSplitterValidator({
         defval: ""
       });
 
-      if (rawAoa.length < 5) {
-        toast.error(
-          "Invalid Template: The Excel file must contain at least 5 header rows."
-        );
+      if (!rawAoa || rawAoa.length === 0) {
+        toast.error("The uploaded Excel file is empty.");
         return;
       }
 
-      // Preserve top 5 header rows
-      const extractedHeaderRows = rawAoa.slice(0, 5);
+      // Step 1: Dynamically detect header row index (1-row files, 5-row corporate templates, etc.)
+      let headerRowIdx = -1;
+      let maxScore = -1;
+
+      const keywords = [
+        "first",
+        "last",
+        "phone",
+        "email",
+        "dob",
+        "birth",
+        "role",
+        "họ",
+        "tên",
+        "sđt",
+        "điện thoại",
+        "ngày sinh",
+        "vai trò",
+        "mobile",
+        "contact",
+        "giáo viên",
+        "học sinh"
+      ];
+
+      for (let r = 0; r < Math.min(10, rawAoa.length); r++) {
+        const rowStr = (rawAoa[r] || []).map((c) => String(c).toLowerCase()).join(" ");
+        let score = 0;
+        keywords.forEach((kw) => {
+          if (rowStr.includes(kw)) score++;
+        });
+
+        // Special priority bonus for row 4 (5th row) if it matches keywords (standard corporate template)
+        if (r === 4 && score >= 2) score += 5;
+
+        if (score > maxScore) {
+          maxScore = score;
+          headerRowIdx = r;
+        }
+      }
+
+      if (headerRowIdx === -1 || maxScore < 1) {
+        headerRowIdx = rawAoa.length >= 5 ? 4 : 0;
+      }
+
+      // Preserve top header rows for export template format
+      const extractedHeaderRows = rawAoa.slice(0, headerRowIdx + 1);
       setHeaderRows(extractedHeaderRows);
 
-      // Row 5 (index 4) contains actual column titles
-      const row5Headers = extractedHeaderRows[4].map((cell: any) =>
+      const detectedHeaderRow = (rawAoa[headerRowIdx] || []).map((cell: any) =>
         String(cell).trim()
       );
-      setColumnHeaders(row5Headers);
+      setColumnHeaders(detectedHeaderRow);
 
-      // Auto detect column positions based on title text
-      let fnIdx = 0,
-        lnIdx = 1,
-        phoneIdx = 2,
-        emIdx = 3,
-        dobIdx = 4,
-        roleIdx = 5;
+      // Step 2: Auto-detect column positions with strict non-overlapping distinction
+      let fnIdx = -1;
+      let lnIdx = -1;
+      let phoneIdx = -1;
+      let emIdx = -1;
+      let dobIdx = -1;
+      let roleIdx = -1;
+      let isFullNameCol = false;
 
-      row5Headers.forEach((title, idx) => {
-        const tLower = title.toLowerCase();
-        if (tLower.includes("first") || tLower.includes("tên")) fnIdx = idx;
-        else if (tLower.includes("last") || tLower.includes("họ")) lnIdx = idx;
-        else if (
-          tLower.includes("phone") ||
-          tLower.includes("sđt") ||
-          tLower.includes("điện thoại")
-        )
+      detectedHeaderRow.forEach((title, idx) => {
+        const norm = title
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]/g, "");
+
+        const rawLower = title.toLowerCase();
+
+        // Phone Number detection (Priority check to prevent overlap)
+        if (
+          norm.includes("phone") ||
+          norm.includes("mobile") ||
+          norm.includes("sdt") ||
+          norm.includes("dienthoai") ||
+          norm.includes("contact") ||
+          norm.includes("tel") ||
+          rawLower.includes("số đt") ||
+          rawLower.includes("sđt")
+        ) {
           phoneIdx = idx;
-        else if (tLower.includes("email")) emIdx = idx;
+        }
+        // Email
+        else if (norm.includes("email") || norm.includes("mail")) {
+          emIdx = idx;
+        }
+        // DOB
         else if (
-          tLower.includes("birth") ||
-          tLower.includes("dob") ||
-          tLower.includes("ngày sinh")
-        )
+          norm.includes("birth") ||
+          norm.includes("dob") ||
+          norm.includes("ngaysinh") ||
+          rawLower.includes("ngày sinh")
+        ) {
           dobIdx = idx;
-        else if (tLower.includes("role") || tLower.includes("vai trò"))
+        }
+        // Role
+        else if (
+          norm.includes("role") ||
+          norm.includes("vaitro") ||
+          norm.includes("chucvu") ||
+          norm.includes("position") ||
+          rawLower.includes("vai trò")
+        ) {
           roleIdx = idx;
+        }
+        // First Name / Tên
+        else if (
+          norm === "first" ||
+          norm.includes("firstname") ||
+          norm === "ten" ||
+          norm.includes("tengoi") ||
+          norm.includes("givenname")
+        ) {
+          fnIdx = idx;
+        }
+        // Last Name / Họ
+        else if (
+          norm === "last" ||
+          norm.includes("lastname") ||
+          norm === "ho" ||
+          norm.includes("surname") ||
+          norm.includes("familyname")
+        ) {
+          lnIdx = idx;
+        }
+        // Full Name / Họ và tên
+        else if (
+          norm.includes("fullname") ||
+          norm.includes("hovaten") ||
+          norm.includes("hoten")
+        ) {
+          fnIdx = idx;
+          lnIdx = idx;
+          isFullNameCol = true;
+        }
       });
+
+      // Assign positional defaults if columns were not found by explicit keyword
+      const assignedIndices = new Set<number>();
+      if (fnIdx !== -1) assignedIndices.add(fnIdx);
+      if (lnIdx !== -1 && lnIdx !== fnIdx) assignedIndices.add(lnIdx);
+      if (phoneIdx !== -1) assignedIndices.add(phoneIdx);
+      if (emIdx !== -1) assignedIndices.add(emIdx);
+      if (dobIdx !== -1) assignedIndices.add(dobIdx);
+      if (roleIdx !== -1) assignedIndices.add(roleIdx);
+
+      const findNextUnassigned = (preferred: number) => {
+        if (!assignedIndices.has(preferred) && preferred < detectedHeaderRow.length) {
+          assignedIndices.add(preferred);
+          return preferred;
+        }
+        for (let i = 0; i < Math.max(detectedHeaderRow.length, 10); i++) {
+          if (!assignedIndices.has(i)) {
+            assignedIndices.add(i);
+            return i;
+          }
+        }
+        return preferred;
+      };
+
+      if (fnIdx === -1) fnIdx = findNextUnassigned(0);
+      if (lnIdx === -1) lnIdx = isFullNameCol ? fnIdx : findNextUnassigned(1);
+      if (phoneIdx === -1) phoneIdx = findNextUnassigned(2);
+      if (emIdx === -1) emIdx = findNextUnassigned(3);
+      if (dobIdx === -1) dobIdx = findNextUnassigned(4);
+      if (roleIdx === -1) roleIdx = findNextUnassigned(5);
 
       setColIndexes({
         firstName: fnIdx,
@@ -405,18 +538,30 @@ export default function ExcelSplitterValidator({
         role: roleIdx
       });
 
-      // Rows 6 onwards (index 5+) are user data records
-      const rawDataRows = rawAoa.slice(5);
+      // Data rows start after headerRowIdx
+      const rawDataRows = rawAoa.slice(headerRowIdx + 1);
       const parsedList: ParsedRecord[] = [];
 
       rawDataRows.forEach((row, idx) => {
-        const isAllEmpty = row.every(
-          (cell) => cell === null || cell === undefined || String(cell).trim() === ""
+        const isAllEmpty = (row || []).every(
+          (cell: any) => cell === null || cell === undefined || String(cell).trim() === ""
         );
         if (isAllEmpty) return;
 
-        const firstName = formatCellValue(row[fnIdx]);
-        const lastName = formatCellValue(row[lnIdx]);
+        let firstName = formatCellValue(row[fnIdx]);
+        let lastName = formatCellValue(row[lnIdx]);
+
+        // If First Name & Last Name are in the same Full Name column ("Họ và Tên")
+        if (fnIdx === lnIdx && firstName) {
+          const parts = firstName.trim().split(/\s+/);
+          if (parts.length > 1) {
+            firstName = parts[parts.length - 1]; // Tên
+            lastName = parts.slice(0, parts.length - 1).join(" "); // Họ đệm
+          } else {
+            lastName = firstName;
+          }
+        }
+
         const phoneNumber = formatCellValue(row[phoneIdx]);
         const email = formatCellValue(row[emIdx]);
         const rawDob = formatCellValue(row[dobIdx]);
@@ -429,7 +574,7 @@ export default function ExcelSplitterValidator({
         else if (rLower === "student" || rLower.includes("học sinh")) role = "Student";
 
         // Extra columns
-        const maxCols = Math.max(row.length, row5Headers.length);
+        const maxCols = Math.max(row.length, detectedHeaderRow.length);
         const extraCols: string[] = [];
         for (let c = 0; c < maxCols; c++) {
           if (![fnIdx, lnIdx, phoneIdx, emIdx, dobIdx, roleIdx].includes(c)) {
@@ -448,7 +593,7 @@ export default function ExcelSplitterValidator({
 
         parsedList.push({
           id: `rec-${idx}-${Date.now()}`,
-          rowIndex: idx + 6,
+          rowIndex: parsedList.length + 1,
           firstName,
           lastName,
           phoneNumber,

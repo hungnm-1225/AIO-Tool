@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { CompareMergeState } from "../types";
+import { useI18n } from "../utils/i18n";
 import { diffLines, LineDiff, DiffToken } from "../utils/diff";
 import { 
   GitCompare, 
@@ -20,6 +21,7 @@ interface CompareMergeProps {
 }
 
 export default function CompareMerge({ state, onChange }: CompareMergeProps) {
+  const { t } = useI18n();
   const [activeSubTab, setActiveSubTab] = useState<"diff" | "combine" | "autoinc">("diff");
 
   // Synchronize sub-tab from hash
@@ -205,10 +207,10 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold font-sans tracking-tight text-slate-800 dark:text-slate-100">
-              Compare & Merge Workspace
+              {t("compareMerge.title")}
             </h2>
             <p className="text-slate-500 dark:text-slate-400 text-sm">
-              Compare text lines side-by-side, join text columns using flexible delimiters, and generate custom incremental sequential data.
+              {t("compareMerge.subtitle")}
             </p>
           </div>
 
@@ -222,7 +224,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
                   : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
               }`}
             >
-              <GitCompare className="h-3.5 w-3.5" /> Compare Text
+              <GitCompare className="h-3.5 w-3.5" /> {t("compareMerge.diffTab")}
             </button>
             <button
               onClick={() => handleTabChange("combine")}
@@ -232,7 +234,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
                   : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
               }`}
             >
-              <Columns className="h-3.5 w-3.5" /> Merge Columns
+              <Columns className="h-3.5 w-3.5" /> {t("compareMerge.mergeTab")}
             </button>
             <button
               onClick={() => handleTabChange("autoinc")}
@@ -242,7 +244,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
                   : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
               }`}
             >
-              <PlusCircle className="h-3.5 w-3.5" /> Auto-Increment [x]
+              <PlusCircle className="h-3.5 w-3.5" /> {t("compareMerge.autoIncTab")}
             </button>
           </div>
         </div>
@@ -256,13 +258,13 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[280px]">
               <div className="p-3 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
                 <span className="text-xs font-mono font-bold uppercase text-slate-500 dark:text-slate-400">
-                  Original Text
+                  {t("compareMerge.originalText")}
                 </span>
                 <button
                   onClick={() => onChange({ diffOriginal: "" })}
                   className="text-xs font-mono text-rose-500 hover:underline cursor-pointer"
                 >
-                  Clear
+                  {t("common.clear")}
                 </button>
               </div>
               <textarea
@@ -277,13 +279,13 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[280px]">
               <div className="p-3 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
                 <span className="text-xs font-mono font-bold uppercase text-indigo-600 dark:text-indigo-400">
-                   Modified Text
+                   {t("compareMerge.modifiedText")}
                 </span>
                 <button
                   onClick={() => onChange({ diffModified: "" })}
                   className="text-xs font-mono text-rose-500 hover:underline cursor-pointer"
                 >
-                  Clear
+                  {t("common.clear")}
                 </button>
               </div>
               <textarea
@@ -301,7 +303,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
               title="Compare text lines and highlight additions, deletions, or modifications"
               className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-all shadow-md shadow-indigo-600/10 flex items-center gap-2 cursor-pointer"
             >
-              <GitCompare className="h-4 w-4" /> Compare Text
+              <GitCompare className="h-4 w-4" /> {t("compareMerge.compareBtn")}
             </button>
 
             <label 
@@ -314,7 +316,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
                 onChange={(e) => onChange({ ignoreCase: e.target.checked })}
                 className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4"
               />
-              <span>Ignore Case</span>
+              <span>{t("compareMerge.ignoreCase")}</span>
             </label>
           </div>
 
@@ -324,7 +326,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-3 gap-2">
                 <div className="flex flex-wrap items-center gap-3">
                   <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                    Detailed Comparison Result
+                    {t("compareMerge.detailedResult")}
                   </h3>
                   {/* View Mode Toggle */}
                   {!isIdentical && (
@@ -354,11 +356,11 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
                 </div>
                 {isIdentical ? (
                   <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 font-bold">
-                    100% Identical
+                    {t("compareMerge.identicalResult")}
                   </span>
                 ) : (
                   <span className="text-xs px-2.5 py-1 rounded-full bg-rose-100 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 font-bold">
-                    Differences Found
+                    {t("compareMerge.differencesFound")}
                   </span>
                 )}
               </div>
@@ -366,7 +368,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
               {isIdentical ? (
                 <div className="p-4 bg-emerald-500/10 border border-emerald-500/25 rounded-xl text-emerald-700 dark:text-emerald-400 font-medium text-sm flex items-center gap-2">
                   <CheckCircle className="h-5 w-5 text-emerald-500" />
-                  <span>The original and modified texts are completely identical!</span>
+                  <span>{t("compareMerge.identicalMessage")}</span>
                 </div>
               ) : diffViewMode === "side-by-side" ? (
                 <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-slate-50/50 dark:bg-[#0B0F1A]/50">
@@ -494,7 +496,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[280px]">
               <div className="p-3 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
                 <span className="text-xs font-mono font-bold uppercase text-slate-500 dark:text-slate-400">
-                  Column 1
+                  {t("compareMerge.mergeCol1")}
                 </span>
                 <span className="text-[10px] font-mono text-slate-400">
                   {state.combineCol1 ? state.combineCol1.split(/\r?\n/).length : 0} lines
@@ -512,7 +514,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[280px]">
               <div className="p-3 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
                 <span className="text-xs font-mono font-bold uppercase text-slate-500 dark:text-slate-400">
-                  Column 2
+                  {t("compareMerge.mergeCol2")}
                 </span>
                 <span className="text-[10px] font-mono text-slate-400">
                   {state.combineCol2 ? state.combineCol2.split(/\r?\n/).length : 0} lines
@@ -531,7 +533,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
           <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex-1 max-w-sm">
               <label className="block text-xs font-bold uppercase text-slate-400 dark:text-slate-500 mb-2">
-                Delimiter
+                {t("compareMerge.delimiter")}
               </label>
               <input
                 type="text"
@@ -551,13 +553,13 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
                 }}
                 className="px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold text-sm transition-all flex items-center gap-2 cursor-pointer"
               >
-                <RotateCcw className="h-4 w-4" /> Reset
+                <RotateCcw className="h-4 w-4" /> {t("common.reset")}
               </button>
               <button
                 onClick={handleCombine}
                 className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-all shadow-md shadow-indigo-600/10 flex items-center gap-2 cursor-pointer"
               >
-                <Columns className="h-4 w-4" /> Merge Columns
+                <Columns className="h-4 w-4" /> {t("compareMerge.joinBtn")}
               </button>
             </div>
           </div>
@@ -567,7 +569,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[300px]">
               <div className="p-3 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
                 <span className="text-xs font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5" /> Merged Output
+                  <Sparkles className="h-3.5 w-3.5" /> {t("compareMerge.mergedResult")}
                 </span>
                 <button
                   onClick={() => handleCopy(combineOutput, "combine")}
@@ -599,7 +601,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-400 dark:text-slate-500 mb-2">
-                  Template String
+                  {t("compareMerge.template")}
                 </label>
                 <input
                   type="text"
@@ -616,7 +618,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-400 dark:text-slate-500 mb-2">
-                    Start Number
+                    {t("compareMerge.startVal")}
                   </label>
                   <input
                     type="number"
@@ -627,7 +629,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-400 dark:text-slate-500 mb-2">
-                    Increment Step
+                    {t("compareMerge.stepVal")}
                   </label>
                   <input
                     type="number"
@@ -640,7 +642,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
 
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-400 dark:text-slate-500 mb-2">
-                  Item Count
+                  {t("compareMerge.countVal")}
                 </label>
                 <input
                   type="number"
@@ -673,7 +675,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
                 onClick={handleGenerateAutoInc}
                 className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-all shadow-md shadow-indigo-600/15 flex items-center justify-center gap-2 cursor-pointer"
               >
-                <PlusCircle className="h-4 w-4" /> Generate Sequence
+                <PlusCircle className="h-4 w-4" /> {t("compareMerge.generateBtn")}
               </button>
             </div>
           </div>
@@ -682,7 +684,7 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
           <div className="lg:col-span-8 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[480px]">
             <div className="p-3.5 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
               <span className="text-xs font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400">
-                Generated Auto-increment list
+                {t("compareMerge.previewList")}
               </span>
               {autoIncOutput && (
                 <button

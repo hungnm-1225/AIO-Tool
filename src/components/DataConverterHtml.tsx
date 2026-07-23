@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { DataConverterState } from "../types";
+import { useI18n } from "../utils/i18n";
 import CodeEditor from "./CodeEditor";
 import { 
   beautifyJson, minifyJson,
@@ -40,6 +41,7 @@ interface DataConverterHtmlProps {
 }
 
 export default function DataConverterHtml({ state, onChange }: DataConverterHtmlProps) {
+  const { t } = useI18n();
   const [activeSubTab, setActiveSubTab] = useState<"format" | "convert" | "preview">("format");
   const [isInputFullScreen, setIsInputFullScreen] = useState(false);
   const [isPreviewFullScreen, setIsPreviewFullScreen] = useState(false);
@@ -366,10 +368,10 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold font-sans tracking-tight text-slate-800 dark:text-slate-100">
-              Data & Interactive Live Runner
+              {t("dataConverter.title")}
             </h2>
             <p className="text-slate-500 dark:text-slate-400 text-sm">
-              Format source code, convert between JSON and interactive tables, or test HTML projects live in the sandbox.
+              {t("dataConverter.subtitle")}
             </p>
           </div>
 
@@ -382,7 +384,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                   : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
               }`}
             >
-              <Code className="h-3.5 w-3.5" /> Beautifier & Minifier
+              <Code className="h-3.5 w-3.5" /> {t("dataConverter.dataFormatterTab")}
             </button>
             <button
               onClick={() => handleTabChange("convert")}
@@ -392,7 +394,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                   : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
               }`}
             >
-              <Table className="h-3.5 w-3.5" /> Visual Grid Table
+              <Table className="h-3.5 w-3.5" /> {t("dataConverter.jsonTab")}
             </button>
             <button
               onClick={() => handleTabChange("preview")}
@@ -402,7 +404,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                   : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
               }`}
             >
-              <Play className="h-3.5 w-3.5" /> HTML Sandbox
+              <Play className="h-3.5 w-3.5" /> {t("dataConverter.htmlRunnerTab")}
             </button>
           </div>
         </div>
@@ -435,13 +437,13 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                 onClick={() => handleFormat("beautify")}
                 className="px-4.5 py-2 rounded-xl text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 cursor-pointer"
               >
-                Beautify
+                {t("dataConverter.beautifyJson")}
               </button>
               <button
                 onClick={() => handleFormat("minify")}
                 className="px-4.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white cursor-pointer"
               >
-                Minify
+                {t("dataConverter.minifyJson")}
               </button>
             </div>
           </div>
@@ -473,7 +475,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
               <div className="p-3 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
                 <div className="flex items-center gap-1.5 overflow-hidden">
                   <span className="text-xs font-mono font-bold uppercase text-indigo-600 dark:text-indigo-400">
-                    Raw JSON Array
+                    {t("dataConverter.rawInputLabel")}
                   </span>
                   {jsonError && (
                     <span className="text-[9px] text-rose-500 truncate max-w-[120px] ml-1" title={jsonError}>
@@ -512,7 +514,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                   onClick={handleConvertJsonToCsvAction}
                   className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
                 >
-                  Convert to CSV →
+                  {t("dataConverter.jsonToCsv")}
                 </button>
               </div>
             </div>
@@ -521,7 +523,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[280px]">
               <div className="p-3 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
                 <span className="text-xs font-mono font-bold uppercase text-slate-500 dark:text-slate-400">
-                  Raw CSV Data
+                  {t("dataConverter.rawCsvLabel")}
                 </span>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <button
@@ -554,7 +556,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                   onClick={handleConvertCsvToJson}
                   className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
                 >
-                  ← Convert to JSON
+                  {t("dataConverter.csvToJson")}
                 </button>
               </div>
             </div>
@@ -565,7 +567,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
             <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
               <div className="flex items-center gap-3">
                 <span className="text-xs font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                  <Table className="h-4 w-4" /> Interactive Synchronized Grid
+                  <Table className="h-4 w-4" /> {t("dataConverter.interactiveGrid")}
                 </span>
                 
                 {/* Lock Edit */}
@@ -579,11 +581,11 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                 >
                   {state.lockEdit ? (
                     <>
-                      <Lock className="h-3 w-3" /> Locked
+                      <Lock className="h-3 w-3" /> {t("dataConverter.locked")}
                     </>
                   ) : (
                     <>
-                      <Unlock className="h-3 w-3" /> Editable
+                      <Unlock className="h-3 w-3" /> {t("dataConverter.editable")}
                     </>
                   )}
                 </button>

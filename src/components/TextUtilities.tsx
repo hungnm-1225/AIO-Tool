@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { TextUtilsState } from "../types";
+import { useI18n } from "../utils/i18n";
 import { 
   Copy, 
   Check, 
@@ -21,6 +22,7 @@ interface TextUtilitiesProps {
 }
 
 export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
+  const { t } = useI18n();
   // Sub-tab navigation
   const [activeSubTab, setActiveSubTab] = useState<"case-converter" | "text-utilities" | "string-cutter">("case-converter");
 
@@ -468,10 +470,10 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5">
         <div>
           <h2 className="text-2xl font-bold font-sans tracking-tight text-slate-800 dark:text-slate-100">
-            Text & Duplicate Utilities
+            {t("textUtils.title")}
           </h2>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-            Perform line casing, trim strings, format list duplicates, and replace keywords line-by-line.
+            {t("textUtils.subtitle")}
           </p>
         </div>
 
@@ -485,7 +487,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                 : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
             }`}
           >
-            <Type className="h-3.5 w-3.5" /> Case Converter
+            <Type className="h-3.5 w-3.5" /> {t("textUtils.caseConverterTab")}
           </button>
           <button
             onClick={() => handleSubTabChange("text-utilities")}
@@ -495,7 +497,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                 : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
             }`}
           >
-            <Filter className="h-3.5 w-3.5" /> Text & Duplicates
+            <Filter className="h-3.5 w-3.5" /> {t("textUtils.textUtilitiesTab")}
           </button>
           <button
             onClick={() => handleSubTabChange("string-cutter")}
@@ -505,7 +507,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                 : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
             }`}
           >
-            <Scissors className="h-3.5 w-3.5" /> Line Slicer / Cutter
+            <Scissors className="h-3.5 w-3.5" /> {t("textUtils.stringCutterTab")}
           </button>
         </div>
       </div>
@@ -518,7 +520,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col flex-1 min-h-[460px]">
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
                 <span className="text-xs font-mono font-bold uppercase text-indigo-600 dark:text-indigo-400">
-                  Original Text
+                  {t("textUtils.originalText")}
                 </span>
                 <button 
                   onClick={() => {
@@ -536,7 +538,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
               
               <textarea
                 className="w-full flex-1 p-4 bg-transparent text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none"
-                placeholder="Paste or type lines of words here to change casing..."
+                placeholder={t("textUtils.placeholderInput")}
                 value={caseInputText}
                 onChange={(e) => {
                   setCaseInputText(e.target.value);
@@ -567,7 +569,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
           <div className="lg:col-span-2 flex flex-col space-y-4 justify-center">
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
               <h3 className="text-xs font-mono font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1.5">
-                <Type className="h-3.5 w-3.5" /> Case Modifiers
+                <Type className="h-3.5 w-3.5" /> {t("textUtils.caseModifiers")}
               </h3>
 
               <button
@@ -654,7 +656,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col flex-1 min-h-[460px]">
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
                 <span className="text-xs font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400">
-                  Converted Output
+                  {t("textUtils.transformedOutput")}
                 </span>
                 <div className="flex items-center gap-2">
                   <button
@@ -702,7 +704,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col flex-1 min-h-[450px]">
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
                 <span className="text-xs font-mono font-bold uppercase text-indigo-600 dark:text-indigo-400">
-                  Input Dataset
+                  {t("textUtils.originalText")}
                 </span>
                 <div className="flex items-center gap-2">
                   <button
@@ -710,7 +712,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                     className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-200/50 dark:border-slate-800/50 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
                     title="Remove empty lines from input"
                   >
-                    Remove Empty Lines
+                    {t("textUtils.removeEmptyLines")}
                   </button>
                   <button 
                     onClick={() => {
@@ -728,7 +730,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
               
               <textarea
                 className="w-full flex-1 p-4 bg-transparent text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none"
-                placeholder="Paste or type your lines of data here..."
+                placeholder={t("textUtils.placeholderInput")}
                 value={state.inputText ?? ""}
                 onChange={(e) => {
                   onChange({ inputText: e.target.value });
@@ -742,15 +744,15 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
               <div className="p-4 border-t border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-b-2xl">
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div className="bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800 p-2.5 rounded-xl shadow-2xs">
-                    <div className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-0.5">Characters</div>
+                    <div className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-0.5">{t("textUtils.characters")}</div>
                     <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400 font-mono">{textCounts.charCount}</div>
                   </div>
                   <div className="bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800 p-2.5 rounded-xl shadow-2xs">
-                    <div className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-0.5">Words</div>
+                    <div className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-0.5">{t("textUtils.words")}</div>
                     <div className="text-lg font-bold text-sky-600 dark:text-sky-400 font-mono">{textCounts.wordCount}</div>
                   </div>
                   <div className="bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800 p-2.5 rounded-xl shadow-2xs">
-                    <div className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-0.5">Lines</div>
+                    <div className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-0.5">{t("textUtils.lines")}</div>
                     <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400 font-mono">{textCounts.lineCount}</div>
                   </div>
                 </div>
@@ -764,7 +766,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                       onChange={(e) => onChange({ countSpaces: e.target.checked })}
                       className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
                     />
-                    <span>Count whitespace</span>
+                    <span>{t("textUtils.countSpaces")}</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer text-slate-600 dark:text-slate-300">
                     <input
@@ -773,7 +775,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                       onChange={(e) => onChange({ countEmptyLines: e.target.checked })}
                       className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
                     />
-                    <span>Count empty lines</span>
+                    <span>{t("textUtils.countEmpty")}</span>
                   </label>
                 </div>
               </div>
@@ -785,7 +787,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
             {/* Duplicate Filters Card */}
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
               <h3 className="text-xs font-mono font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1.5">
-                <Filter className="h-3.5 w-3.5" /> Duplicate Filters
+                <Filter className="h-3.5 w-3.5" /> {t("textUtils.textUtilitiesTab")}
               </h3>
               <button
                 onClick={handleRemoveDuplicates}
@@ -796,7 +798,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                     : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                 }`}
               >
-                Remove Duplicates
+                {t("textUtils.removeDuplicates")}
               </button>
               <button
                 onClick={handleCountFrequency}
@@ -807,7 +809,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                     : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                 }`}
               >
-                Line Frequency
+                {t("textUtils.countFrequency")}
               </button>
               <button
                 onClick={handleFilterUniques}
@@ -818,7 +820,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                     : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                 }`}
               >
-                Strictly Unique
+                {t("textUtils.filterUniques")}
               </button>
             </div>
 
@@ -837,7 +839,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                       : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                   }`}
                 >
-                  A → Z
+                  {t("textUtils.sortAscending")}
                 </button>
                 <button
                   onClick={() => handleSort("descending")}
@@ -848,7 +850,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                       : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                   }`}
                 >
-                  Z → A
+                  {t("textUtils.sortDescending")}
                 </button>
                 <button
                   onClick={() => handleSort("shuffle")}
@@ -859,7 +861,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                       : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                   }`}
                 >
-                  Shuffle
+                  {t("textUtils.shuffleLines")}
                 </button>
                 <button
                   onClick={() => handleSort("original")}
@@ -870,7 +872,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                       : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                   }`}
                 >
-                  Original
+                  {t("textUtils.resetOriginal")}
                 </button>
               </div>
             </div>
@@ -878,11 +880,11 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
             {/* Search and Replace Card */}
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
               <h3 className="text-xs font-mono font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1.5">
-                <Search className="h-3.5 w-3.5" /> Find & Replace
+                <Search className="h-3.5 w-3.5" /> {t("textUtils.findAndReplace")}
               </h3>
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">Find Pattern</label>
+                  <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">{t("textUtils.findWhat")}</label>
                   <input
                     type="text"
                     placeholder="Find pattern..."
@@ -892,7 +894,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">Replace with</label>
+                  <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">{t("textUtils.replaceWith")}</label>
                   <input
                     type="text"
                     placeholder="Replacement text..."
@@ -910,7 +912,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                       onChange={(e) => onChange({ matchCase: e.target.checked })}
                       className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
                     />
-                    <span>Match Case</span>
+                    <span>{t("textUtils.matchCase")}</span>
                   </label>
 
                   <div className="flex items-center justify-between">
@@ -921,7 +923,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                         onChange={(e) => onChange({ isRegex: e.target.checked })}
                         className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
                       />
-                      <span>Regex Search</span>
+                      <span>{t("textUtils.useRegex")}</span>
                     </label>
 
                     {/* Info Icon with Tooltip */}
@@ -948,7 +950,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                   onClick={handleSearchReplace}
                   className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-slate-100 transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  Replace All
+                  {t("textUtils.replaceBtn")}
                 </button>
               </div>
             </div>
@@ -959,7 +961,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col flex-1 min-h-[450px]">
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
                 <span className="text-xs font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400">
-                  Processed Output
+                  {t("textUtils.transformedOutput")}
                 </span>
                 <div className="flex items-center gap-2">
                   <button
@@ -1007,7 +1009,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col flex-1 min-h-[460px]">
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
                 <span className="text-xs font-mono font-bold uppercase text-indigo-600 dark:text-indigo-400">
-                  Original Lines
+                  {t("textUtils.originalText")}
                 </span>
                 <button 
                   onClick={() => {
@@ -1024,7 +1026,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
               
               <textarea
                 className="w-full flex-1 p-4 bg-transparent text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none"
-                placeholder="Paste or type lines of texts/emails here to slice..."
+                placeholder={t("textUtils.placeholderSlicer")}
                 value={slicerInputText}
                 onChange={(e) => setSlicerInputText(e.target.value)}
               />
@@ -1032,15 +1034,15 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
               <div className="p-4 border-t border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-b-2xl">
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div className="bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800 p-2 rounded-xl shadow-2xs">
-                    <div className="text-[10px] font-medium text-slate-400 mb-0.5">Characters</div>
+                    <div className="text-[10px] font-medium text-slate-400 mb-0.5">{t("textUtils.characters")}</div>
                     <div className="text-sm font-bold text-indigo-600 dark:text-indigo-400 font-mono">{slicerCounts.charCount}</div>
                   </div>
                   <div className="bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800 p-2 rounded-xl shadow-2xs">
-                    <div className="text-[10px] font-medium text-slate-400 mb-0.5">Words</div>
+                    <div className="text-[10px] font-medium text-slate-400 mb-0.5">{t("textUtils.words")}</div>
                     <div className="text-sm font-bold text-sky-600 dark:text-sky-400 font-mono">{slicerCounts.wordCount}</div>
                   </div>
                   <div className="bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800 p-2 rounded-xl shadow-2xs">
-                    <div className="text-[10px] font-medium text-slate-400 mb-0.5">Lines</div>
+                    <div className="text-[10px] font-medium text-slate-400 mb-0.5">{t("textUtils.lines")}</div>
                     <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 font-mono">{slicerCounts.lineCount}</div>
                   </div>
                 </div>
@@ -1053,11 +1055,11 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
             {/* Slice Options Card */}
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
               <h3 className="text-xs font-mono font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1.5">
-                <Scissors className="h-3.5 w-3.5" /> Slice Options
+                <Scissors className="h-3.5 w-3.5" /> {t("textUtils.sliceOptions")}
               </h3>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">Length (Characters)</label>
+                <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">{t("textUtils.sliceLength")}</label>
                 <input
                   type="number"
                   min="1"
@@ -1069,7 +1071,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">Cut Position</label>
+                <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">{t("textUtils.position")}</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setSlicePosition("start")}
@@ -1079,7 +1081,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                         : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                     }`}
                   >
-                    From Start
+                    {t("textUtils.start")}
                   </button>
                   <button
                     onClick={() => setSlicePosition("end")}
@@ -1089,7 +1091,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                         : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                     }`}
                   >
-                    From End
+                    {t("textUtils.end")}
                   </button>
                 </div>
               </div>
@@ -1098,18 +1100,18 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                 onClick={handleSliceText}
                 className="w-full text-xs font-semibold py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs flex items-center justify-center gap-1.5 cursor-pointer mt-2"
               >
-                <Scissors className="h-3.5 w-3.5" /> Slice Lines
+                <Scissors className="h-3.5 w-3.5" /> {t("textUtils.sliceChars")}
               </button>
             </div>
 
             {/* Slicer Search and Replace Card */}
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
               <h3 className="text-xs font-mono font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1.5">
-                <Search className="h-3.5 w-3.5" /> Find & Replace
+                <Search className="h-3.5 w-3.5" /> {t("textUtils.findAndReplace")}
               </h3>
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">Find Pattern</label>
+                  <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">{t("textUtils.findWhat")}</label>
                   <input
                     type="text"
                     placeholder="Find pattern..."
@@ -1119,7 +1121,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">Replace with</label>
+                  <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">{t("textUtils.replaceWith")}</label>
                   <input
                     type="text"
                     placeholder="Replacement text..."
@@ -1137,7 +1139,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                       onChange={(e) => setSlicerMatchCase(e.target.checked)}
                       className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
                     />
-                    <span>Match Case</span>
+                    <span>{t("textUtils.matchCase")}</span>
                   </label>
 
                   <div className="flex items-center justify-between">
@@ -1148,7 +1150,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                         onChange={(e) => setSlicerIsRegex(e.target.checked)}
                         className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
                       />
-                      <span>Regex Search</span>
+                      <span>{t("textUtils.useRegex")}</span>
                     </label>
 
                     {/* Info Icon with Tooltip */}
@@ -1174,7 +1176,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
                   onClick={handleSlicerSearchReplace}
                   className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-slate-100 transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  Replace All
+                  {t("textUtils.replaceBtn")}
                 </button>
               </div>
             </div>
@@ -1185,7 +1187,7 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col flex-1 min-h-[460px]">
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
                 <span className="text-xs font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400">
-                  Sliced Output
+                  {t("textUtils.transformedOutput")}
                 </span>
                 <div className="flex items-center gap-2">
                   <button

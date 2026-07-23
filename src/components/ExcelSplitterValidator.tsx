@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback } from "react";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import { ExcelSplitterState, ActiveModule } from "../types";
+import { useI18n } from "../utils/i18n";
 import {
   FileSpreadsheet,
   Upload,
@@ -185,6 +186,7 @@ export default function ExcelSplitterValidator({
   onChange,
   onSwitchModule
 }: ExcelSplitterValidatorProps) {
+  const { t } = useI18n();
   // Config state
   const maxRecordsPerFile = state?.maxRecordsPerFile ?? 50;
   const setMaxRecordsPerFile = (val: number) =>
@@ -989,11 +991,11 @@ export default function ExcelSplitterValidator({
               <FileSpreadsheet className="h-5 w-5" />
             </div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-              Excel Splitter & Validator
+              {t("excelSuite.title")}
             </h2>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Validate corporate account creation templates (.xlsx), edit validation errors inline, and split into clean batch files.
+            {t("excelSuite.subtitle")}
           </p>
         </div>
 
@@ -1004,14 +1006,14 @@ export default function ExcelSplitterValidator({
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-xs flex items-center gap-1.5 cursor-default"
               >
                 <FileSpreadsheet className="h-3.5 w-3.5 text-indigo-500" />
-                <span>Splitter & Validator</span>
+                <span>{t("excelSuite.splitterTab")}</span>
               </button>
               <button
                 onClick={() => onSwitchModule(ActiveModule.EXCEL_MERGER)}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-all cursor-pointer flex items-center gap-1.5"
               >
                 <Layers className="h-3.5 w-3.5 text-purple-500" />
-                <span>Merger & Extractor</span>
+                <span>{t("excelSuite.mergerTab")}</span>
               </button>
             </div>
           )}
@@ -1037,7 +1039,7 @@ export default function ExcelSplitterValidator({
             <Upload className="h-8 w-8" />
           </div>
           <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 mb-1">
-            Drop Account Template (.xlsx) Here
+            {t("excelSuite.dropzoneSplit")}
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mb-5 leading-relaxed">
             Upload your corporate template file. The system preserves the <strong>5-row header structure</strong>, validates roles (Teacher / Student), email requirements, and normalizes Date of Birth (DD/MM/YYYY) automatically.
@@ -1046,7 +1048,7 @@ export default function ExcelSplitterValidator({
           <div className="flex flex-wrap items-center justify-center gap-3">
             <label className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-md shadow-indigo-600/20 cursor-pointer transition-all flex items-center gap-2">
               <FileSpreadsheet className="h-4 w-4" />
-              <span>Browse Excel File</span>
+              <span>{t("excelSuite.selectFile")}</span>
               <input
                 type="file"
                 accept=".xlsx, .xls, .csv"
@@ -1061,7 +1063,7 @@ export default function ExcelSplitterValidator({
               title="Download sample 5-row header Excel template"
             >
               <Download className="h-4 w-4 text-indigo-500" />
-              <span>Sample Template (.xlsx)</span>
+              <span>{t("excelSuite.loadSample")}</span>
             </button>
           </div>
         </div>
@@ -1217,7 +1219,7 @@ export default function ExcelSplitterValidator({
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800">
                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400 pl-2">
-                  Max Records / File:
+                  {t("excelSuite.maxRecords")}:
                 </span>
                 <input
                   type="number"
@@ -1268,7 +1270,7 @@ export default function ExcelSplitterValidator({
                         </div>
                         <div>
                           <div className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
-                            Download as ZIP (.zip)
+                            {t("excelSuite.exportZip")}
                           </div>
                           <div className="text-[11px] text-slate-400 leading-snug mt-0.5">
                             Compress all split files into a single ZIP archive
@@ -1294,7 +1296,7 @@ export default function ExcelSplitterValidator({
                         </div>
                         <div>
                           <div className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
-                            Separate Files (.xlsx)
+                            {t("excelSuite.exportIndividual")}
                           </div>
                           <div className="text-[11px] text-slate-400 leading-snug mt-0.5">
                             Download individual split .xlsx files separately
@@ -1325,7 +1327,7 @@ export default function ExcelSplitterValidator({
                       : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                   }`}
                 >
-                  All Records ({records.length})
+                  {t("excelSuite.filterAll")} ({records.length})
                 </button>
 
                 <button
@@ -1339,7 +1341,7 @@ export default function ExcelSplitterValidator({
                       : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                   }`}
                 >
-                  <span>Errors Only</span>
+                  <span>{t("excelSuite.filterErrors")}</span>
                   {stats.erroneous > 0 && (
                     <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-rose-700 text-white font-bold">
                       {stats.erroneous}
@@ -1358,7 +1360,7 @@ export default function ExcelSplitterValidator({
                       : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                   }`}
                 >
-                  Valid Only ({stats.valid})
+                  {t("excelSuite.filterValid")} ({stats.valid})
                 </button>
               </div>
 
@@ -1390,12 +1392,12 @@ export default function ExcelSplitterValidator({
                   {isEditingLocked ? (
                     <>
                       <Lock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                      <span>Đang khóa chỉnh sửa</span>
+                      <span>{t("excelSuite.lockEdit")}</span>
                     </>
                   ) : (
                     <>
                       <Unlock className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <span>Cho phép chỉnh sửa</span>
+                      <span>{t("excelSuite.unlockEdit")}</span>
                     </>
                   )}
                 </button>
@@ -1406,14 +1408,10 @@ export default function ExcelSplitterValidator({
                   onClick={handleAddNewRecord}
                   disabled={isEditingLocked}
                   className="px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={
-                    isEditingLocked
-                      ? "Mở khóa để thêm dòng mới"
-                      : "Thêm dòng mới vào bảng"
-                  }
+                  title="Thêm dòng mới vào bảng"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  <span>Thêm dòng</span>
+                  <span>{t("excelSuite.addRow")}</span>
                 </button>
 
                 {sortField !== "default" && (
@@ -1631,7 +1629,7 @@ export default function ExcelSplitterValidator({
                   {paginatedRecords.length === 0 ? (
                     <tr>
                       <td colSpan={10} className="py-12 text-center text-slate-400">
-                        No matching records found.
+                        {t("excelSuite.noRecords")}
                       </td>
                     </tr>
                   ) : (

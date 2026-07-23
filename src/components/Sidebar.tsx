@@ -1,17 +1,19 @@
 import React, { useState } from "react";
 import { ActiveModule } from "../types";
+import { useI18n } from "../utils/i18n";
 import { 
   FileText, 
   GitCompare, 
   Terminal, 
   FileSpreadsheet,
-  Layers,
+  ScanLine,
   Sun, 
   Moon, 
   Sliders,
   Sparkles,
   ChevronLeft,
   ChevronRight,
+  Globe,
   X
 } from "lucide-react";
 
@@ -30,6 +32,8 @@ export default function Sidebar({
   toggleTheme,
   onCloseMobileDrawer,
 }: SidebarProps) {
+  const { lang, setLang, t } = useI18n();
+
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem("sidebar-collapsed") === "true";
   });
@@ -43,31 +47,38 @@ export default function Sidebar({
   const menuItems = [
     {
       id: ActiveModule.TEXT_UTILS,
-      label: "Text & Duplicates",
-      description: "Counter, filters, sorting & regex search",
+      label: t("sidebar.textUtilsLabel"),
+      description: t("sidebar.textUtilsDesc"),
       icon: FileText,
       hashId: "case-converter",
     },
     {
       id: ActiveModule.COMPARE_MERGE,
-      label: "Compare & Merge",
-      description: "Diff checker, column joiner & auto-inc",
+      label: t("sidebar.compareMergeLabel"),
+      description: t("sidebar.compareMergeDesc"),
       icon: GitCompare,
       hashId: "compare-text",
     },
     {
       id: ActiveModule.DATA_CONVERTER,
-      label: "Data & HTML Runner",
-      description: "Format, JSON-Grid, HTML Live Preview",
+      label: t("sidebar.dataConverterLabel"),
+      description: t("sidebar.dataConverterDesc"),
       icon: Terminal,
       hashId: "formatter",
     },
     {
       id: ActiveModule.EXCEL_SPLITTER,
-      label: "Excel Account Suite",
-      description: "Split, validate, merge & extract credentials",
+      label: t("sidebar.excelSuiteLabel"),
+      description: t("sidebar.excelSuiteDesc"),
       icon: FileSpreadsheet,
       hashId: "excel-splitter",
+    },
+    {
+      id: ActiveModule.DOCUMENT_SCANNER,
+      label: t("sidebar.docScannerLabel"),
+      description: t("sidebar.docScannerDesc"),
+      icon: ScanLine,
+      hashId: "doc-scanner",
     }
   ];
 
@@ -76,10 +87,20 @@ export default function Sidebar({
       {/* Top Brand Block */}
       <div>
         {isCollapsed ? (
-          <div className="p-4 flex flex-col items-center gap-5">
+          <div className="p-4 flex flex-col items-center gap-4">
             <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20">
               <Sliders className="h-5 w-5" />
             </div>
+
+            {/* Language Switcher Collapsed */}
+            <button
+              onClick={() => setLang(lang === "vi" ? "en" : "vi")}
+              className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              title={lang === "vi" ? "Switch to English" : "Chuyển sang Tiếng Việt"}
+            >
+              {lang === "vi" ? "🇻🇳 VI" : "🇺🇸 EN"}
+            </button>
+
             <div className="flex flex-col items-center gap-2">
               {onCloseMobileDrawer && (
                 <button
@@ -108,10 +129,10 @@ export default function Sidebar({
                 </div>
                 <div>
                   <h1 className="text-xl font-bold font-sans tracking-tight text-slate-800 dark:text-slate-100">
-                    Vibe Code AIO
+                    {t("common.appName")}
                   </h1>
                   <span className="text-xs font-mono text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">
-                    Dev Workspace v1.0.0
+                    {t("common.devWorkspace")}
                   </span>
                 </div>
               </div>
@@ -134,6 +155,38 @@ export default function Sidebar({
                 </button>
               </div>
             </div>
+
+            {/* Language Switcher Expanded */}
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                <Globe className="h-4 w-4 text-indigo-500" />
+                <span>{t("common.language")}</span>
+              </div>
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60">
+                <button
+                  type="button"
+                  onClick={() => setLang("vi")}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    lang === "vi"
+                      ? "bg-white dark:bg-indigo-600 text-slate-800 dark:text-white shadow-xs"
+                      : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                  }`}
+                >
+                  🇻🇳 VI
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLang("en")}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    lang === "en"
+                      ? "bg-white dark:bg-indigo-600 text-slate-800 dark:text-white shadow-xs"
+                      : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                  }`}
+                >
+                  🇺🇸 EN
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -145,7 +198,8 @@ export default function Sidebar({
               activeModule === item.id ||
               (item.id === ActiveModule.EXCEL_SPLITTER &&
                 activeModule === ActiveModule.EXCEL_MERGER);
-                        if (isCollapsed) {
+
+            if (isCollapsed) {
               return (
                 <button
                   key={item.id}
@@ -200,7 +254,7 @@ export default function Sidebar({
         <div className="p-3 border-t border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-950/20 flex flex-col items-center justify-center">
           <button
             onClick={toggleTheme}
-            className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700 transition-colors shadow-sm cursor-pointer"
+            className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700 transition-colors shadow-xs cursor-pointer"
             title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
           >
             {theme === "dark" ? (
@@ -216,13 +270,13 @@ export default function Sidebar({
             <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
               <Sparkles className="h-4 w-4 text-amber-500" />
               <span className="text-xs font-mono font-medium tracking-wide uppercase">
-                {theme === "dark" ? "Dark Workspace" : "Light Workspace"}
+                {theme === "dark" ? t("common.darkWorkspace") : t("common.lightWorkspace")}
               </span>
             </div>
 
             <button
               onClick={toggleTheme}
-              className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700 transition-colors shadow-sm cursor-pointer"
+              className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700 transition-colors shadow-xs cursor-pointer"
               title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
             >
               {theme === "dark" ? (

@@ -4,6 +4,7 @@ export enum ActiveModule {
   DATA_CONVERTER = "data_converter",
   EXCEL_SPLITTER = "excel_splitter",
   EXCEL_MERGER = "excel_merger",
+  DOCUMENT_SCANNER = "document_scanner",
 }
 
 export interface TextUtilsState {

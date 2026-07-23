@@ -6,6 +6,8 @@ import CompareMerge from "./components/CompareMerge";
 import DataConverterHtml from "./components/DataConverterHtml";
 import ExcelSplitterValidator from "./components/ExcelSplitterValidator";
 import ExcelMergerExtractor from "./components/ExcelMergerExtractor";
+import DocScannerPdf from "./components/DocScannerPdf";
+import { I18nProvider, useI18n } from "./utils/i18n";
 import { Menu, Sun, Moon, Sliders } from "lucide-react";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -50,6 +52,11 @@ const HASH_MAP: Record<string, ActiveModule> = {
   "#extractor": ActiveModule.EXCEL_MERGER,
   "#excel-extractor": ActiveModule.EXCEL_MERGER,
   "#account-merger": ActiveModule.EXCEL_MERGER,
+
+  "#doc-scanner": ActiveModule.DOCUMENT_SCANNER,
+  "#scanner": ActiveModule.DOCUMENT_SCANNER,
+  "#document-scanner": ActiveModule.DOCUMENT_SCANNER,
+  "#pdf-scanner": ActiveModule.DOCUMENT_SCANNER,
 };
 
 const DEFAULT_STATE: AppState = {
@@ -102,7 +109,8 @@ const DEFAULT_STATE: AppState = {
   },
 };
 
-export default function App() {
+function MainApp() {
+  const { lang, setLang } = useI18n();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [state, setState] = useState<AppState>(() => {
     const currentHash = window.location.hash.toLowerCase();
@@ -203,16 +211,24 @@ export default function App() {
           </div>
           <span className="font-bold text-sm text-slate-800 dark:text-slate-100 font-sans tracking-tight">Vibe Code AIO</span>
         </div>
-        <button
-          onClick={toggleTheme}
-          className="p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
-        >
-          {state.theme === "dark" ? (
-            <Sun className="h-4.5 w-4.5 text-amber-400" />
-          ) : (
-            <Moon className="h-4.5 w-4.5 text-indigo-600" />
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setLang(lang === "vi" ? "en" : "vi")}
+            className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer"
+          >
+            {lang === "vi" ? "🇻🇳" : "🇺🇸"}
+          </button>
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+          >
+            {state.theme === "dark" ? (
+              <Sun className="h-4.5 w-4.5 text-amber-400" />
+            ) : (
+              <Moon className="h-4.5 w-4.5 text-indigo-600" />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Drawer Overlay Backdrop */}
@@ -239,6 +255,8 @@ export default function App() {
                 ? "formatter"
                 : mod === ActiveModule.EXCEL_MERGER
                 ? "excel-merger"
+                : mod === ActiveModule.DOCUMENT_SCANNER
+                ? "doc-scanner"
                 : "excel-splitter";
             window.location.hash = canonicalHash;
             setIsMobileMenuOpen(false); // Auto-close drawer on selection!
@@ -289,6 +307,9 @@ export default function App() {
             }}
           />
         )}
+        {state.activeModule === ActiveModule.DOCUMENT_SCANNER && (
+          <DocScannerPdf />
+        )}
       </main>
       
       <ToastContainer 
@@ -305,5 +326,13 @@ export default function App() {
         theme={state.theme === "dark" ? "dark" : "light"} 
       />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <I18nProvider initialLang="vi">
+      <MainApp />
+    </I18nProvider>
   );
 }

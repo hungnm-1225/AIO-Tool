@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from "react";
 import * as XLSX from "xlsx";
 import { ExcelMergerState, ActiveModule } from "../types";
+import { useI18n } from "../utils/i18n";
 import {
   Layers,
   Upload,
@@ -77,6 +78,7 @@ export default function ExcelMergerExtractor({
   onChange,
   onSwitchModule
 }: ExcelMergerExtractorProps) {
+  const { t } = useI18n();
 
   // State management
   const [fileStores, setFileStores] = useState<FileDataStore[]>([]);
@@ -677,11 +679,11 @@ export default function ExcelMergerExtractor({
               <Layers className="h-5 w-5" />
             </div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-              Excel Merger & Data Extractor (Account Template)
+              {t("excelSuite.title")}
             </h2>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Upload multiple processed Excel files (e.g. account.xlsx, account (1).xlsx, account (2).xlsx), merge with natural filename sorting, and extract username & password lists.
+            {t("excelSuite.subtitle")}
           </p>
         </div>
 
@@ -694,13 +696,13 @@ export default function ExcelMergerExtractor({
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-all cursor-pointer flex items-center gap-1.5"
               >
                 <FileSpreadsheet className="h-3.5 w-3.5 text-indigo-500" />
-                <span>Splitter & Validator</span>
+                <span>{t("excelSuite.splitterTab")}</span>
               </button>
               <button
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#111827] text-purple-600 dark:text-purple-400 shadow-xs flex items-center gap-1.5 cursor-default"
               >
                 <Layers className="h-3.5 w-3.5 text-purple-500" />
-                <span>Merger & Extractor</span>
+                <span>{t("excelSuite.mergerTab")}</span>
               </button>
             </div>
           )}
@@ -726,7 +728,7 @@ export default function ExcelMergerExtractor({
             <Upload className="h-8 w-8" />
           </div>
           <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 mb-1">
-            Drop Multiple Processed Excel Files Here
+            {t("excelSuite.mergeDropzone")}
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg mb-5 leading-relaxed">
             Select or drag multiple files (e.g. <code>account.xlsx</code>, <code>account (1).xlsx</code>, <code>account (2).xlsx</code> ... <code>account (10).xlsx</code>). Files will be automatically <strong>naturally sorted</strong> before merging!
@@ -735,7 +737,7 @@ export default function ExcelMergerExtractor({
           <div className="flex flex-wrap items-center justify-center gap-3">
             <label className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs shadow-md shadow-purple-600/20 cursor-pointer transition-all flex items-center gap-2">
               <FileSpreadsheet className="h-4 w-4" />
-              <span>Select Multiple XLSX Files</span>
+              <span>{t("excelSuite.selectFile")}</span>
               <input
                 type="file"
                 accept=".xlsx, .xls, .csv"
@@ -750,7 +752,7 @@ export default function ExcelMergerExtractor({
               className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-2 cursor-pointer transition-all"
             >
               <Sparkles className="h-4 w-4 text-purple-400" />
-              <span>Load Sample Batch Demo</span>
+              <span>{t("excelSuite.loadSample")}</span>
             </button>
           </div>
         </div>
@@ -776,7 +778,7 @@ export default function ExcelMergerExtractor({
               <div className="flex items-center gap-2">
                 <label className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer transition-all flex items-center gap-1.5">
                   <Upload className="h-3.5 w-3.5 text-purple-500" />
-                  <span>Add More Files</span>
+                  <span>{t("excelSuite.addMoreFiles")}</span>
                   <input
                     type="file"
                     accept=".xlsx, .xls, .csv"
@@ -791,7 +793,7 @@ export default function ExcelMergerExtractor({
                   className="px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-semibold cursor-pointer transition-all hover:bg-rose-100 dark:hover:bg-rose-900/50 flex items-center gap-1.5"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  <span>Clear List</span>
+                  <span>{t("excelSuite.clearList")}</span>
                 </button>
               </div>
             </div>
@@ -1124,7 +1126,7 @@ export default function ExcelMergerExtractor({
                   {paginatedRecords.length === 0 ? (
                     <tr>
                       <td colSpan={10} className="py-12 text-center text-slate-400">
-                        No records match the current filter or file input.
+                        {t("excelSuite.noRecords")}
                       </td>
                     </tr>
                   ) : (

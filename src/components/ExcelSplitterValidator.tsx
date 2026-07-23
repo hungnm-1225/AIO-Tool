@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from "react";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
-import { ExcelSplitterState } from "../types";
+import { ExcelSplitterState, ActiveModule } from "../types";
 import {
   FileSpreadsheet,
   Upload,
@@ -21,7 +21,8 @@ import {
   X,
   Check,
   Archive,
-  RotateCcw
+  RotateCcw,
+  Layers
 } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -56,6 +57,7 @@ interface ColumnIndexes {
 interface ExcelSplitterValidatorProps {
   state?: ExcelSplitterState;
   onChange?: (newState: Partial<ExcelSplitterState>) => void;
+  onSwitchModule?: (mod: ActiveModule) => void;
 }
 
 const DEFAULT_HEADERS_AOA = [
@@ -174,7 +176,8 @@ export function parseAndNormalizeDOB(rawDob: string): {
 
 export default function ExcelSplitterValidator({
   state,
-  onChange
+  onChange,
+  onSwitchModule
 }: ExcelSplitterValidatorProps) {
   // Config state
   const maxRecordsPerFile = state?.maxRecordsPerFile ?? 50;
@@ -788,7 +791,25 @@ export default function ExcelSplitterValidator({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {onSwitchModule && (
+            <div className="flex items-center gap-1 p-1 bg-slate-200/80 dark:bg-slate-900 rounded-xl border border-slate-300 dark:border-slate-800">
+              <button
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-xs flex items-center gap-1.5 cursor-default"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5 text-indigo-500" />
+                <span>Splitter & Validator</span>
+              </button>
+              <button
+                onClick={() => onSwitchModule(ActiveModule.EXCEL_MERGER)}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <Layers className="h-3.5 w-3.5 text-purple-500" />
+                <span>Merger & Extractor</span>
+              </button>
+            </div>
+          )}
+
           <button
             onClick={handleDownloadSampleTemplate}
             className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-2 shadow-xs cursor-pointer transition-all"

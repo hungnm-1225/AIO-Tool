@@ -4,6 +4,7 @@ import {
   FileText, 
   GitCompare, 
   Terminal, 
+  FileSpreadsheet,
   Sun, 
   Moon, 
   Sliders,
@@ -59,6 +60,13 @@ export default function Sidebar({
       description: "Format, JSON-Grid, HTML Live Preview",
       icon: Terminal,
       hashId: "formatter",
+    },
+    {
+      id: ActiveModule.EXCEL_SPLITTER,
+      label: "Excel Splitter & Validator",
+      description: "Validate & split account creation templates",
+      icon: FileSpreadsheet,
+      hashId: "excel-splitter",
     }
   ];
 

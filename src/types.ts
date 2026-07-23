@@ -3,6 +3,7 @@ export enum ActiveModule {
   COMPARE_MERGE = "compare_merge",
   DATA_CONVERTER = "data_converter",
   EXCEL_SPLITTER = "excel_splitter",
+  EXCEL_MERGER = "excel_merger",
 }
 
 export interface TextUtilsState {
@@ -49,6 +50,10 @@ export interface ExcelSplitterState {
   exportFormat?: "individual" | "zip";
 }
 
+export interface ExcelMergerState {
+  pageSize: number;
+}
+
 export interface AppState {
   theme: "dark" | "light";
   activeModule: ActiveModule;
@@ -56,4 +61,5 @@ export interface AppState {
   compareMerge: CompareMergeState;
   dataConverter: DataConverterState;
   excelSplitter: ExcelSplitterState;
+  excelMerger: ExcelMergerState;
 }

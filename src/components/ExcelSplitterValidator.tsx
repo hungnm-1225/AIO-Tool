@@ -740,7 +740,7 @@ export default function ExcelSplitterValidator({
   const handleAddNewRecord = () => {
     const newRec: ParsedRecord = {
       id: `rec-new-${Date.now()}`,
-      rowIndex: records.length > 0 ? Math.max(...records.map((r) => r.rowIndex)) + 1 : 6,
+      rowIndex: records.length > 0 ? Math.max(...records.map((r) => r.rowIndex)) + 1 : 1,
       firstName: "",
       lastName: "",
       phoneNumber: "",
@@ -1362,8 +1362,60 @@ export default function ExcelSplitterValidator({
                 </button>
               </div>
 
-              {/* Search Box, Page Size & Restore Default Order Button */}
-              <div className="flex flex-wrap items-center gap-3">
+              {/* Lock Toggle, Add Row, Search Box, Page Size & Restore Default Order Button */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Lock / Unlock Editing Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextLocked = !isEditingLocked;
+                    setIsEditingLocked(nextLocked);
+                    toast.info(
+                      nextLocked
+                        ? "Đã khóa chỉnh sửa dữ liệu trong bảng."
+                        : "Đã mở khóa, bạn có thể chỉnh sửa dữ liệu."
+                    );
+                  }}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs ${
+                    isEditingLocked
+                      ? "bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800/80 text-amber-700 dark:text-amber-300 hover:bg-amber-100"
+                      : "bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800/80 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100"
+                  }`}
+                  title={
+                    isEditingLocked
+                      ? "Bấm để mở khóa chỉnh sửa dữ liệu"
+                      : "Bấm để khóa không cho chỉnh sửa dữ liệu"
+                  }
+                >
+                  {isEditingLocked ? (
+                    <>
+                      <Lock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                      <span>Đang khóa chỉnh sửa</span>
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>Cho phép chỉnh sửa</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Add Row Button */}
+                <button
+                  type="button"
+                  onClick={handleAddNewRecord}
+                  disabled={isEditingLocked}
+                  className="px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={
+                    isEditingLocked
+                      ? "Mở khóa để thêm dòng mới"
+                      : "Thêm dòng mới vào bảng"
+                  }
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Thêm dòng</span>
+                </button>
+
                 {sortField !== "default" && (
                   <button
                     onClick={handleRestoreDefaultOrder}
@@ -1417,10 +1469,10 @@ export default function ExcelSplitterValidator({
                     <th
                       onClick={() => handleHeaderSort("rowIndex")}
                       className="py-3 px-3 w-12 text-center cursor-pointer select-none hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors"
-                      title="Sort by Row number"
+                      title="Sort by STT (Số thứ tự từ 1)"
                     >
                       <div className="flex items-center justify-center gap-1">
-                        <span>Row</span>
+                        <span>STT</span>
                         {sortField === "rowIndex" ? (
                           sortDirection === "asc" ? (
                             <ArrowUp className="h-3 w-3 text-indigo-500" />
@@ -1621,12 +1673,17 @@ export default function ExcelSplitterValidator({
                           <td className="p-1">
                             <input
                               type="text"
+                              disabled={isEditingLocked}
                               value={rec.firstName}
                               onChange={(e) =>
                                 handleCellEdit(rec.id, "firstName", e.target.value)
                               }
                               placeholder="First Name"
                               className={`w-full px-2.5 py-1.5 rounded-lg text-xs transition-all focus:outline-none ${
+                                isEditingLocked
+                                  ? "cursor-not-allowed opacity-75"
+                                  : ""
+                              } ${
                                 firstNameErr
                                   ? "bg-rose-100/80 dark:bg-rose-950/80 border border-rose-400 dark:border-rose-700 text-rose-900 dark:text-rose-200 font-medium"
                                   : "bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-700 focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 text-slate-800 dark:text-slate-200"
@@ -1638,12 +1695,17 @@ export default function ExcelSplitterValidator({
                           <td className="p-1">
                             <input
                               type="text"
+                              disabled={isEditingLocked}
                               value={rec.lastName}
                               onChange={(e) =>
                                 handleCellEdit(rec.id, "lastName", e.target.value)
                               }
                               placeholder="Last Name"
                               className={`w-full px-2.5 py-1.5 rounded-lg text-xs transition-all focus:outline-none ${
+                                isEditingLocked
+                                  ? "cursor-not-allowed opacity-75"
+                                  : ""
+                              } ${
                                 lastNameErr
                                   ? "bg-rose-100/80 dark:bg-rose-950/80 border border-rose-400 dark:border-rose-700 text-rose-900 dark:text-rose-200 font-medium"
                                   : "bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-700 focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 text-slate-800 dark:text-slate-200"
@@ -1655,12 +1717,15 @@ export default function ExcelSplitterValidator({
                           <td className="p-1">
                             <input
                               type="text"
+                              disabled={isEditingLocked}
                               value={rec.phoneNumber}
                               onChange={(e) =>
                                 handleCellEdit(rec.id, "phoneNumber", e.target.value)
                               }
                               placeholder="Phone Number (optional)"
-                              className="w-full px-2.5 py-1.5 rounded-lg text-xs font-mono bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-700 focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 text-slate-800 dark:text-slate-200"
+                              className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all focus:outline-none ${
+                                isEditingLocked ? "cursor-not-allowed opacity-75" : ""
+                              } bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-700 focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 text-slate-800 dark:text-slate-200`}
                             />
                           </td>
 
@@ -1668,12 +1733,17 @@ export default function ExcelSplitterValidator({
                           <td className="p-1">
                             <input
                               type="text"
+                              disabled={isEditingLocked}
                               value={rec.email}
                               onChange={(e) =>
                                 handleCellEdit(rec.id, "email", e.target.value)
                               }
                               placeholder="user@domain.com"
                               className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all focus:outline-none ${
+                                isEditingLocked
+                                  ? "cursor-not-allowed opacity-75"
+                                  : ""
+                              } ${
                                 emailErr
                                   ? "bg-rose-100/80 dark:bg-rose-950/80 border border-rose-400 dark:border-rose-700 text-rose-900 dark:text-rose-200 font-medium"
                                   : "bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-700 focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 text-slate-800 dark:text-slate-200"
@@ -1685,12 +1755,17 @@ export default function ExcelSplitterValidator({
                           <td className="p-1">
                             <input
                               type="text"
+                              disabled={isEditingLocked}
                               value={rec.dob}
                               onChange={(e) =>
                                 handleCellEdit(rec.id, "dob", e.target.value)
                               }
                               placeholder="DD/MM/YYYY"
                               className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all focus:outline-none ${
+                                isEditingLocked
+                                  ? "cursor-not-allowed opacity-75"
+                                  : ""
+                              } ${
                                 dobErr
                                   ? "bg-rose-100/80 dark:bg-rose-950/80 border border-rose-400 dark:border-rose-700 text-rose-900 dark:text-rose-200 font-medium"
                                   : "bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-700 focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 text-slate-800 dark:text-slate-200"
@@ -1701,11 +1776,16 @@ export default function ExcelSplitterValidator({
                           {/* Role Cell - Strictly Teacher or Student */}
                           <td className="p-1">
                             <select
+                              disabled={isEditingLocked}
                               value={rec.role}
                               onChange={(e) =>
                                 handleCellEdit(rec.id, "role", e.target.value)
                               }
                               className={`w-full px-2 py-1.5 rounded-lg text-xs transition-all focus:outline-none ${
+                                isEditingLocked
+                                  ? "cursor-not-allowed opacity-75"
+                                  : ""
+                              } ${
                                 roleErr
                                   ? "bg-rose-100/80 dark:bg-rose-950/80 border border-rose-400 dark:border-rose-700 text-rose-900 dark:text-rose-200 font-medium"
                                   : "bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-700 focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 text-slate-800 dark:text-slate-200"
@@ -1741,8 +1821,9 @@ export default function ExcelSplitterValidator({
                           <td className="py-2 px-3 text-center">
                             <button
                               onClick={() => handleDeleteRecord(rec.id)}
-                              className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/60 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                              title="Delete Record"
+                              disabled={isEditingLocked}
+                              className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/60 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                              title={isEditingLocked ? "Đã khóa chỉnh sửa" : "Delete Record"}
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>

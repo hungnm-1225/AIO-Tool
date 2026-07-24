@@ -6,6 +6,7 @@ import "prismjs/components/prism-css";
 import "prismjs/components/prism-javascript";
 import { Copy, Check, Download, FileCode, FileJson, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
+import { useI18n } from "../utils/i18n";
 
 export interface CodeEditorProps {
   value: string;
@@ -36,6 +37,7 @@ export default function CodeEditor({
   defaultFilename,
   className = "",
 }: CodeEditorProps) {
+  const { lang } = useI18n();
   const [copied, setCopied] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
@@ -128,16 +130,18 @@ export default function CodeEditor({
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
-      toast.success("Copied code to clipboard!");
+      toast.success(
+        lang === "vi" ? "Đã sao chép mã nguồn vào bộ nhớ tạm!" : "Copied code to clipboard!"
+      );
       setTimeout(() => setCopied(false), 2000);
     } catch (e) {
-      toast.error("Failed to copy code.");
+      toast.error(lang === "vi" ? "Sao chép mã nguồn thất bại." : "Failed to copy code.");
     }
   };
 
   const handleDownload = () => {
     if (!value) {
-      toast.error("Nothing to download!");
+      toast.error(lang === "vi" ? "Không có nội dung để tải xuống!" : "Nothing to download!");
       return;
     }
     const name = defaultFilename || `formatted_code${badgeInfo.ext}`;
@@ -150,7 +154,9 @@ export default function CodeEditor({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    toast.success(`Downloaded ${name}!`);
+    toast.success(
+      lang === "vi" ? `Đã tải xuống tệp ${name}!` : `Downloaded ${name}!`
+    );
   };
 
   return (
@@ -211,7 +217,7 @@ export default function CodeEditor({
             <button
               onClick={() => {
                 onChange("");
-                toast.info("Cleared code editor!");
+                toast.info(lang === "vi" ? "Đã xóa nội dung trình soạn thảo!" : "Cleared code editor!");
               }}
               className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
               title="Clear editor"

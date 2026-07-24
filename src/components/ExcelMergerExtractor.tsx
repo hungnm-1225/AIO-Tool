@@ -78,7 +78,7 @@ export default function ExcelMergerExtractor({
   onChange,
   onSwitchModule
 }: ExcelMergerExtractorProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
 
   // State management
   const [fileStores, setFileStores] = useState<FileDataStore[]>([]);
@@ -172,7 +172,9 @@ export default function ExcelMergerExtractor({
 
     rebuildFromStores(updatedStores, true);
     toast.success(
-      `Reordered file sequence: "${movedStore.fileName}" moved to position #${toIndex + 1}`
+      t("excelSuite.reorderSuccess")
+        .replace("{name}", movedStore.fileName)
+        .replace("{index}", String(toIndex + 1))
     );
   };
 
@@ -189,13 +191,13 @@ export default function ExcelMergerExtractor({
     );
 
     if (validFiles.length === 0) {
-      toast.error("Please upload valid .xlsx, .xls or .csv files.");
+      toast.error(t("excelSuite.validFilesError"));
       return;
     }
 
     const newParsedStores: FileDataStore[] = [];
 
-    toast.info(`Processing ${validFiles.length} uploaded file(s)...`);
+    toast.info(t("excelSuite.processingFiles").replace("{count}", String(validFiles.length)));
 
     for (let fileIdx = 0; fileIdx < validFiles.length; fileIdx++) {
       const file = validFiles[fileIdx];
@@ -393,7 +395,7 @@ export default function ExcelMergerExtractor({
         });
       } catch (err: any) {
         console.error(`Error reading ${file.name}:`, err);
-        toast.error(`Failed to parse ${file.name}: ${err.message || "Unknown error"}`);
+        toast.error(t("excelSuite.parseFileError").replace("{name}", file.name).replace("{error}", err.message || "Unknown error"));
       }
     }
 
@@ -406,7 +408,10 @@ export default function ExcelMergerExtractor({
       const { allRecords, summary } = rebuildFromStores(updatedStores);
 
       toast.success(
-        `Merged ${newParsedStores.length} file(s). Total dataset now has ${allRecords.length} record(s) across ${summary.length} file(s)!`
+        t("excelSuite.mergeSuccess")
+          .replace("{count}", String(newParsedStores.length))
+          .replace("{records}", String(allRecords.length))
+          .replace("{files}", String(summary.length))
       );
 
       return updatedStores;
@@ -485,7 +490,7 @@ export default function ExcelMergerExtractor({
     }));
 
     rebuildFromStores(demoStores);
-    toast.success("Loaded sample multi-file demo dataset!");
+    toast.success(lang === "vi" ? "Đã tải bộ dữ liệu mẫu gồm nhiều tệp!" : "Loaded sample multi-file demo dataset!");
   };
 
   // Prompt File Deletion Warning
@@ -501,7 +506,11 @@ export default function ExcelMergerExtractor({
     const remainingStores = fileStores.filter((s) => s.fileName !== targetName);
     rebuildFromStores(remainingStores);
 
-    toast.success(`Removed ${targetName} and its ${fileToDelete.recordCount} record(s).`);
+    toast.success(
+      lang === "vi"
+        ? `Đã xóa tệp "${targetName}" và ${fileToDelete.recordCount} dòng bản ghi.`
+        : `Removed ${targetName} and its ${fileToDelete.recordCount} record(s).`
+    );
     setFileToDelete(null);
   };
 
@@ -513,14 +522,14 @@ export default function ExcelMergerExtractor({
     setSearchQuery("");
     setSortField("default");
     setCurrentPage(1);
-    toast.info("Cleared all merged records and file list.");
+    toast.info(t("excelSuite.clearSuccess"));
   };
 
   // Restore Default Natural Sorted Order
   const handleRestoreDefaultOrder = () => {
     setSortField("default");
     setSortDirection("asc");
-    toast.info("Restored default merged file sequence order.");
+    toast.info(t("excelSuite.restoreSuccess"));
   };
 
   // Header Sorting Toggle
@@ -589,7 +598,7 @@ export default function ExcelMergerExtractor({
       .filter((u) => u.trim().length > 0);
 
     if (usernames.length === 0) {
-      toast.warn("No Username data available to copy.");
+      toast.warn(t("excelSuite.noUsernameData"));
       return;
     }
 
@@ -597,10 +606,10 @@ export default function ExcelMergerExtractor({
     try {
       await navigator.clipboard.writeText(textToCopy);
       toast.success(
-        `Copied ${usernames.length} Username(s) to clipboard successfully!`
+        t("excelSuite.copyUsernamesSuccess").replace("{count}", String(usernames.length))
       );
     } catch (err) {
-      toast.error("Failed to copy usernames to clipboard.");
+      toast.error(t("excelSuite.copyUsernamesError"));
     }
   };
 
@@ -611,7 +620,7 @@ export default function ExcelMergerExtractor({
       .filter((p) => p.trim().length > 0);
 
     if (passwords.length === 0) {
-      toast.warn("No Password data available to copy.");
+      toast.warn(t("excelSuite.noPasswordData"));
       return;
     }
 
@@ -619,17 +628,17 @@ export default function ExcelMergerExtractor({
     try {
       await navigator.clipboard.writeText(textToCopy);
       toast.success(
-        `Copied ${passwords.length} Password(s) to clipboard successfully!`
+        t("excelSuite.copyPasswordsSuccess").replace("{count}", String(passwords.length))
       );
     } catch (err) {
-      toast.error("Failed to copy passwords to clipboard.");
+      toast.error(t("excelSuite.copyPasswordsError"));
     }
   };
 
   // Download Merged XLSX File
   const handleDownloadMergedXLSX = () => {
     if (processedRecords.length === 0) {
-      toast.warn("No data available to export.");
+      toast.warn(t("excelSuite.noExportData"));
       return;
     }
 
@@ -665,7 +674,7 @@ export default function ExcelMergerExtractor({
 
     XLSX.writeFile(wb, "Merged_Account_Template.xlsx");
     toast.success(
-      `Successfully exported ${processedRecords.length} merged records into Merged_Account_Template.xlsx!`
+      t("excelSuite.exportSuccess").replace("{count}", String(processedRecords.length))
     );
   };
 
@@ -675,15 +684,18 @@ export default function ExcelMergerExtractor({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5">
         <div>
           <div className="flex items-center gap-2.5 mb-1">
-            <div className="h-9 w-9 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-600/20">
+            <div className="h-9 w-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-md shadow-emerald-600/20">
               <Layers className="h-5 w-5" />
             </div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-              {t("excelSuite.title")}
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <span>{t("excelSuite.title")}</span>
+              <span className="px-2.5 py-0.5 text-[11px] font-semibold rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                🌐 Pythaverse.space
+              </span>
             </h2>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            {t("excelSuite.subtitle")}
+            {t("excelSuite.subtitle")} • <span className="font-medium text-emerald-600 dark:text-emerald-400">{t("excelSuite.pythaverseNotice")}</span>
           </p>
         </div>
 
@@ -695,13 +707,13 @@ export default function ExcelMergerExtractor({
                 onClick={() => onSwitchModule(ActiveModule.EXCEL_SPLITTER)}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <FileSpreadsheet className="h-3.5 w-3.5 text-indigo-500" />
+                <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-500" />
                 <span>{t("excelSuite.splitterTab")}</span>
               </button>
               <button
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#111827] text-purple-600 dark:text-purple-400 shadow-xs flex items-center gap-1.5 cursor-default"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#111827] text-emerald-600 dark:text-emerald-400 shadow-xs flex items-center gap-1.5 cursor-default"
               >
-                <Layers className="h-3.5 w-3.5 text-purple-500" />
+                <Layers className="h-3.5 w-3.5 text-emerald-500" />
                 <span>{t("excelSuite.mergerTab")}</span>
               </button>
             </div>
@@ -720,22 +732,27 @@ export default function ExcelMergerExtractor({
           onDrop={handleDrop}
           className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
             isDragging
-              ? "border-purple-500 bg-purple-50/50 dark:bg-purple-950/20 scale-[1.01]"
-              : "border-slate-300 dark:border-slate-800 bg-white dark:bg-[#111827] hover:border-purple-400 dark:hover:border-purple-500/50"
+              ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 scale-[1.01]"
+              : "border-slate-300 dark:border-slate-800 bg-white dark:bg-[#111827] hover:border-emerald-400 dark:hover:border-emerald-500/50"
           }`}
         >
-          <div className="h-16 w-16 rounded-2xl bg-purple-50 dark:bg-purple-950/50 border border-purple-100 dark:border-purple-800/60 flex items-center justify-center text-purple-600 dark:text-purple-400 mb-4 shadow-inner">
+          <div className="h-16 w-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-100 dark:border-emerald-800/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-4 shadow-inner">
             <Upload className="h-8 w-8" />
           </div>
           <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 mb-1">
             {t("excelSuite.mergeDropzone")}
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg mb-5 leading-relaxed">
-            Select or drag multiple files (e.g. <code>account.xlsx</code>, <code>account (1).xlsx</code>, <code>account (2).xlsx</code> ... <code>account (10).xlsx</code>). Files will be automatically <strong>naturally sorted</strong> before merging!
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg mb-2 leading-relaxed">
+            {t("excelSuite.dragDropHelp")}
           </p>
+          <div className="mb-5">
+            <span className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/80 inline-block">
+              ★ {t("excelSuite.pythaverseNotice")}
+            </span>
+          </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <label className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs shadow-md shadow-purple-600/20 cursor-pointer transition-all flex items-center gap-2">
+            <label className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-md shadow-emerald-600/20 cursor-pointer transition-all flex items-center gap-2">
               <FileSpreadsheet className="h-4 w-4" />
               <span>{t("excelSuite.selectFile")}</span>
               <input
@@ -767,10 +784,12 @@ export default function ExcelMergerExtractor({
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                    Merged Dataset: {records.length} Total Records across {loadedFiles.length} Files
+                    {t("excelSuite.mergeDataset")
+                      .replace("{records}", String(records.length))
+                      .replace("{files}", String(loadedFiles.length))}
                   </h4>
                   <p className="text-[11px] text-slate-400">
-                    Drag & drop file badges below to reorder files and update table record sequence.
+                    {t("excelSuite.dragDropReorder")}
                   </p>
                 </div>
               </div>
@@ -801,7 +820,7 @@ export default function ExcelMergerExtractor({
             {/* File List Badges with Drag and Drop Reordering */}
             <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/60">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Files (Drag & Drop to reorder):
+                {t("excelSuite.filesReorderLabel")}
               </span>
               {loadedFiles.map((f, idx) => (
                 <div
@@ -873,25 +892,25 @@ export default function ExcelMergerExtractor({
             <div className="flex flex-wrap items-center gap-2.5">
               <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
                 <Key className="h-3.5 w-3.5 text-amber-500" />
-                Quick Copy Utilities:
+                {t("excelSuite.quickCopy")}
               </span>
 
               <button
                 onClick={handleCopyUsernames}
                 className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-2 shadow-xs cursor-pointer transition-all"
-                title="Copy only Usernames as newline-separated list"
+                title={t("excelSuite.copyUsernamesTooltip")}
               >
                 <Copy className="h-3.5 w-3.5" />
-                <span>Copy Username List</span>
+                <span>{t("excelSuite.copyUsernames")}</span>
               </button>
 
               <button
                 onClick={handleCopyPasswords}
                 className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs flex items-center gap-2 shadow-xs cursor-pointer transition-all"
-                title="Copy only Passwords as newline-separated list"
+                title={t("excelSuite.copyPasswordsTooltip")}
               >
                 <Copy className="h-3.5 w-3.5" />
-                <span>Copy Password List</span>
+                <span>{t("excelSuite.copyPasswords")}</span>
               </button>
             </div>
 
@@ -901,10 +920,10 @@ export default function ExcelMergerExtractor({
                 <button
                   onClick={handleRestoreDefaultOrder}
                   className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
-                  title="Restore default naturally sorted file order"
+                  title={t("excelSuite.restoreOrderTooltip")}
                 >
                   <RotateCcw className="h-3.5 w-3.5 text-indigo-400" />
-                  <span>Restore Default Order</span>
+                  <span>{t("excelSuite.restoreOrder")}</span>
                 </button>
               )}
 
@@ -913,7 +932,7 @@ export default function ExcelMergerExtractor({
                 className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-2 shadow-md shadow-emerald-600/20 cursor-pointer transition-all"
               >
                 <Download className="h-4 w-4" />
-                <span>Download Merged XLSX File</span>
+                <span>{t("excelSuite.downloadMerged")}</span>
               </button>
             </div>
           </div>
@@ -926,7 +945,7 @@ export default function ExcelMergerExtractor({
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search name, username, email, phone, role, file..."
+                  placeholder={t("excelSuite.searchPlaceholder")}
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -938,11 +957,13 @@ export default function ExcelMergerExtractor({
 
               <div className="flex items-center gap-4 text-xs text-slate-400">
                 <span>
-                  Showing {processedRecords.length} of {records.length} records
+                  {t("excelSuite.showingRecords")
+                    .replace("{filtered}", String(processedRecords.length))
+                    .replace("{total}", String(records.length))}
                 </span>
 
                 <div className="flex items-center gap-1.5">
-                  <span>Page size:</span>
+                  <span>{t("excelSuite.pageSizeLabel")}</span>
                   <select
                     value={pageSize}
                     onChange={(e) => {
@@ -971,7 +992,7 @@ export default function ExcelMergerExtractor({
                       className="py-3 px-3 min-w-[140px] cursor-pointer hover:text-purple-500 transition-colors"
                     >
                       <div className="flex items-center gap-1">
-                        <span>Source File</span>
+                        <span>{t("excelSuite.colSource")}</span>
                         {sortField === "_originalFileName" ? (
                           sortDirection === "asc" ? (
                             <ArrowUp className="h-3 w-3 text-purple-500" />
@@ -988,7 +1009,7 @@ export default function ExcelMergerExtractor({
                       className="py-3 px-3 min-w-[120px] cursor-pointer hover:text-purple-500 transition-colors"
                     >
                       <div className="flex items-center gap-1">
-                        <span>First Name</span>
+                        <span>{t("excelSuite.colFirstName")}</span>
                         {sortField === "firstName" ? (
                           sortDirection === "asc" ? (
                             <ArrowUp className="h-3 w-3 text-purple-500" />
@@ -1005,7 +1026,7 @@ export default function ExcelMergerExtractor({
                       className="py-3 px-3 min-w-[120px] cursor-pointer hover:text-purple-500 transition-colors"
                     >
                       <div className="flex items-center gap-1">
-                        <span>Last Name</span>
+                        <span>{t("excelSuite.colLastName")}</span>
                         {sortField === "lastName" ? (
                           sortDirection === "asc" ? (
                             <ArrowUp className="h-3 w-3 text-purple-500" />
@@ -1022,7 +1043,7 @@ export default function ExcelMergerExtractor({
                       className="py-3 px-3 min-w-[130px] cursor-pointer hover:text-purple-500 transition-colors"
                     >
                       <div className="flex items-center gap-1">
-                        <span>Username</span>
+                        <span>{t("excelSuite.colUsername")}</span>
                         {sortField === "username" ? (
                           sortDirection === "asc" ? (
                             <ArrowUp className="h-3 w-3 text-purple-500" />
@@ -1039,7 +1060,7 @@ export default function ExcelMergerExtractor({
                       className="py-3 px-3 min-w-[130px] cursor-pointer hover:text-purple-500 transition-colors"
                     >
                       <div className="flex items-center gap-1">
-                        <span>Password</span>
+                        <span>{t("excelSuite.colPassword")}</span>
                         {sortField === "password" ? (
                           sortDirection === "asc" ? (
                             <ArrowUp className="h-3 w-3 text-purple-500" />
@@ -1056,7 +1077,7 @@ export default function ExcelMergerExtractor({
                       className="py-3 px-3 min-w-[160px] cursor-pointer hover:text-purple-500 transition-colors"
                     >
                       <div className="flex items-center gap-1">
-                        <span>Email</span>
+                        <span>{t("excelSuite.colEmail")}</span>
                         {sortField === "email" ? (
                           sortDirection === "asc" ? (
                             <ArrowUp className="h-3 w-3 text-purple-500" />
@@ -1073,7 +1094,7 @@ export default function ExcelMergerExtractor({
                       className="py-3 px-3 min-w-[130px] cursor-pointer hover:text-purple-500 transition-colors"
                     >
                       <div className="flex items-center gap-1">
-                        <span>Mobile Number</span>
+                        <span>{t("excelSuite.colMobile")}</span>
                         {sortField === "mobileNumber" ? (
                           sortDirection === "asc" ? (
                             <ArrowUp className="h-3 w-3 text-purple-500" />
@@ -1090,7 +1111,7 @@ export default function ExcelMergerExtractor({
                       className="py-3 px-3 min-w-[120px] cursor-pointer hover:text-purple-500 transition-colors"
                     >
                       <div className="flex items-center gap-1">
-                        <span>Date of Birth</span>
+                        <span>{t("excelSuite.colDob")}</span>
                         {sortField === "dob" ? (
                           sortDirection === "asc" ? (
                             <ArrowUp className="h-3 w-3 text-purple-500" />
@@ -1107,7 +1128,7 @@ export default function ExcelMergerExtractor({
                       className="py-3 px-3 min-w-[110px] cursor-pointer hover:text-purple-500 transition-colors"
                     >
                       <div className="flex items-center gap-1">
-                        <span>Role</span>
+                        <span>{t("excelSuite.colRole")}</span>
                         {sortField === "role" ? (
                           sortDirection === "asc" ? (
                             <ArrowUp className="h-3 w-3 text-purple-500" />
@@ -1267,17 +1288,18 @@ export default function ExcelMergerExtractor({
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                  Confirm File Deletion
+                  {t("excelSuite.confirmDeleteTitle")}
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Remove file and all associated records
+                  {t("excelSuite.confirmDeleteSubtitle")}
                 </p>
               </div>
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              Are you sure you want to remove <strong className="font-mono text-purple-600 dark:text-purple-400">{fileToDelete.name}</strong>?
-              This action will permanently delete <strong className="text-rose-600 dark:text-rose-400">{fileToDelete.recordCount} records</strong> from the merged dataset.
+              {t("excelSuite.confirmDeleteDesc")
+                .replace("{name}", fileToDelete.name)
+                .replace("{count}", String(fileToDelete.recordCount))}
             </p>
 
             <div className="flex items-center justify-end gap-3 pt-2">
@@ -1286,14 +1308,14 @@ export default function ExcelMergerExtractor({
                 onClick={() => setFileToDelete(null)}
                 className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs transition-colors cursor-pointer"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
                 onClick={handleConfirmDeleteFile}
                 className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs shadow-md shadow-rose-600/20 transition-all cursor-pointer"
               >
-                Confirm Delete
+                {lang === "vi" ? "Xác nhận xóa" : "Confirm Delete"}
               </button>
             </div>
           </div>

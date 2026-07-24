@@ -7,6 +7,7 @@ import {
   Terminal, 
   FileSpreadsheet,
   ScanLine,
+  FolderSync,
   Sun, 
   Moon, 
   Sliders,
@@ -79,6 +80,13 @@ export default function Sidebar({
       description: t("sidebar.docScannerDesc"),
       icon: ScanLine,
       hashId: "doc-scanner",
+    },
+    {
+      id: ActiveModule.FILE_RENAMER,
+      label: t("sidebar.fileRenamerLabel"),
+      description: t("sidebar.fileRenamerDesc"),
+      icon: FolderSync,
+      hashId: "file-renamer",
     }
   ];
 

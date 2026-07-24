@@ -469,10 +469,18 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
       {/* Header Info */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5">
         <div>
-          <h2 className="text-2xl font-bold font-sans tracking-tight text-slate-800 dark:text-slate-100">
-            {t("textUtils.title")}
-          </h2>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+          <div className="flex items-center gap-2.5 mb-1">
+            <div className="h-9 w-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-600/20">
+              <Type className="h-5 w-5" />
+            </div>
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <span>{t("textUtils.title")}</span>
+              <span className="px-2.5 py-0.5 text-[11px] font-semibold rounded-full bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800">
+                Text & Duplicates
+              </span>
+            </h2>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {t("textUtils.subtitle")}
           </p>
         </div>

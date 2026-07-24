@@ -5,6 +5,7 @@ export enum ActiveModule {
   EXCEL_SPLITTER = "excel_splitter",
   EXCEL_MERGER = "excel_merger",
   DOCUMENT_SCANNER = "document_scanner",
+  FILE_RENAMER = "file_renamer",
 }
 
 export interface TextUtilsState {
@@ -55,6 +56,20 @@ export interface ExcelMergerState {
   pageSize: number;
 }
 
+export interface FileRenamerState {
+  prefix: string;
+  suffix: string;
+  findStr: string;
+  replaceStr: string;
+  enableNumbering: boolean;
+  numberingPattern: string; // e.g. "[name]_[x]"
+  startNumber: number;
+  stepNumber: number;
+  zeroPadding: number; // e.g. 1 -> 01 or 001
+  caseMode: "original" | "lowercase" | "uppercase" | "titlecase";
+  extensionCase: "original" | "lowercase" | "uppercase";
+}
+
 export interface AppState {
   theme: "dark" | "light";
   activeModule: ActiveModule;
@@ -63,4 +78,5 @@ export interface AppState {
   dataConverter: DataConverterState;
   excelSplitter: ExcelSplitterState;
   excelMerger: ExcelMergerState;
+  fileRenamer: FileRenamerState;
 }

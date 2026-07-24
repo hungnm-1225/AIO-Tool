@@ -7,6 +7,7 @@ import DataConverterHtml from "./components/DataConverterHtml";
 import ExcelSplitterValidator from "./components/ExcelSplitterValidator";
 import ExcelMergerExtractor from "./components/ExcelMergerExtractor";
 import DocScannerPdf from "./components/DocScannerPdf";
+import FileRenamer from "./components/FileRenamer";
 import { I18nProvider, useI18n } from "./utils/i18n";
 import { Menu, Sun, Moon, Sliders } from "lucide-react";
 import { ToastContainer } from "react-toastify";
@@ -57,6 +58,10 @@ const HASH_MAP: Record<string, ActiveModule> = {
   "#scanner": ActiveModule.DOCUMENT_SCANNER,
   "#document-scanner": ActiveModule.DOCUMENT_SCANNER,
   "#pdf-scanner": ActiveModule.DOCUMENT_SCANNER,
+
+  "#file-renamer": ActiveModule.FILE_RENAMER,
+  "#renamer": ActiveModule.FILE_RENAMER,
+  "#batch-rename": ActiveModule.FILE_RENAMER,
 };
 
 const DEFAULT_STATE: AppState = {
@@ -106,6 +111,19 @@ const DEFAULT_STATE: AppState = {
   },
   excelMerger: {
     pageSize: 10,
+  },
+  fileRenamer: {
+    prefix: "",
+    suffix: "",
+    findStr: "",
+    replaceStr: "",
+    enableNumbering: false,
+    numberingPattern: "[name]_[x]",
+    startNumber: 1,
+    stepNumber: 1,
+    zeroPadding: 2,
+    caseMode: "original",
+    extensionCase: "original",
   },
 };
 
@@ -257,6 +275,8 @@ function MainApp() {
                 ? "excel-merger"
                 : mod === ActiveModule.DOCUMENT_SCANNER
                 ? "doc-scanner"
+                : mod === ActiveModule.FILE_RENAMER
+                ? "file-renamer"
                 : "excel-splitter";
             window.location.hash = canonicalHash;
             setIsMobileMenuOpen(false); // Auto-close drawer on selection!
@@ -309,6 +329,12 @@ function MainApp() {
         )}
         {state.activeModule === ActiveModule.DOCUMENT_SCANNER && (
           <DocScannerPdf />
+        )}
+        {state.activeModule === ActiveModule.FILE_RENAMER && (
+          <FileRenamer
+            state={state.fileRenamer}
+            onChange={(subState) => handleModuleStateChange("fileRenamer", subState)}
+          />
         )}
       </main>
       

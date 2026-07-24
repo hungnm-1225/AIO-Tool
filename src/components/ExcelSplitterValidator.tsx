@@ -186,7 +186,7 @@ export default function ExcelSplitterValidator({
   onChange,
   onSwitchModule
 }: ExcelSplitterValidatorProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   // Config state
   const maxRecordsPerFile = state?.maxRecordsPerFile ?? 50;
   const setMaxRecordsPerFile = (val: number) =>
@@ -348,7 +348,11 @@ export default function ExcelSplitterValidator({
       const workbook = XLSX.read(buffer, { type: "array", cellDates: false });
       const sheetName = workbook.SheetNames[0];
       if (!sheetName) {
-        toast.error("The uploaded file does not contain any worksheets.");
+        toast.error(
+          lang === "vi"
+            ? "Tệp tải lên không chứa bất kỳ bảng tính nào."
+            : "The uploaded file does not contain any worksheets."
+        );
         return;
       }
       const worksheet = workbook.Sheets[sheetName];
@@ -358,7 +362,11 @@ export default function ExcelSplitterValidator({
       });
 
       if (!rawAoa || rawAoa.length === 0) {
-        toast.error("The uploaded Excel file is empty.");
+        toast.error(
+          lang === "vi"
+            ? "Tệp Excel tải lên rỗng."
+            : "The uploaded Excel file is empty."
+        );
         return;
       }
 
@@ -612,11 +620,17 @@ export default function ExcelSplitterValidator({
       setFileName(name);
       setCurrentPage(1);
       toast.success(
-        `Successfully loaded ${parsedList.length} user records from ${name}`
+        lang === "vi"
+          ? `Đã tải thành công ${parsedList.length} bản ghi người dùng từ tệp ${name}`
+          : `Successfully loaded ${parsedList.length} user records from ${name}`
       );
     } catch (err: any) {
       console.error(err);
-      toast.error(`Error parsing Excel file: ${err.message || "Unknown error"}`);
+      toast.error(
+        lang === "vi"
+          ? `Lỗi khi phân tích tệp Excel: ${err.message || "Lỗi không xác định"}`
+          : `Error parsing Excel file: ${err.message || "Unknown error"}`
+      );
     }
   };
 
@@ -644,7 +658,11 @@ export default function ExcelSplitterValidator({
         !file.name.endsWith(".xls") &&
         !file.name.endsWith(".csv")
       ) {
-        toast.error("Please upload a valid .xlsx or .xls file.");
+        toast.error(
+          lang === "vi"
+            ? "Vui lòng tải lên tệp .xlsx hoặc .xls hợp lệ."
+            : "Please upload a valid .xlsx or .xls file."
+        );
         return;
       }
       const reader = new FileReader();
@@ -676,7 +694,11 @@ export default function ExcelSplitterValidator({
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Account Template");
     XLSX.writeFile(wb, "Account_Creation_Template_Sample.xlsx");
-    toast.info("Downloaded sample corporate account template.");
+    toast.info(
+      lang === "vi"
+        ? "Đã tải xuống tệp mẫu đăng ký tài khoản doanh nghiệp."
+        : "Downloaded sample corporate account template."
+    );
   };
 
   // Clear list & Reset state
@@ -701,7 +723,11 @@ export default function ExcelSplitterValidator({
     });
     setFileName("Account_Creation_Template.xlsx");
     setCurrentPage(1);
-    toast.info("Cleared all records and reset selection.");
+    toast.info(
+      lang === "vi"
+        ? "Đã xóa tất cả bản ghi và đặt lại lựa chọn."
+        : "Cleared all records and reset selection."
+    );
   };
 
   // Inline cell edit update handler
@@ -768,13 +794,17 @@ export default function ExcelSplitterValidator({
     newRec.isValid = errors.length === 0;
 
     setRecords((prev) => [newRec, ...prev]);
-    toast.success("Added new record. Please complete the required fields.");
+    toast.success(
+      lang === "vi"
+        ? "Đã thêm bản ghi mới. Vui lòng điền đầy đủ thông tin bắt buộc."
+        : "Added new record. Please complete the required fields."
+    );
   };
 
   // Delete record
   const handleDeleteRecord = (id: string) => {
     setRecords((prev) => prev.filter((r) => r.id !== id));
-    toast.info("Record removed.");
+    toast.info(lang === "vi" ? "Đã xóa bản ghi." : "Record removed.");
   };
 
   // Statistics calculation
@@ -815,7 +845,11 @@ export default function ExcelSplitterValidator({
   const handleRestoreDefaultOrder = () => {
     setSortField("default");
     setSortDirection("asc");
-    toast.info("Restored original Excel row order.");
+    toast.info(
+      lang === "vi"
+        ? "Đã khôi phục thứ tự dòng Excel ban đầu."
+        : "Restored original Excel row order."
+    );
   };
 
   // Filtered & Sorted Records
@@ -867,7 +901,11 @@ export default function ExcelSplitterValidator({
   // Export & Split Handler
   const executeExport = async (recordsToExport: ParsedRecord[]) => {
     if (recordsToExport.length === 0) {
-      toast.warn("No records available to export.");
+      toast.warn(
+        lang === "vi"
+          ? "Không có bản ghi nào khả dụng để xuất dữ liệu."
+          : "No records available to export."
+      );
       return;
     }
 
@@ -877,7 +915,9 @@ export default function ExcelSplitterValidator({
 
     if (exportFormat === "zip") {
       toast.info(
-        `Compressing ${chunkCount} split file(s) into a ZIP archive...`
+        lang === "vi"
+          ? `Đang nén ${chunkCount} tệp đã tách thành một lưu trữ ZIP...`
+          : `Compressing ${chunkCount} split file(s) into a ZIP archive...`
       );
 
       try {
@@ -922,15 +962,23 @@ export default function ExcelSplitterValidator({
         URL.revokeObjectURL(url);
 
         toast.success(
-          `Successfully generated & downloaded ZIP archive containing ${chunkCount} XLSX file(s)!`
+          lang === "vi"
+            ? `Đã tạo và tải xuống thành công tệp lưu trữ ZIP chứa ${chunkCount} tệp XLSX!`
+            : `Successfully generated & downloaded ZIP archive containing ${chunkCount} XLSX file(s)!`
         );
       } catch (err: any) {
         console.error(err);
-        toast.error(`Failed to create ZIP archive: ${err.message || "Unknown error"}`);
+        toast.error(
+          lang === "vi"
+            ? `Tạo tệp lưu trữ ZIP thất bại: ${err.message || "Lỗi không xác định"}`
+            : `Failed to create ZIP archive: ${err.message || "Unknown error"}`
+        );
       }
     } else {
       toast.info(
-        `Starting download of ${chunkCount} separate XLSX file(s) (${recordsToExport.length} records total)...`
+        lang === "vi"
+          ? `Bắt đầu tải xuống ${chunkCount} tệp XLSX riêng biệt (tổng cộng ${recordsToExport.length} bản ghi)...`
+          : `Starting download of ${chunkCount} separate XLSX file(s) (${recordsToExport.length} records total)...`
       );
 
       for (let i = 0; i < chunkCount; i++) {
@@ -963,14 +1011,20 @@ export default function ExcelSplitterValidator({
       }
 
       toast.success(
-        `Successfully generated & downloaded ${chunkCount} separate XLSX file(s)!`
+        lang === "vi"
+          ? `Đã tạo và tải xuống thành công ${chunkCount} tệp XLSX riêng biệt!`
+          : `Successfully generated & downloaded ${chunkCount} separate XLSX file(s)!`
       );
     }
   };
 
   const handleSplitAndExport = () => {
     if (records.length === 0) {
-      toast.warn("Please upload or add records first!");
+      toast.warn(
+        lang === "vi"
+          ? "Vui lòng tải lên hoặc thêm các bản ghi trước!"
+          : "Please upload or add records first!"
+      );
       return;
     }
 
@@ -987,15 +1041,18 @@ export default function ExcelSplitterValidator({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5">
         <div>
           <div className="flex items-center gap-2.5 mb-1">
-            <div className="h-9 w-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-600/20">
+            <div className="h-9 w-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-md shadow-emerald-600/20">
               <FileSpreadsheet className="h-5 w-5" />
             </div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-              {t("excelSuite.title")}
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <span>{t("excelSuite.title")}</span>
+              <span className="px-2.5 py-0.5 text-[11px] font-semibold rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                🌐 Pythaverse.space
+              </span>
             </h2>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            {t("excelSuite.subtitle")}
+            {t("excelSuite.subtitle")} • <span className="font-medium text-emerald-600 dark:text-emerald-400">{t("excelSuite.pythaverseNotice")}</span>
           </p>
         </div>
 
@@ -1003,16 +1060,16 @@ export default function ExcelSplitterValidator({
           {onSwitchModule && (
             <div className="flex items-center gap-1 p-1 bg-slate-200/80 dark:bg-slate-900 rounded-xl border border-slate-300 dark:border-slate-800">
               <button
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-xs flex items-center gap-1.5 cursor-default"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#111827] text-emerald-600 dark:text-emerald-400 shadow-xs flex items-center gap-1.5 cursor-default"
               >
-                <FileSpreadsheet className="h-3.5 w-3.5 text-indigo-500" />
+                <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-500" />
                 <span>{t("excelSuite.splitterTab")}</span>
               </button>
               <button
                 onClick={() => onSwitchModule(ActiveModule.EXCEL_MERGER)}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <Layers className="h-3.5 w-3.5 text-purple-500" />
+                <Layers className="h-3.5 w-3.5 text-emerald-500" />
                 <span>{t("excelSuite.mergerTab")}</span>
               </button>
             </div>
@@ -1031,22 +1088,27 @@ export default function ExcelSplitterValidator({
           onDrop={handleDrop}
           className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
             isDragging
-              ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20 scale-[1.01]"
-              : "border-slate-300 dark:border-slate-800 bg-white dark:bg-[#111827] hover:border-indigo-400 dark:hover:border-indigo-500/50"
+              ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 scale-[1.01]"
+              : "border-slate-300 dark:border-slate-800 bg-white dark:bg-[#111827] hover:border-emerald-400 dark:hover:border-emerald-500/50"
           }`}
         >
-          <div className="h-16 w-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-800/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4 shadow-inner">
+          <div className="h-16 w-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-100 dark:border-emerald-800/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-4 shadow-inner">
             <Upload className="h-8 w-8" />
           </div>
           <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 mb-1">
             {t("excelSuite.dropzoneSplit")}
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mb-5 leading-relaxed">
-            Upload your corporate template file. The system preserves the <strong>5-row header structure</strong>, validates roles (Teacher / Student), email requirements, and normalizes Date of Birth (DD/MM/YYYY) automatically.
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg mb-2 leading-relaxed">
+            {t("excelSuite.pythaverseDesc")}
           </p>
+          <div className="mb-5">
+            <span className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/80 inline-block">
+              ★ {t("excelSuite.pythaverseNotice")}
+            </span>
+          </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <label className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-md shadow-indigo-600/20 cursor-pointer transition-all flex items-center gap-2">
+            <label className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-md shadow-emerald-600/20 cursor-pointer transition-all flex items-center gap-2">
               <FileSpreadsheet className="h-4 w-4" />
               <span>{t("excelSuite.selectFile")}</span>
               <input
@@ -1062,7 +1124,7 @@ export default function ExcelSplitterValidator({
               className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center gap-2 cursor-pointer transition-all"
               title="Download sample 5-row header Excel template"
             >
-              <Download className="h-4 w-4 text-indigo-500" />
+              <Download className="h-4 w-4 text-emerald-500" />
               <span>{t("excelSuite.loadSample")}</span>
             </button>
           </div>
@@ -1374,8 +1436,8 @@ export default function ExcelSplitterValidator({
                     setIsEditingLocked(nextLocked);
                     toast.info(
                       nextLocked
-                        ? "Đã khóa chỉnh sửa dữ liệu trong bảng."
-                        : "Đã mở khóa, bạn có thể chỉnh sửa dữ liệu."
+                        ? (lang === "vi" ? "Đã khóa chỉnh sửa dữ liệu trong bảng." : "Data editing has been locked.")
+                        : (lang === "vi" ? "Đã mở khóa, bạn có thể chỉnh sửa dữ liệu." : "Data editing has been unlocked.")
                     );
                   }}
                   className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs ${

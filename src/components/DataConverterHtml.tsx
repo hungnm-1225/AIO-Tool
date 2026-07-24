@@ -32,7 +32,8 @@ import {
   Minimize2,
   Monitor,
   Tablet,
-  Smartphone
+  Smartphone,
+  Terminal
 } from "lucide-react";
 
 interface DataConverterHtmlProps {
@@ -41,7 +42,7 @@ interface DataConverterHtmlProps {
 }
 
 export default function DataConverterHtml({ state, onChange }: DataConverterHtmlProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [activeSubTab, setActiveSubTab] = useState<"format" | "convert" | "preview">("format");
   const [isInputFullScreen, setIsInputFullScreen] = useState(false);
   const [isPreviewFullScreen, setIsPreviewFullScreen] = useState(false);
@@ -104,7 +105,11 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
   const resetSort = () => {
     setSortKey(null);
     setSortDirection(null);
-    showToast("Restored table to original order!");
+    showToast(
+      lang === "vi"
+        ? "Đã khôi phục bảng về thứ tự ban đầu!"
+        : "Restored table to original order!"
+    );
   };
 
   const toggleCollapseRecord = (idx: number) => {
@@ -155,7 +160,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
     try {
       await navigator.clipboard.writeText(text);
       setCopiedIdentifier(identifier);
-      showToast("Copied to clipboard!");
+      showToast(t("common.copied"));
       setTimeout(() => setCopiedIdentifier(null), 2000);
     } catch (err) {
       console.error("Failed to copy", err);
@@ -188,7 +193,12 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
   const handleFormat = (action: "beautify" | "minify") => {
     const input = state.formatInput;
     if (!input.trim()) {
-      showToast("Please enter source code to process!", true);
+      showToast(
+        lang === "vi"
+          ? "Vui lòng nhập mã nguồn để xử lý!"
+          : "Please enter source code to process!",
+        true
+      );
       return;
     }
 
@@ -204,9 +214,16 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
         result = action === "beautify" ? beautifyJs(input) : minifyJs(input);
       }
       onChange({ formatInput: result });
-      showToast(action === "beautify" ? "Code formatted successfully!" : "Code minified successfully!");
+      showToast(
+        action === "beautify"
+          ? (lang === "vi" ? "Định dạng mã thành công!" : "Code formatted successfully!")
+          : (lang === "vi" ? "Nén mã thành công!" : "Code minified successfully!")
+      );
     } catch (err: any) {
-      showToast(`Parse error: ${err.message}`, true);
+      showToast(
+        lang === "vi" ? `Lỗi cú pháp: ${err.message}` : `Parse error: ${err.message}`,
+        true
+      );
     }
   };
 
@@ -214,36 +231,57 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
   const handleConvertCsvToJson = () => {
     const csv = state.rawCsv;
     if (!csv.trim()) {
-      showToast("Please enter CSV data!", true);
+      showToast(
+        lang === "vi" ? "Vui lòng nhập dữ liệu CSV!" : "Please enter CSV data!",
+        true
+      );
       return;
     }
     try {
       const jsonArr = csvToJson(csv);
       onChange({ rawJson: JSON.stringify(jsonArr, null, 2) });
-      showToast("CSV converted to JSON successfully!");
+      showToast(
+        lang === "vi" ? "Chuyển đổi CSV sang JSON thành công!" : "CSV converted to JSON successfully!"
+      );
     } catch (err: any) {
-      showToast(`Conversion error: ${err.message}`, true);
+      showToast(
+        lang === "vi" ? `Lỗi chuyển đổi: ${err.message}` : `Conversion error: ${err.message}`,
+        true
+      );
     }
   };
 
   const handleConvertJsonToCsvAction = () => {
     if (jsonError || !parsedJson || (Array.isArray(parsedJson) && parsedJson.length === 0)) {
-      showToast("Please enter a valid JSON array first!", true);
+      showToast(
+        lang === "vi"
+          ? "Vui lòng nhập một mảng JSON hợp lệ trước!"
+          : "Please enter a valid JSON array first!",
+        true
+      );
       return;
     }
     try {
       const data = Array.isArray(parsedJson) ? parsedJson : [parsedJson];
       const csv = jsonToCsv(data);
       onChange({ rawCsv: csv });
-      showToast("Exported JSON to CSV!");
+      showToast(lang === "vi" ? "Đã xuất JSON sang CSV!" : "Exported JSON to CSV!");
     } catch (err: any) {
-      showToast(`Conversion error: ${err.message}`, true);
+      showToast(
+        lang === "vi" ? `Lỗi chuyển đổi: ${err.message}` : `Conversion error: ${err.message}`,
+        true
+      );
     }
   };
 
   const handleExportToXlsx = () => {
     if (jsonError || !parsedJson) {
-      showToast("Current JSON is invalid for Excel export!", true);
+      showToast(
+        lang === "vi"
+          ? "Dữ liệu JSON hiện tại không hợp lệ để xuất Excel!"
+          : "Current JSON is invalid for Excel export!",
+        true
+      );
       return;
     }
     try {
@@ -252,9 +290,16 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
       XLSX.writeFile(workbook, "vibecode_converted_data.xlsx");
-      showToast("Excel file (XLSX) downloaded successfully!");
+      showToast(
+        lang === "vi"
+          ? "Tải xuống tệp Excel (XLSX) thành công!"
+          : "Excel file (XLSX) downloaded successfully!"
+      );
     } catch (err: any) {
-      showToast(`Excel Export Error: ${err.message}`, true);
+      showToast(
+        lang === "vi" ? `Lỗi xuất Excel: ${err.message}` : `Excel Export Error: ${err.message}`,
+        true
+      );
     }
   };
 
@@ -283,7 +328,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
       Object.keys(template).forEach(k => template[k] = "");
       const updated = [...parsedJson, template];
       syncBackToJson(updated);
-      showToast("Added new row to grid!");
+      showToast(lang === "vi" ? "Đã thêm dòng mới vào lưới!" : "Added new row to grid!");
     } else {
       const updated = [parsedJson || {}, {}];
       syncBackToJson(updated);
@@ -298,7 +343,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
       if (originalIndex !== -1) {
         const updated = parsedJson.filter((_, rIndex) => rIndex !== originalIndex);
         syncBackToJson(updated);
-        showToast("Deleted selected row!");
+        showToast(lang === "vi" ? "Đã xóa dòng được chọn!" : "Deleted selected row!");
       }
     }
   };
@@ -367,10 +412,18 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
       <div className="border-b border-slate-200 dark:border-slate-800/80 pb-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold font-sans tracking-tight text-slate-800 dark:text-slate-100">
-              {t("dataConverter.title")}
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 text-sm">
+            <div className="flex items-center gap-2.5 mb-1">
+              <div className="h-9 w-9 rounded-xl bg-sky-600 flex items-center justify-center text-white shadow-md shadow-sky-600/20">
+                <Terminal className="h-5 w-5" />
+              </div>
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <span>{t("dataConverter.title")}</span>
+                <span className="px-2.5 py-0.5 text-[11px] font-semibold rounded-full bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800">
+                  Data & HTML Runner
+                </span>
+              </h2>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               {t("dataConverter.subtitle")}
             </p>
           </div>
@@ -494,7 +547,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                   <button
                     onClick={() => {
                       onChange({ rawJson: "" });
-                      showToast("Cleared raw JSON data!");
+                      showToast(lang === "vi" ? "Đã xóa dữ liệu JSON thô!" : "Cleared raw JSON data!");
                     }}
                     className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-rose-500 cursor-pointer transition-colors"
                     title="Clear JSON"
@@ -536,7 +589,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                   <button
                     onClick={() => {
                       onChange({ rawCsv: "" });
-                      showToast("Cleared raw CSV data!");
+                      showToast(lang === "vi" ? "Đã xóa dữ liệu CSV thô!" : "Cleared raw CSV data!");
                     }}
                     className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-rose-500 cursor-pointer transition-colors"
                     title="Clear CSV"

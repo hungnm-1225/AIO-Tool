@@ -34,7 +34,8 @@ import {
   AlignRight, 
   Hash, 
   ChevronLeft, 
-  ChevronRight 
+  ChevronRight,
+  ScanLine 
 } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -83,6 +84,8 @@ export default function DocScannerPdf(_props: DocScannerPdfProps) {
   const [pageNumberFormat, setPageNumberFormat] = useState(
     lang === "vi" ? "Trang {page} / {total}" : "Page {page} of {total}"
   );
+  const [pageNumberStartPage, setPageNumberStartPage] = useState<number>(1);
+  const [pageNumberStartVal, setPageNumberStartVal] = useState<number>(1);
 
   // Update default format if lang changes
   useEffect(() => {
@@ -524,8 +527,10 @@ export default function DocScannerPdf(_props: DocScannerPdfProps) {
           const imgHeight = canvas.height;
           const ratio = imgWidth / imgHeight;
 
-          // Reserve bottom margin if page numbering is enabled
-          const bottomMargin = enablePageNumbers ? 12 : 0;
+          // Reserve bottom margin if page numbering is active on this page
+          const pageNum1Based = idx + 1;
+          const shouldRenderPageNum = enablePageNumbers && (pageNum1Based >= pageNumberStartPage);
+          const bottomMargin = shouldRenderPageNum ? 12 : 0;
           const availHeight = pageHeight - bottomMargin;
 
           let renderW = pageWidth;
@@ -542,13 +547,16 @@ export default function DocScannerPdf(_props: DocScannerPdfProps) {
           doc.addImage(imgDataUrl, "JPEG", posX, posY, renderW, renderH);
 
           // Render Auto Page Numbering
-          if (enablePageNumbers) {
+          if (shouldRenderPageNum) {
             doc.setFontSize(10);
             doc.setTextColor(100, 116, 139); // slate-500
 
+            const computedPageNum = pageNumberStartVal + (idx - (pageNumberStartPage - 1));
+            const computedTotal = pages.length - pageNumberStartPage + pageNumberStartVal;
+
             const textStr = pageNumberFormat
-              .replace("{page}", String(idx + 1))
-              .replace("{total}", String(pages.length));
+              .replace("{page}", String(computedPageNum))
+              .replace("{total}", String(computedTotal));
 
             let textX = pageWidth / 2;
             let alignOpt: "left" | "center" | "right" = "center";
@@ -588,14 +596,14 @@ export default function DocScannerPdf(_props: DocScannerPdfProps) {
       <div className="p-6 rounded-2xl bg-white/70 dark:bg-[#111827]/80 backdrop-blur-md border border-slate-200/80 dark:border-white/10 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/20">
-              <Layers className="h-6 w-6" />
+            <div className="p-3 rounded-2xl bg-gradient-to-br from-rose-500 to-red-600 text-white shadow-lg shadow-rose-500/20">
+              <ScanLine className="h-6 w-6" />
             </div>
             <div>
               <h2 className="text-xl md:text-2xl font-bold font-sans tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-2">
                 <span>{t("docScanner.title")}</span>
-                <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                  AI Perspective
+                <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                  PDF & CamScanner
                 </span>
               </h2>
               <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">
@@ -620,7 +628,7 @@ export default function DocScannerPdf(_props: DocScannerPdfProps) {
                 <button
                   type="button"
                   onClick={() => setPreviewPdfModalOpen(true)}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-emerald-600/20"
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-rose-600/20"
                 >
                   <FileDown className="h-4 w-4" />
                   <span>{t("docScanner.exportPdf")} ({pages.length})</span>
@@ -632,7 +640,7 @@ export default function DocScannerPdf(_props: DocScannerPdfProps) {
       </div>
 
       {/* Bulk Dropzone Area */}
-      <div className="relative border-2 border-dashed border-emerald-300 dark:border-emerald-700/60 rounded-2xl p-8 bg-emerald-50/30 dark:bg-emerald-950/10 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20 transition-all text-center flex flex-col items-center justify-center cursor-pointer group">
+      <div className="relative border-2 border-dashed border-rose-300 dark:border-rose-700/60 rounded-2xl p-8 bg-rose-50/30 dark:bg-rose-950/10 hover:bg-rose-50/60 dark:hover:bg-rose-950/20 transition-all text-center flex flex-col items-center justify-center cursor-pointer group">
         <input
           type="file"
           multiple
@@ -640,7 +648,7 @@ export default function DocScannerPdf(_props: DocScannerPdfProps) {
           onChange={(e) => handleFileUpload(e.target.files)}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
         />
-        <div className="h-14 w-14 rounded-2xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+        <div className="h-14 w-14 rounded-2xl bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
           <Upload className="h-7 w-7" />
         </div>
         <h3 className="text-sm md:text-base font-bold text-slate-800 dark:text-slate-200">
@@ -1428,44 +1436,75 @@ export default function DocScannerPdf(_props: DocScannerPdfProps) {
                 </label>
 
                 {enablePageNumbers ? (
-                  <div className="flex items-center gap-1 mt-1">
-                    <button
-                      type="button"
-                      onClick={() => setPageNumberPos("left")}
-                      className={`flex-1 py-1.5 rounded-lg border text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-all ${
-                        pageNumberPos === "left"
-                          ? "bg-emerald-600 text-white border-emerald-500"
-                          : "bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800"
-                      }`}
-                    >
-                      <AlignLeft className="h-3 w-3" />
-                      <span>{t("docScanner.posLeft")}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPageNumberPos("center")}
-                      className={`flex-1 py-1.5 rounded-lg border text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-all ${
-                        pageNumberPos === "center"
-                          ? "bg-emerald-600 text-white border-emerald-500"
-                          : "bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800"
-                      }`}
-                    >
-                      <AlignCenter className="h-3 w-3" />
-                      <span>{t("docScanner.posCenter")}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPageNumberPos("right")}
-                      className={`flex-1 py-1.5 rounded-lg border text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-all ${
-                        pageNumberPos === "right"
-                          ? "bg-emerald-600 text-white border-emerald-500"
-                          : "bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800"
-                      }`}
-                    >
-                      <AlignRight className="h-3 w-3" />
-                      <span>{t("docScanner.posRight")}</span>
-                    </button>
-                  </div>
+                  <>
+                    <div className="flex items-center gap-1 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => setPageNumberPos("left")}
+                        className={`flex-1 py-1.5 rounded-lg border text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                          pageNumberPos === "left"
+                            ? "bg-emerald-600 text-white border-emerald-500"
+                            : "bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800"
+                        }`}
+                      >
+                        <AlignLeft className="h-3 w-3" />
+                        <span>{t("docScanner.posLeft")}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPageNumberPos("center")}
+                        className={`flex-1 py-1.5 rounded-lg border text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                          pageNumberPos === "center"
+                            ? "bg-emerald-600 text-white border-emerald-500"
+                            : "bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800"
+                        }`}
+                      >
+                        <AlignCenter className="h-3 w-3" />
+                        <span>{t("docScanner.posCenter")}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPageNumberPos("right")}
+                        className={`flex-1 py-1.5 rounded-lg border text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                          pageNumberPos === "right"
+                            ? "bg-emerald-600 text-white border-emerald-500"
+                            : "bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800"
+                        }`}
+                      >
+                        <AlignRight className="h-3 w-3" />
+                        <span>{t("docScanner.posRight")}</span>
+                      </button>
+                    </div>
+
+                    {/* Start Page & Start Value Settings */}
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div>
+                        <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">
+                          {t("docScanner.pageNumberStartPage")}
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={Math.max(1, pages.length)}
+                          value={pageNumberStartPage}
+                          onChange={(e) => setPageNumberStartPage(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-800 text-slate-200 text-xs font-mono focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">
+                          {t("docScanner.pageNumberStartVal")}
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={pageNumberStartVal}
+                          onChange={(e) => setPageNumberStartVal(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-800 text-slate-200 text-xs font-mono focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+                  </>
                 ) : (
                   <span className="text-[11px] text-slate-500 italic block mt-2">
                     {t("docScanner.noPageNumbers")}
@@ -1504,7 +1543,7 @@ export default function DocScannerPdf(_props: DocScannerPdfProps) {
                     </div>
 
                     {/* Simulated Page Numbering Line at Bottom Margin */}
-                    {enablePageNumbers && (
+                    {enablePageNumbers && (idx + 1 >= pageNumberStartPage) && (
                       <div className="w-full pt-2 border-t border-slate-100 flex items-center">
                         <div
                           className={`w-full text-xs font-mono text-slate-500 ${
@@ -1516,8 +1555,8 @@ export default function DocScannerPdf(_props: DocScannerPdfProps) {
                           }`}
                         >
                           {pageNumberFormat
-                            .replace("{page}", String(idx + 1))
-                            .replace("{total}", String(pages.length))}
+                            .replace("{page}", String(pageNumberStartVal + (idx - (pageNumberStartPage - 1))))
+                            .replace("{total}", String(pages.length - pageNumberStartPage + pageNumberStartVal))}
                         </div>
                       </div>
                     )}

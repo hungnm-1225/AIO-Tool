@@ -1,7 +1,6 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import downloadHandler from "./api/download.ts";
 
 async function startServer() {
   const app = express();
@@ -9,9 +8,6 @@ async function startServer() {
 
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-
-  // API routes FIRST
-  app.all("/api/download", (req, res) => downloadHandler(req, res));
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

@@ -81,12 +81,7 @@ export default function Sidebar({
           text: "text-teal-600 dark:text-teal-400",
           border: "border-teal-100 dark:border-teal-500/20"
         };
-      case ActiveModule.MEDIA_DOWNLOADER:
-        return {
-          bg: "bg-cyan-50 dark:bg-cyan-600/10",
-          text: "text-cyan-600 dark:text-cyan-400",
-          border: "border-cyan-100 dark:border-cyan-500/20"
-        };
+
       default:
         return {
           bg: "bg-indigo-50 dark:bg-indigo-600/10",
@@ -155,13 +150,6 @@ export default function Sidebar({
       description: t("sidebar.dirAggregatorDesc"),
       icon: FolderSearch,
       hashId: "dir-aggregator",
-    },
-    {
-      id: ActiveModule.MEDIA_DOWNLOADER,
-      label: t("sidebar.mediaDownloaderLabel"),
-      description: t("sidebar.mediaDownloaderDesc"),
-      icon: Download,
-      hashId: "media-downloader",
     }
   ];
 

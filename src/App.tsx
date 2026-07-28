@@ -9,7 +9,6 @@ import ExcelMergerExtractor from "./components/ExcelMergerExtractor";
 import DocScannerPdf from "./components/DocScannerPdf";
 import FileRenamer from "./components/FileRenamer";
 import DirectoryAggregator from "./components/DirectoryAggregator";
-import { MediaDownloader } from "./components/MediaDownloader";
 import { I18nProvider, useI18n } from "./utils/i18n";
 import { Menu, Sun, Moon, Sliders } from "lucide-react";
 import { ToastContainer } from "react-toastify";
@@ -68,14 +67,6 @@ const HASH_MAP: Record<string, ActiveModule> = {
   "#dir-aggregator": ActiveModule.DIR_AGGREGATOR,
   "#dir_aggregator": ActiveModule.DIR_AGGREGATOR,
   "#ocr-parser": ActiveModule.DIR_AGGREGATOR,
-
-  "#media-downloader": ActiveModule.MEDIA_DOWNLOADER,
-  "#media_downloader": ActiveModule.MEDIA_DOWNLOADER,
-  "#media": ActiveModule.MEDIA_DOWNLOADER,
-  "#cobalt": ActiveModule.MEDIA_DOWNLOADER,
-  "#downloader": ActiveModule.MEDIA_DOWNLOADER,
-  "#tiktok": ActiveModule.MEDIA_DOWNLOADER,
-  "#youtube": ActiveModule.MEDIA_DOWNLOADER,
 };
 
 const DEFAULT_STATE: AppState = {
@@ -143,16 +134,6 @@ const DEFAULT_STATE: AppState = {
     searchQuery: "",
     diacriticSensitive: false,
     caseSensitive: false,
-  },
-  mediaDownloader: {
-    url: "",
-    quality: "max",
-    audioOnly: false,
-    muteAudio: false,
-    isLoading: false,
-    result: null,
-    error: null,
-    history: [],
   },
 };
 
@@ -308,8 +289,6 @@ function MainApp() {
                 ? "file-renamer"
                 : mod === ActiveModule.DIR_AGGREGATOR
                 ? "dir-aggregator"
-                : mod === ActiveModule.MEDIA_DOWNLOADER
-                ? "media-downloader"
                 : "excel-splitter";
             window.location.hash = canonicalHash;
             setIsMobileMenuOpen(false); // Auto-close drawer on selection!
@@ -373,13 +352,6 @@ function MainApp() {
           <DirectoryAggregator
             state={state.dirAggregator}
             onChange={(subState) => handleModuleStateChange("dirAggregator", subState)}
-          />
-        )}
-        {state.activeModule === ActiveModule.MEDIA_DOWNLOADER && (
-          <MediaDownloader
-            state={state.mediaDownloader}
-            onChange={(subState) => handleModuleStateChange("mediaDownloader", subState)}
-            lang={lang}
           />
         )}
       </main>

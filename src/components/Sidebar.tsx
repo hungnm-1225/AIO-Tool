@@ -8,6 +8,8 @@ import {
   FileSpreadsheet,
   ScanLine,
   FolderSync,
+  FolderSearch,
+  Download,
   Sun, 
   Moon, 
   Sliders,
@@ -34,6 +36,65 @@ export default function Sidebar({
   onCloseMobileDrawer,
 }: SidebarProps) {
   const { lang, setLang, t } = useI18n();
+
+  const getActiveStyles = (id: ActiveModule) => {
+    switch (id) {
+      case ActiveModule.TEXT_UTILS:
+        return {
+          bg: "bg-indigo-50 dark:bg-indigo-600/10",
+          text: "text-indigo-600 dark:text-indigo-400",
+          border: "border-indigo-100 dark:border-indigo-500/20"
+        };
+      case ActiveModule.COMPARE_MERGE:
+        return {
+          bg: "bg-purple-50 dark:bg-purple-600/10",
+          text: "text-purple-600 dark:text-purple-400",
+          border: "border-purple-100 dark:border-purple-500/20"
+        };
+      case ActiveModule.DATA_CONVERTER:
+        return {
+          bg: "bg-sky-50 dark:bg-sky-600/10",
+          text: "text-sky-600 dark:text-sky-400",
+          border: "border-sky-100 dark:border-sky-500/20"
+        };
+      case ActiveModule.EXCEL_SPLITTER:
+        return {
+          bg: "bg-emerald-50 dark:bg-emerald-600/10",
+          text: "text-emerald-600 dark:text-emerald-400",
+          border: "border-emerald-100 dark:border-emerald-500/20"
+        };
+      case ActiveModule.DOCUMENT_SCANNER:
+        return {
+          bg: "bg-rose-50 dark:bg-rose-600/10",
+          text: "text-rose-600 dark:text-rose-400",
+          border: "border-rose-100 dark:border-rose-500/20"
+        };
+      case ActiveModule.FILE_RENAMER:
+        return {
+          bg: "bg-fuchsia-50 dark:bg-fuchsia-600/10",
+          text: "text-fuchsia-600 dark:text-fuchsia-400",
+          border: "border-fuchsia-100 dark:border-fuchsia-500/20"
+        };
+      case ActiveModule.DIR_AGGREGATOR:
+        return {
+          bg: "bg-teal-50 dark:bg-teal-600/10",
+          text: "text-teal-600 dark:text-teal-400",
+          border: "border-teal-100 dark:border-teal-500/20"
+        };
+      case ActiveModule.MEDIA_DOWNLOADER:
+        return {
+          bg: "bg-cyan-50 dark:bg-cyan-600/10",
+          text: "text-cyan-600 dark:text-cyan-400",
+          border: "border-cyan-100 dark:border-cyan-500/20"
+        };
+      default:
+        return {
+          bg: "bg-indigo-50 dark:bg-indigo-600/10",
+          text: "text-indigo-600 dark:text-indigo-400",
+          border: "border-indigo-100 dark:border-indigo-500/20"
+        };
+    }
+  };
 
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem("sidebar-collapsed") === "true";
@@ -87,6 +148,20 @@ export default function Sidebar({
       description: t("sidebar.fileRenamerDesc"),
       icon: FolderSync,
       hashId: "file-renamer",
+    },
+    {
+      id: ActiveModule.DIR_AGGREGATOR,
+      label: t("sidebar.dirAggregatorLabel"),
+      description: t("sidebar.dirAggregatorDesc"),
+      icon: FolderSearch,
+      hashId: "dir-aggregator",
+    },
+    {
+      id: ActiveModule.MEDIA_DOWNLOADER,
+      label: t("sidebar.mediaDownloaderLabel"),
+      description: t("sidebar.mediaDownloaderDesc"),
+      icon: Download,
+      hashId: "media-downloader",
     }
   ];
 
@@ -207,6 +282,8 @@ export default function Sidebar({
               (item.id === ActiveModule.EXCEL_SPLITTER &&
                 activeModule === ActiveModule.EXCEL_MERGER);
 
+            const activeColor = getActiveStyles(item.id);
+
             if (isCollapsed) {
               return (
                 <button
@@ -215,7 +292,7 @@ export default function Sidebar({
                   onClick={() => setActiveModule(item.id)}
                   className={`h-11 w-11 flex items-center justify-center rounded-xl transition-all duration-200 group relative cursor-pointer ${
                     isActive
-                      ? "bg-indigo-50 dark:bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20"
+                      ? `${activeColor.bg} ${activeColor.text} border ${activeColor.border}`
                       : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent"
                   }`}
                   title={item.label}
@@ -232,13 +309,13 @@ export default function Sidebar({
                 onClick={() => setActiveModule(item.id)}
                 className={`w-full flex items-start gap-3.5 p-3.5 rounded-xl text-left transition-all duration-200 group cursor-pointer ${
                   isActive
-                    ? "bg-indigo-50 dark:bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20"
+                    ? `${activeColor.bg} ${activeColor.text} border ${activeColor.border}`
                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent"
                 }`}
               >
                 <div className={`mt-0.5 p-1 rounded-lg transition-colors ${
                   isActive 
-                    ? "text-indigo-600 dark:text-indigo-400" 
+                    ? activeColor.text 
                     : "text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300"
                 }`}>
                   <Icon className="h-4.5 w-4.5" />

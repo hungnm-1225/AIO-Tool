@@ -8,6 +8,8 @@ import ExcelSplitterValidator from "./components/ExcelSplitterValidator";
 import ExcelMergerExtractor from "./components/ExcelMergerExtractor";
 import DocScannerPdf from "./components/DocScannerPdf";
 import FileRenamer from "./components/FileRenamer";
+import DirectoryAggregator from "./components/DirectoryAggregator";
+import { MediaDownloader } from "./components/MediaDownloader";
 import { I18nProvider, useI18n } from "./utils/i18n";
 import { Menu, Sun, Moon, Sliders } from "lucide-react";
 import { ToastContainer } from "react-toastify";
@@ -62,6 +64,18 @@ const HASH_MAP: Record<string, ActiveModule> = {
   "#file-renamer": ActiveModule.FILE_RENAMER,
   "#renamer": ActiveModule.FILE_RENAMER,
   "#batch-rename": ActiveModule.FILE_RENAMER,
+
+  "#dir-aggregator": ActiveModule.DIR_AGGREGATOR,
+  "#dir_aggregator": ActiveModule.DIR_AGGREGATOR,
+  "#ocr-parser": ActiveModule.DIR_AGGREGATOR,
+
+  "#media-downloader": ActiveModule.MEDIA_DOWNLOADER,
+  "#media_downloader": ActiveModule.MEDIA_DOWNLOADER,
+  "#media": ActiveModule.MEDIA_DOWNLOADER,
+  "#cobalt": ActiveModule.MEDIA_DOWNLOADER,
+  "#downloader": ActiveModule.MEDIA_DOWNLOADER,
+  "#tiktok": ActiveModule.MEDIA_DOWNLOADER,
+  "#youtube": ActiveModule.MEDIA_DOWNLOADER,
 };
 
 const DEFAULT_STATE: AppState = {
@@ -124,6 +138,21 @@ const DEFAULT_STATE: AppState = {
     zeroPadding: 2,
     caseMode: "original",
     extensionCase: "original",
+  },
+  dirAggregator: {
+    searchQuery: "",
+    diacriticSensitive: false,
+    caseSensitive: false,
+  },
+  mediaDownloader: {
+    url: "",
+    quality: "max",
+    audioOnly: false,
+    muteAudio: false,
+    isLoading: false,
+    result: null,
+    error: null,
+    history: [],
   },
 };
 
@@ -277,6 +306,10 @@ function MainApp() {
                 ? "doc-scanner"
                 : mod === ActiveModule.FILE_RENAMER
                 ? "file-renamer"
+                : mod === ActiveModule.DIR_AGGREGATOR
+                ? "dir-aggregator"
+                : mod === ActiveModule.MEDIA_DOWNLOADER
+                ? "media-downloader"
                 : "excel-splitter";
             window.location.hash = canonicalHash;
             setIsMobileMenuOpen(false); // Auto-close drawer on selection!
@@ -334,6 +367,19 @@ function MainApp() {
           <FileRenamer
             state={state.fileRenamer}
             onChange={(subState) => handleModuleStateChange("fileRenamer", subState)}
+          />
+        )}
+        {state.activeModule === ActiveModule.DIR_AGGREGATOR && (
+          <DirectoryAggregator
+            state={state.dirAggregator}
+            onChange={(subState) => handleModuleStateChange("dirAggregator", subState)}
+          />
+        )}
+        {state.activeModule === ActiveModule.MEDIA_DOWNLOADER && (
+          <MediaDownloader
+            state={state.mediaDownloader}
+            onChange={(subState) => handleModuleStateChange("mediaDownloader", subState)}
+            lang={lang}
           />
         )}
       </main>

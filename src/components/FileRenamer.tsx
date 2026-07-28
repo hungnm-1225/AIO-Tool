@@ -51,6 +51,8 @@ const DEFAULT_RENAMER_STATE: FileRenamerState = {
   zeroPadding: 2,
   caseMode: "original",
   extensionCase: "original",
+  customNewBaseName: "",
+  enableCustomBaseName: false,
 };
 
 export default function FileRenamer({ state, onChange }: FileRenamerProps) {
@@ -139,18 +141,20 @@ export default function FileRenamer({ state, onChange }: FileRenamerProps) {
       return item.customOverride;
     }
 
-    let base = item.nameWithoutExt;
+    let base = (currentState.enableCustomBaseName && currentState.customNewBaseName)
+      ? currentState.customNewBaseName
+      : item.nameWithoutExt;
 
     // Search and Replace
-    if (currentState.findStr) {
+    if (currentState.findStr && !currentState.enableCustomBaseName) {
       base = base.replaceAll(currentState.findStr, currentState.replaceStr || "");
     }
 
     // Prefix & Suffix
-    if (currentState.prefix) {
+    if (currentState.prefix && !currentState.enableCustomBaseName) {
       base = currentState.prefix + base;
     }
-    if (currentState.suffix) {
+    if (currentState.suffix && !currentState.enableCustomBaseName) {
       base = base + currentState.suffix;
     }
 
@@ -164,12 +168,14 @@ export default function FileRenamer({ state, onChange }: FileRenamerProps) {
     }
 
     // Case mode for filename base
-    if (currentState.caseMode === "lowercase") {
-      base = base.toLowerCase();
-    } else if (currentState.caseMode === "uppercase") {
-      base = base.toUpperCase();
-    } else if (currentState.caseMode === "titlecase") {
-      base = base.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase());
+    if (!currentState.enableCustomBaseName) {
+      if (currentState.caseMode === "lowercase") {
+        base = base.toLowerCase();
+      } else if (currentState.caseMode === "uppercase") {
+        base = base.toUpperCase();
+      } else if (currentState.caseMode === "titlecase") {
+        base = base.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase());
+      }
     }
 
     // Extension case
@@ -286,30 +292,11 @@ export default function FileRenamer({ state, onChange }: FileRenamerProps) {
             </div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <span>{t("fileRenamer.title")}</span>
-              <span className="px-2.5 py-0.5 text-[11px] font-semibold rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
-                Batch Preservation
-              </span>
             </h2>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {t("fileRenamer.subtitle")}
           </p>
-        </div>
-
-        {/* Feature badges */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/60 flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-            <span>Preserve Bytes</span>
-          </span>
-          <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-            <Hash className="h-3.5 w-3.5 text-indigo-500" />
-            <span>Auto-Sequence [x]</span>
-          </span>
-          <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-            <FileDown className="h-3.5 w-3.5 text-emerald-500" />
-            <span>ZIP Export</span>
-          </span>
         </div>
       </div>
 
@@ -334,6 +321,8 @@ export default function FileRenamer({ state, onChange }: FileRenamerProps) {
                   enableNumbering: false,
                   caseMode: "original",
                   extensionCase: "original",
+                  customNewBaseName: "",
+                  enableCustomBaseName: false,
                 })
               }
               className="text-[11px] font-semibold text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 flex items-center gap-1 transition-colors cursor-pointer"
@@ -343,63 +332,102 @@ export default function FileRenamer({ state, onChange }: FileRenamerProps) {
             </button>
           </div>
 
-          {/* 1. Prefix & Suffix */}
-          <div className="space-y-3">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-              1. {t("fileRenamer.prefix")} / {t("fileRenamer.suffix")}
+          {/* Custom Base Name Option */}
+          <div className="space-y-3 pb-3 border-b border-slate-100 dark:border-slate-800/60">
+            <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-slate-700 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={currentState.enableCustomBaseName}
+                onChange={(e) => {
+                  updateState({
+                    enableCustomBaseName: e.target.checked,
+                    // Auto-enable numbering when setting custom base name to prevent duplicate name collisions
+                    enableNumbering: e.target.checked ? true : currentState.enableNumbering
+                  });
+                }}
+                className="rounded text-amber-600 focus:ring-amber-500 h-4 w-4 cursor-pointer"
+              />
+              <span>{lang === "vi" ? "Đổi tên file mới hoàn toàn" : "Rename all files completely"}</span>
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.prefix")}</span>
+            
+            {currentState.enableCustomBaseName && (
+              <div className="space-y-1.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 animate-fade-in">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-semibold">{lang === "vi" ? "Nhập tên file gốc muốn đặt:" : "Enter custom base filename:"}</span>
                 <input
                   type="text"
-                  placeholder="e.g. Doc_"
-                  value={currentState.prefix}
-                  onChange={(e) => updateState({ prefix: e.target.value })}
-                  className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
+                  placeholder={lang === "vi" ? "Ví dụ: Bao_Cao" : "e.g. Report_Master"}
+                  value={currentState.customNewBaseName}
+                  onChange={(e) => updateState({ customNewBaseName: e.target.value })}
+                  className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
                 />
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 block leading-relaxed">
+                  {lang === "vi" ? "*Lưu ý: Chức năng Đánh Số Thứ Tự sẽ tự động bật để tránh trùng lặp tên tệp." : "*Note: Auto-numbering will be enabled automatically to keep file names unique."}
+                </span>
               </div>
-              <div>
-                <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.suffix")}</span>
-                <input
-                  type="text"
-                  placeholder="e.g. _v1"
-                  value={currentState.suffix}
-                  onChange={(e) => updateState({ suffix: e.target.value })}
-                  className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
-                />
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* 2. Find and Replace */}
-          <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800/60">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-              2. {t("fileRenamer.findStr")} & {t("fileRenamer.replaceStr")}
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.findStr")}</span>
-                <input
-                  type="text"
-                  placeholder="e.g. IMG_"
-                  value={currentState.findStr}
-                  onChange={(e) => updateState({ findStr: e.target.value })}
-                  className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
-                />
-              </div>
-              <div>
-                <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.replaceStr")}</span>
-                <input
-                  type="text"
-                  placeholder="e.g. Photo_"
-                  value={currentState.replaceStr}
-                  onChange={(e) => updateState({ replaceStr: e.target.value })}
-                  className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
-                />
+          {/* 1. Prefix & Suffix */}
+          {!currentState.enableCustomBaseName && (
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                1. {t("fileRenamer.prefix")} / {t("fileRenamer.suffix")}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.prefix")}</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. Doc_"
+                    value={currentState.prefix}
+                    onChange={(e) => updateState({ prefix: e.target.value })}
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
+                  />
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.suffix")}</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. _v1"
+                    value={currentState.suffix}
+                    onChange={(e) => updateState({ suffix: e.target.value })}
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {/* 2. Find and Replace */}
+          {!currentState.enableCustomBaseName && (
+            <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800/60">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                2. {t("fileRenamer.findStr")} & {t("fileRenamer.replaceStr")}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.findStr")}</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. IMG_"
+                    value={currentState.findStr}
+                    onChange={(e) => updateState({ findStr: e.target.value })}
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
+                  />
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.replaceStr")}</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. Photo_"
+                    value={currentState.replaceStr}
+                    onChange={(e) => updateState({ replaceStr: e.target.value })}
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 3. Auto Numbering */}
           <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800/60">
@@ -476,19 +504,21 @@ export default function FileRenamer({ state, onChange }: FileRenamerProps) {
               4. {t("fileRenamer.caseMode")}
             </label>
 
-            <div>
-              <span className="text-[11px] text-slate-400 block mb-1">Filename Case</span>
-              <select
-                value={currentState.caseMode}
-                onChange={(e) => updateState({ caseMode: e.target.value as any })}
-                className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all cursor-pointer"
-              >
-                <option value="original">{t("fileRenamer.originalCase")}</option>
-                <option value="lowercase">{t("fileRenamer.lowercase")}</option>
-                <option value="uppercase">{t("fileRenamer.uppercase")}</option>
-                <option value="titlecase">{t("fileRenamer.titlecase")}</option>
-              </select>
-            </div>
+            {!currentState.enableCustomBaseName && (
+              <div>
+                <span className="text-[11px] text-slate-400 block mb-1">Filename Case</span>
+                <select
+                  value={currentState.caseMode}
+                  onChange={(e) => updateState({ caseMode: e.target.value as any })}
+                  className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all cursor-pointer"
+                >
+                  <option value="original">{t("fileRenamer.originalCase")}</option>
+                  <option value="lowercase">{t("fileRenamer.lowercase")}</option>
+                  <option value="uppercase">{t("fileRenamer.uppercase")}</option>
+                  <option value="titlecase">{t("fileRenamer.titlecase")}</option>
+                </select>
+              </div>
+            )}
 
             <div>
               <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.extensionCase")}</span>

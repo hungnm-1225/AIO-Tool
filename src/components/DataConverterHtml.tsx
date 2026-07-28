@@ -44,6 +44,9 @@ interface DataConverterHtmlProps {
 export default function DataConverterHtml({ state, onChange }: DataConverterHtmlProps) {
   const { t, lang } = useI18n();
   const [activeSubTab, setActiveSubTab] = useState<"format" | "convert" | "preview">("format");
+  const [activeFormatMode, setActiveFormatMode] = useState<"beautify" | "minify">("beautify");
+  const [inputTab, setInputTab] = useState<"json" | "csv">("json");
+  const [splitTab, setSplitTab] = useState<"html" | "css" | "js">("html");
   const [isInputFullScreen, setIsInputFullScreen] = useState(false);
   const [isPreviewFullScreen, setIsPreviewFullScreen] = useState(false);
   const [viewportMode, setViewportMode] = useState<"desktop" | "tablet" | "mobile">("desktop");
@@ -475,7 +478,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                   onClick={() => onChange({ activeFormatType: lang })}
                   className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold uppercase transition-all cursor-pointer ${
                     state.activeFormatType === lang
-                      ? "bg-indigo-600 text-white shadow-sm"
+                      ? "bg-sky-600 text-white shadow-sm"
                       : "bg-slate-50 dark:bg-[#0B0F1A] text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
                   }`}
                 >
@@ -487,14 +490,28 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
             {/* Quick formatting buttons */}
             <div className="flex gap-2.5">
               <button
-                onClick={() => handleFormat("beautify")}
-                className="px-4.5 py-2 rounded-xl text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 cursor-pointer"
+                onClick={() => {
+                  handleFormat("beautify");
+                  setActiveFormatMode("beautify");
+                }}
+                className={`px-4.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeFormatMode === "beautify"
+                    ? "bg-sky-600 text-white shadow-md shadow-sky-600/20 border border-transparent"
+                    : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-medium"
+                }`}
               >
                 {t("dataConverter.beautifyJson")}
               </button>
               <button
-                onClick={() => handleFormat("minify")}
-                className="px-4.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white cursor-pointer"
+                onClick={() => {
+                  handleFormat("minify");
+                  setActiveFormatMode("minify");
+                }}
+                className={`px-4.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeFormatMode === "minify"
+                    ? "bg-sky-600 text-white shadow-md shadow-sky-600/20 border border-transparent"
+                    : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-medium"
+                }`}
               >
                 {t("dataConverter.minifyJson")}
               </button>
@@ -523,94 +540,145 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
           {/* Inputs Section - Left */}
           <div className="xl:col-span-4 flex flex-col gap-6">
-            {/* Raw JSON Input */}
-            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[280px]">
-              <div className="p-3 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
-                <div className="flex items-center gap-1.5 overflow-hidden">
-                  <span className="text-xs font-mono font-bold uppercase text-indigo-600 dark:text-indigo-400">
-                    {t("dataConverter.rawInputLabel")}
-                  </span>
-                  {jsonError && (
-                    <span className="text-[9px] text-rose-500 truncate max-w-[120px] ml-1" title={jsonError}>
-                      (Error: {jsonError})
-                    </span>
+            {/* Merged Raw JSON and CSV Inputs Stack Card */}
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[580px]">
+              {/* Tab Selector Headers */}
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl px-2">
+                <div className="flex gap-1 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setInputTab("json")}
+                    className={`px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                      inputTab === "json"
+                        ? "border-sky-500 text-sky-600 dark:text-sky-400 font-bold"
+                        : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 hover:border-slate-300"
+                    }`}
+                  >
+                    JSON Array
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInputTab("csv")}
+                    className={`px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                      inputTab === "csv"
+                        ? "border-sky-500 text-sky-600 dark:text-sky-400 font-bold"
+                        : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 hover:border-slate-300"
+                    }`}
+                  >
+                    CSV Data
+                  </button>
+                </div>
+                
+                {/* Actions for active tab */}
+                <div className="flex items-center gap-1.5 py-1">
+                  {inputTab === "json" ? (
+                    <>
+                      {jsonError && (
+                        <span className="text-[9px] text-rose-500 truncate max-w-[100px]" title={jsonError}>
+                          (Error)
+                        </span>
+                      )}
+                      <button
+                        onClick={() => handleCopy(state.rawJson, "raw_json")}
+                        className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+                        title="Copy JSON"
+                      >
+                        {copiedIdentifier === "raw_json" ? (
+                          <>
+                            <Check className="h-3.5 w-3.5 text-emerald-500" />
+                            <span className="text-emerald-500 font-semibold">{lang === "vi" ? "Đã chép" : "Copied"}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+                            <span>{lang === "vi" ? "Sao chép" : "Copy"}</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          onChange({ rawJson: "" });
+                          showToast(lang === "vi" ? "Đã xóa dữ liệu JSON thô!" : "Cleared raw JSON data!");
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/50 transition-all inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+                        title="Clear JSON"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>{lang === "vi" ? "Xóa" : "Clear"}</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleCopy(state.rawCsv, "raw_csv")}
+                        className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+                        title="Copy CSV"
+                      >
+                        {copiedIdentifier === "raw_csv" ? (
+                          <>
+                            <Check className="h-3.5 w-3.5 text-emerald-500" />
+                            <span className="text-emerald-500 font-semibold">{lang === "vi" ? "Đã chép" : "Copied"}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+                            <span>{lang === "vi" ? "Sao chép" : "Copy"}</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          onChange({ rawCsv: "" });
+                          showToast(lang === "vi" ? "Đã xóa dữ liệu CSV thô!" : "Cleared raw CSV data!");
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/50 transition-all inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+                        title="Clear CSV"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>{lang === "vi" ? "Xóa" : "Clear"}</span>
+                      </button>
+                    </>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <button
-                    onClick={() => handleCopy(state.rawJson, "raw_json")}
-                    className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer transition-colors"
-                    title="Copy JSON"
-                  >
-                    {copiedIdentifier === "raw_json" ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                  </button>
-                  <button
-                    onClick={() => {
-                      onChange({ rawJson: "" });
-                      showToast(lang === "vi" ? "Đã xóa dữ liệu JSON thô!" : "Cleared raw JSON data!");
-                    }}
-                    className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-rose-500 cursor-pointer transition-colors"
-                    title="Clear JSON"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
               </div>
-              <textarea
-                className="w-full flex-1 p-4 bg-transparent text-slate-800 dark:text-slate-200 font-mono text-xs leading-relaxed resize-none focus:outline-none"
-                placeholder='Enter JSON array (e.g. [{"id":1, "name":"John"}]) to render interactive grid...'
-                value={state.rawJson ?? ""}
-                onChange={(e) => onChange({ rawJson: e.target.value })}
-              />
-              <div className="p-2 bg-slate-50 dark:bg-[#0B0F1A]/50 border-t border-slate-100 dark:border-slate-800/60 flex justify-between">
-                <button
-                  onClick={handleConvertJsonToCsvAction}
-                  className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
-                >
-                  {t("dataConverter.jsonToCsv")}
-                </button>
-              </div>
-            </div>
 
-            {/* Raw CSV Input */}
-            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[280px]">
-              <div className="p-3 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
-                <span className="text-xs font-mono font-bold uppercase text-slate-500 dark:text-slate-400">
-                  {t("dataConverter.rawCsvLabel")}
-                </span>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <button
-                    onClick={() => handleCopy(state.rawCsv, "raw_csv")}
-                    className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer transition-colors"
-                    title="Copy CSV"
-                  >
-                    {copiedIdentifier === "raw_csv" ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                  </button>
-                  <button
-                    onClick={() => {
-                      onChange({ rawCsv: "" });
-                      showToast(lang === "vi" ? "Đã xóa dữ liệu CSV thô!" : "Cleared raw CSV data!");
-                    }}
-                    className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-rose-500 cursor-pointer transition-colors"
-                    title="Clear CSV"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-              <textarea
-                className="w-full flex-1 p-4 bg-transparent text-slate-800 dark:text-slate-200 font-mono text-xs leading-relaxed resize-none focus:outline-none"
-                placeholder="id,name,value&#10;1,John,Apple&#10;2,Alice,Grape"
-                value={state.rawCsv ?? ""}
-                onChange={(e) => onChange({ rawCsv: e.target.value })}
-              />
-              <div className="p-2 bg-slate-50 dark:bg-[#0B0F1A]/50 border-t border-slate-100 dark:border-slate-800/60 flex justify-between">
-                <button
-                  onClick={handleConvertCsvToJson}
-                  className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
-                >
-                  {t("dataConverter.csvToJson")}
-                </button>
+              {/* Tab Contents */}
+              <div className="flex-1 flex flex-col min-h-0">
+                {inputTab === "json" ? (
+                  <div className="flex-1 flex flex-col min-h-0">
+                    <textarea
+                      className="w-full flex-1 p-4 bg-transparent text-slate-800 dark:text-slate-200 font-mono text-xs leading-relaxed resize-none focus:outline-none"
+                      placeholder='Enter JSON array (e.g. [{"id":1, "name":"John"}]) to render interactive grid...'
+                      value={state.rawJson ?? ""}
+                      onChange={(e) => onChange({ rawJson: e.target.value })}
+                    />
+                    <div className="p-3 bg-slate-50 dark:bg-[#0B0F1A]/50 border-t border-slate-200 dark:border-slate-800/60 flex justify-between">
+                      <button
+                        onClick={handleConvertJsonToCsvAction}
+                        className="text-[10px] font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
+                      >
+                        {t("dataConverter.jsonToCsv")}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col min-h-0">
+                    <textarea
+                      className="w-full flex-1 p-4 bg-transparent text-slate-800 dark:text-slate-200 font-mono text-xs leading-relaxed resize-none focus:outline-none"
+                      placeholder="id,name,value&#10;1,John,Apple&#10;2,Alice,Grape"
+                      value={state.rawCsv ?? ""}
+                      onChange={(e) => onChange({ rawCsv: e.target.value })}
+                    />
+                    <div className="p-3 bg-slate-50 dark:bg-[#0B0F1A]/50 border-t border-slate-200 dark:border-slate-800/60 flex justify-between">
+                      <button
+                        onClick={handleConvertCsvToJson}
+                        className="text-[10px] font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
+                      >
+                        {t("dataConverter.csvToJson")}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -652,7 +720,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                   {sortKey && (
                     <button
                       onClick={resetSort}
-                      className="px-2.5 py-1.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/50 text-amber-600 dark:text-amber-400 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                      className="px-2.5 py-1.5 bg-sky-50 dark:bg-sky-950/20 border border-sky-200/50 dark:border-sky-900/50 text-sky-600 dark:text-sky-400 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                       title="Restore original table sorting"
                     >
                       <RotateCcw className="h-3.5 w-3.5" /> Restore Original
@@ -667,7 +735,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                       className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
                     >
                       {state.labelValueMode ? (
-                        <ToggleRight className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+                        <ToggleRight className="h-6 w-6 text-sky-600 dark:text-sky-400" />
                       ) : (
                         <ToggleLeft className="h-6 w-6 text-slate-400" />
                       )}
@@ -766,7 +834,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                                     value={row[k] !== undefined ? row[k] : ""}
                                     readOnly={state.lockEdit}
                                     onChange={(e) => handleCellChange(rIdx, k, e.target.value)}
-                                    className={`w-full bg-transparent px-2 py-1.5 focus:outline-none rounded border border-transparent focus:border-indigo-500/30 text-slate-800 dark:text-slate-200 ${
+                                    className={`w-full bg-transparent px-2 py-1.5 focus:outline-none rounded border border-transparent focus:border-sky-500/30 text-slate-800 dark:text-slate-200 ${
                                       state.lockEdit ? "cursor-default" : ""
                                     }`}
                                   />
@@ -795,7 +863,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                                   value={parsedJson[k] !== undefined ? parsedJson[k] : ""}
                                   readOnly={state.lockEdit}
                                   onChange={(e) => handleCellChange(0, k, e.target.value)}
-                                  className="w-full bg-transparent px-2 py-1.5 focus:outline-none rounded border border-transparent focus:border-indigo-500/30 text-slate-800 dark:text-slate-200"
+                                  className="w-full bg-transparent px-2 py-1.5 focus:outline-none rounded border border-transparent focus:border-sky-500/30 text-slate-800 dark:text-slate-200"
                                 />
                               </td>
                             ))}
@@ -813,7 +881,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                         return (
                           <div key={rIdx} className="p-4 bg-slate-50/60 dark:bg-[#0B0F1A]/50 border border-slate-100 dark:border-slate-800 rounded-xl space-y-2.5 transition-all duration-200">
                             <div 
-                              className="text-[11px] font-bold text-indigo-500 flex justify-between items-center cursor-pointer select-none"
+                              className="text-[11px] font-bold text-sky-500 flex justify-between items-center cursor-pointer select-none"
                               onClick={() => toggleCollapseRecord(rIdx)}
                             >
                               <div className="flex items-center gap-2">
@@ -830,7 +898,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                               <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                                 <button
                                   onClick={() => toggleCollapseRecord(rIdx)}
-                                  className="text-indigo-600 dark:text-indigo-400 hover:underline text-[10px] font-semibold cursor-pointer"
+                                  className="text-sky-600 dark:text-sky-400 hover:underline text-[10px] font-semibold cursor-pointer"
                                 >
                                   {isCollapsed ? "Expand" : "Collapse"}
                                 </button>
@@ -847,7 +915,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                                 )}
                               </div>
                             </div>
-                            
+
                             {!isCollapsed && (
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1 animate-fade-in">
                                 {gridKeys.map((k) => (
@@ -858,7 +926,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                                       value={row[k] ?? ""}
                                       readOnly={state.lockEdit}
                                       onChange={(e) => handleCellChange(rIdx, k, e.target.value)}
-                                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500"
+                                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:border-sky-500"
                                     />
                                   </div>
                                 ))}
@@ -879,7 +947,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                                   value={parsedJson[k] ?? ""}
                                   readOnly={state.lockEdit}
                                   onChange={(e) => handleCellChange(0, k, e.target.value)}
-                                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500"
+                                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:border-sky-500"
                               />
                             </div>
                           ))}
@@ -921,7 +989,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
           <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col space-y-4 h-[450px]">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-3">
               <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                <Code className="h-4 w-4 text-indigo-500" /> Code Sandbox
+                <Code className="h-4 w-4 text-sky-500" /> Code Sandbox
               </h3>
 
               <div className="flex items-center gap-3">
@@ -974,34 +1042,78 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                 />
               </div>
             ) : (
-              <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
-                <CodeEditor
-                  className="flex-1 min-h-0"
-                  value={state.htmlSplitInput ?? ""}
-                  onChange={(val) => onChange({ htmlSplitInput: val })}
-                  language="html"
-                  height="h-[360px]"
-                  title="HTML"
-                  defaultFilename="index.html"
-                />
-                <CodeEditor
-                  className="flex-1 min-h-0"
-                  value={state.cssSplitInput ?? ""}
-                  onChange={(val) => onChange({ cssSplitInput: val })}
-                  language="css"
-                  height="h-[360px]"
-                  title="CSS"
-                  defaultFilename="styles.css"
-                />
-                <CodeEditor
-                  className="flex-1 min-h-0"
-                  value={state.jsSplitInput ?? ""}
-                  onChange={(val) => onChange({ jsSplitInput: val })}
-                  language="javascript"
-                  height="h-[360px]"
-                  title="JavaScript"
-                  defaultFilename="script.js"
-                />
+              <div className="flex-1 flex flex-col min-h-0">
+                {/* Browser-like Split Tab Selector */}
+                <div className="flex border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0B0F1A]/50 p-1 rounded-xl mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setSplitTab("html")}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      splitTab === "html"
+                        ? "bg-sky-600 text-white shadow-md shadow-sky-600/10"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    HTML
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSplitTab("css")}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      splitTab === "css"
+                        ? "bg-sky-600 text-white shadow-md shadow-sky-600/10"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    CSS
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSplitTab("js")}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      splitTab === "js"
+                        ? "bg-sky-600 text-white shadow-md shadow-sky-600/10"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    JavaScript
+                  </button>
+                </div>
+
+                {/* Active editor */}
+                {splitTab === "html" && (
+                  <CodeEditor
+                    className="flex-1 min-h-0"
+                    value={state.htmlSplitInput ?? ""}
+                    onChange={(val) => onChange({ htmlSplitInput: val })}
+                    language="html"
+                    height="h-[360px]"
+                    title="HTML"
+                    defaultFilename="index.html"
+                  />
+                )}
+                {splitTab === "css" && (
+                  <CodeEditor
+                    className="flex-1 min-h-0"
+                    value={state.cssSplitInput ?? ""}
+                    onChange={(val) => onChange({ cssSplitInput: val })}
+                    language="css"
+                    height="h-[360px]"
+                    title="CSS"
+                    defaultFilename="styles.css"
+                  />
+                )}
+                {splitTab === "js" && (
+                  <CodeEditor
+                    className="flex-1 min-h-0"
+                    value={state.jsSplitInput ?? ""}
+                    onChange={(val) => onChange({ jsSplitInput: val })}
+                    language="javascript"
+                    height="h-[360px]"
+                    title="JavaScript"
+                    defaultFilename="script.js"
+                  />
+                )}
               </div>
             )}
           </div>
@@ -1020,7 +1132,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                   title="Desktop Mode (100% width)"
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     viewportMode === "desktop"
-                      ? "bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
+                      ? "bg-white dark:bg-[#111827] text-sky-600 dark:text-sky-400 shadow-2xs font-bold"
                       : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
                   }`}
                 >
@@ -1032,7 +1144,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                   title="Tablet Mode (768px width)"
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     viewportMode === "tablet"
-                      ? "bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
+                      ? "bg-white dark:bg-[#111827] text-sky-600 dark:text-sky-400 shadow-2xs font-bold"
                       : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
                   }`}
                 >
@@ -1044,7 +1156,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                   title="Mobile Mode (375px width)"
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     viewportMode === "mobile"
-                      ? "bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
+                      ? "bg-white dark:bg-[#111827] text-sky-600 dark:text-sky-400 shadow-2xs font-bold"
                       : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
                   }`}
                 >
@@ -1056,7 +1168,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleRefreshCode}
-                  className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 flex items-center gap-1 hover:underline cursor-pointer"
+                  className="text-[10px] font-mono text-sky-600 dark:text-sky-400 flex items-center gap-1 hover:underline cursor-pointer"
                   title="Re-render iframe code"
                 >
                   <RefreshCw className="h-3 w-3" /> Refresh Code
@@ -1101,7 +1213,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
           <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-2xl flex flex-col w-full h-full max-w-7xl max-h-[92vh] space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-3">
               <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                <Code className="h-4 w-4 text-indigo-500" /> Fullscreen Code Sandbox
+                <Code className="h-4 w-4 text-sky-500" /> Fullscreen Code Sandbox
               </h3>
               
               <div className="flex items-center gap-4">
@@ -1151,34 +1263,78 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                 />
               </div>
             ) : (
-              <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
-                <CodeEditor
-                  className="flex-1 min-h-0"
-                  value={state.htmlSplitInput ?? ""}
-                  onChange={(val) => onChange({ htmlSplitInput: val })}
-                  language="html"
-                  height="h-full"
-                  title="HTML"
-                  defaultFilename="index.html"
-                />
-                <CodeEditor
-                  className="flex-1 min-h-0"
-                  value={state.cssSplitInput ?? ""}
-                  onChange={(val) => onChange({ cssSplitInput: val })}
-                  language="css"
-                  height="h-full"
-                  title="CSS"
-                  defaultFilename="styles.css"
-                />
-                <CodeEditor
-                  className="flex-1 min-h-0"
-                  value={state.jsSplitInput ?? ""}
-                  onChange={(val) => onChange({ jsSplitInput: val })}
-                  language="javascript"
-                  height="h-full"
-                  title="JavaScript"
-                  defaultFilename="script.js"
-                />
+              <div className="flex-1 flex flex-col min-h-0">
+                {/* Browser-like Split Tab Selector */}
+                <div className="flex border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0B0F1A]/50 p-1 rounded-xl mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setSplitTab("html")}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      splitTab === "html"
+                        ? "bg-sky-600 text-white shadow-md shadow-sky-600/10"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    HTML
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSplitTab("css")}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      splitTab === "css"
+                        ? "bg-sky-600 text-white shadow-md shadow-sky-600/10"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    CSS
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSplitTab("js")}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      splitTab === "js"
+                        ? "bg-sky-600 text-white shadow-md shadow-sky-600/10"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    JavaScript
+                  </button>
+                </div>
+
+                {/* Active editor */}
+                {splitTab === "html" && (
+                  <CodeEditor
+                    className="flex-1 min-h-0"
+                    value={state.htmlSplitInput ?? ""}
+                    onChange={(val) => onChange({ htmlSplitInput: val })}
+                    language="html"
+                    height="h-full"
+                    title="HTML"
+                    defaultFilename="index.html"
+                  />
+                )}
+                {splitTab === "css" && (
+                  <CodeEditor
+                    className="flex-1 min-h-0"
+                    value={state.cssSplitInput ?? ""}
+                    onChange={(val) => onChange({ cssSplitInput: val })}
+                    language="css"
+                    height="h-full"
+                    title="CSS"
+                    defaultFilename="styles.css"
+                  />
+                )}
+                {splitTab === "js" && (
+                  <CodeEditor
+                    className="flex-1 min-h-0"
+                    value={state.jsSplitInput ?? ""}
+                    onChange={(val) => onChange({ jsSplitInput: val })}
+                    language="javascript"
+                    height="h-full"
+                    title="JavaScript"
+                    defaultFilename="script.js"
+                  />
+                )}
               </div>
             )}
           </div>
@@ -1201,7 +1357,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                   title="Desktop Mode (100% width)"
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     viewportMode === "desktop"
-                      ? "bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
+                      ? "bg-white dark:bg-[#111827] text-sky-600 dark:text-sky-400 shadow-2xs font-bold"
                       : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
                   }`}
                 >
@@ -1213,7 +1369,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                   title="Tablet Mode (768px width)"
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     viewportMode === "tablet"
-                      ? "bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
+                      ? "bg-white dark:bg-[#111827] text-sky-600 dark:text-sky-400 shadow-2xs font-bold"
                       : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
                   }`}
                 >
@@ -1225,7 +1381,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                   title="Mobile Mode (375px width)"
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     viewportMode === "mobile"
-                      ? "bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
+                      ? "bg-white dark:bg-[#111827] text-sky-600 dark:text-sky-400 shadow-2xs font-bold"
                       : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
                   }`}
                 >
@@ -1237,7 +1393,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleRefreshCode}
-                  className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 flex items-center gap-1 hover:underline cursor-pointer"
+                  className="text-[10px] font-mono text-sky-600 dark:text-sky-400 flex items-center gap-1 hover:underline cursor-pointer"
                 >
                   <RefreshCw className="h-3 w-3" /> Refresh Code
                 </button>

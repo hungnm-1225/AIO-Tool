@@ -12,7 +12,8 @@ import {
   CheckCircle, 
   AlertTriangle,
   RotateCcw,
-  Sparkles
+  Sparkles,
+  Trash2
 } from "lucide-react";
 
 interface CompareMergeProps {
@@ -21,7 +22,7 @@ interface CompareMergeProps {
 }
 
 export default function CompareMerge({ state, onChange }: CompareMergeProps) {
-  const { t } = useI18n();
+  const { lang, t } = useI18n();
   const [activeSubTab, setActiveSubTab] = useState<"diff" | "combine" | "autoinc">("diff");
 
   // Synchronize sub-tab from hash
@@ -270,9 +271,11 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
                 </span>
                 <button
                   onClick={() => onChange({ diffOriginal: "" })}
-                  className="text-xs font-mono text-rose-500 hover:underline cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/50 transition-all inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+                  title="Clear original input"
                 >
-                  {t("common.clear")}
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>{t("common.clear")}</span>
                 </button>
               </div>
               <textarea
@@ -291,9 +294,11 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
                 </span>
                 <button
                   onClick={() => onChange({ diffModified: "" })}
-                  className="text-xs font-mono text-rose-500 hover:underline cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/50 transition-all inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+                  title="Clear modified input"
                 >
-                  {t("common.clear")}
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>{t("common.clear")}</span>
                 </button>
               </div>
               <textarea
@@ -581,10 +586,20 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
                 </span>
                 <button
                   onClick={() => handleCopy(combineOutput, "combine")}
-                  className="text-xs font-mono text-indigo-600 dark:text-indigo-400 flex items-center gap-1 hover:underline cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+                  title="Copy merged output"
                 >
-                  {copiedText === "combine" ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                  {copiedText === "combine" ? "Copied" : "Copy Output"}
+                  {copiedText === "combine" ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-emerald-500" />
+                      <span className="text-emerald-500 font-semibold">{lang === "vi" ? "Đã chép" : "Copied"}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+                      <span>{lang === "vi" ? "Sao chép" : "Copy"}</span>
+                    </>
+                  )}
                 </button>
               </div>
               <textarea
@@ -697,10 +712,20 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
               {autoIncOutput && (
                 <button
                   onClick={() => handleCopy(autoIncOutput, "autoinc")}
-                  className="text-xs font-mono text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 hover:underline cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+                  title="Copy generated list"
                 >
-                  {copiedText === "autoinc" ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                  {copiedText === "autoinc" ? "Copied" : "Copy List"}
+                  {copiedText === "autoinc" ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-emerald-500" />
+                      <span className="text-emerald-500 font-semibold">{lang === "vi" ? "Đã chép" : "Copied"}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+                      <span>{lang === "vi" ? "Sao chép" : "Copy"}</span>
+                    </>
+                  )}
                 </button>
               )}
             </div>

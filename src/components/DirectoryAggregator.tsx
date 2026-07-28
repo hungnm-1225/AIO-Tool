@@ -97,6 +97,7 @@ export default function DirectoryAggregator({
 
   // New Export, Deduplicate, and Auto-Generator options
   const [exportMode, setExportMode] = useState<"consolidated" | "individual">("consolidated");
+  const [exportFormat, setExportFormat] = useState<"xlsx" | "csv">("xlsx");
   const [namingMode, setNamingMode] = useState<"original" | "system" | "custom" | "parent_folder">("system");
   const [customExportName, setCustomExportName] = useState("Consolidated_Report");
   const [excludeHeaders, setExcludeHeaders] = useState(false);
@@ -159,8 +160,8 @@ export default function DirectoryAggregator({
     if (wrappedFiles.length === 0) {
       toast.warn(
         lang === "vi"
-          ? "Không tìm thấy tệp .xlsx, .xls, .csv, .docx, hoặc .pdf nào trong thư mục tải lên."
-          : "No .xlsx, .xls, .csv, .docx, or .pdf files found in the uploaded directory."
+          ? "Không tìm thấy tệp .xlsx, .xls, .csv, .docx, hoặc .pdf nào hợp lệ."
+          : "No valid .xlsx, .xls, .csv, .docx, or .pdf files found."
       );
       return;
     }
@@ -168,8 +169,8 @@ export default function DirectoryAggregator({
     setFileList((prev) => [...prev, ...wrappedFiles]);
     toast.success(
       lang === "vi"
-        ? `Đã nạp ${wrappedFiles.length} tệp tin từ thư mục!`
-        : `Loaded ${wrappedFiles.length} files from the directory!`
+        ? `Đã nạp ${wrappedFiles.length} tệp tin!`
+        : `Loaded ${wrappedFiles.length} files!`
     );
   };
 
@@ -954,7 +955,7 @@ export default function DirectoryAggregator({
   // Compute calculated export filename based on naming config & options
   const getExportFilename = (fileWrapper?: UploadedFileWrapper): string => {
     const rawCustom = customExportName.trim() || "Consolidated_Report";
-    const extension = ".xlsx";
+    const extension = exportFormat === "csv" ? ".csv" : ".xlsx";
 
     // Fallback or specific file
     const targetFile = fileWrapper || (filteredFiles.filter((f) => !f.excluded)[0]);
@@ -967,7 +968,7 @@ export default function DirectoryAggregator({
     }
 
     if (namingMode === "custom") {
-      return rawCustom.endsWith(".xlsx") ? rawCustom : rawCustom + extension;
+      return rawCustom.endsWith(extension) ? rawCustom : rawCustom + extension;
     }
 
     if (namingMode === "parent_folder") {
@@ -986,7 +987,7 @@ export default function DirectoryAggregator({
   };
 
   // Download Consolidated or Batch Individual files
-  const handleDownloadExcel = () => {
+  const handleDownload = () => {
     if (mergedRows.length === 0) return;
 
     if (exportMode === "consolidated") {
@@ -1012,18 +1013,23 @@ export default function DirectoryAggregator({
       XLSX.utils.book_append_sheet(workbook, worksheet, "Consolidated_Data");
 
       const finalName = getExportFilename();
-      XLSX.writeFile(workbook, finalName);
+      if (exportFormat === "csv") {
+        XLSX.writeFile(workbook, finalName, { bookType: "csv" });
+      } else {
+        XLSX.writeFile(workbook, finalName);
+      }
       
       toast.success(
         lang === "vi"
           ? `Đã xuất bảng gộp thành công với tên "${finalName}"!`
-          : `Consolidated Excel downloaded as "${finalName}"!`
+          : `Consolidated data downloaded as "${finalName}"!`
       );
     } else {
       // 2. Individual Batch Download Mode (tải xuống hàng loạt file riêng biệt) - Nén thành file ZIP
       const activeFiles = filteredFiles.filter((f) => !f.excluded);
       const zip = new JSZip();
       let batchSuccessCount = 0;
+      const extension = exportFormat === "csv" ? ".csv" : ".xlsx";
 
       activeFiles.forEach((fWrapper, idx) => {
         // Filter rows belonging only to this file
@@ -1047,21 +1053,22 @@ export default function DirectoryAggregator({
           // Compute individual file name according to naming rules
           let individualName = "";
           if (namingMode === "original") {
-            individualName = fWrapper.name.replace(/\.[a-z0-9]+$/, "") + "_processed.xlsx";
+            individualName = fWrapper.name.replace(/\.[a-z0-9]+$/, "") + `_processed${extension}`;
           } else if (namingMode === "custom") {
-            individualName = `${customExportName.trim() || "Export"}_${fWrapper.name.replace(/\.[a-z0-9]+$/, "")}.xlsx`;
+            individualName = `${customExportName.trim() || "Export"}_${fWrapper.name.replace(/\.[a-z0-9]+$/, "")}${extension}`;
           } else if (namingMode === "parent_folder") {
             const parts = fWrapper.relativePath.split("/");
             const folderName = parts.length > 1 ? parts[parts.length - 2] : "Root";
-            individualName = `${folderName}_${fWrapper.name.replace(/\.[a-z0-9]+$/, "")}.xlsx`;
+            individualName = `${folderName}_${fWrapper.name.replace(/\.[a-z0-9]+$/, "")}${extension}`;
           } else {
             // System Auto Naming
-            individualName = `Auto_${idx + 1}_${fWrapper.name.replace(/\.[a-z0-9]+$/, "")}.xlsx`;
+            individualName = `Auto_${idx + 1}_${fWrapper.name.replace(/\.[a-z0-9]+$/, "")}${extension}`;
           }
 
-          // Ghi XLSX thành ArrayBuffer và add vào file ZIP
-          const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-          zip.file(individualName, excelBuffer);
+          // Ghi thành ArrayBuffer và add vào file ZIP
+          const bookType = exportFormat === "csv" ? "csv" : "xlsx";
+          const fileBuffer = XLSX.write(workbook, { bookType: bookType, type: "array" });
+          zip.file(individualName, fileBuffer);
           batchSuccessCount++;
         }
       });
@@ -1078,8 +1085,8 @@ export default function DirectoryAggregator({
 
           toast.success(
             lang === "vi"
-              ? `Đã xuất hàng loạt thành công ${batchSuccessCount} tệp Excel vào file nén "${zipName}"!`
-              : `Successfully exported ${batchSuccessCount} Excel files into compressed zip archive "${zipName}"!`
+              ? `Đã xuất hàng loạt thành công ${batchSuccessCount} tệp ${exportFormat.toUpperCase()} vào file nén "${zipName}"!`
+              : `Successfully exported ${batchSuccessCount} ${exportFormat.toUpperCase()} files into compressed zip archive "${zipName}"!`
           );
         }).catch((err) => {
           console.error(err);
@@ -1109,21 +1116,21 @@ export default function DirectoryAggregator({
   return (
     <div className="flex-1 flex flex-col h-full overflow-y-auto bg-slate-50 dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-100 font-sans p-4 lg:p-6 transition-colors duration-200">
       {/* Upper Title Area */}
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="h-10 w-10 rounded-xl bg-teal-600 flex items-center justify-center text-white shadow-lg shadow-teal-600/20">
-            <FolderOpen className="h-5 w-5" />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5 mb-6">
+        <div>
+          <div className="flex items-center gap-2.5 mb-1">
+            <div className="h-9 w-9 rounded-xl bg-teal-600 flex items-center justify-center text-white shadow-md shadow-teal-600/20">
+              <FolderOpen className="h-5 w-5" />
+            </div>
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <span>{lang === "vi" ? "Hợp Nhất Thư Mục & Quét OCR" : "Directory Data Aggregator & OCR Parser"}</span>
+            </h2>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-              {lang === "vi" ? "Hợp Nhất Thư Mục & Quét OCR" : "Directory Data Aggregator & OCR Parser"}
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {lang === "vi"
-                ? "Tải lên thư mục, lọc tên tệp linh hoạt, quét bảng từ Word/Excel/PDF/OCR & tự sinh dữ liệu và loại bỏ trùng lặp."
-                : "Recursive folders parsing, diacritic multi-search, auto data mapping, in-file deduplication & smart auto column generator."}
-            </p>
-          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            {lang === "vi"
+              ? "Tải lên thư mục, lọc tên tệp linh hoạt, quét bảng từ Word/Excel/PDF/OCR & tự sinh dữ liệu và loại bỏ trùng lặp."
+              : "Recursive folders parsing, diacritic multi-search, auto data mapping, in-file deduplication & smart auto column generator."}
+          </p>
         </div>
       </div>
 
@@ -1132,38 +1139,62 @@ export default function DirectoryAggregator({
         {/* Left Side: Upload controls and smart configurations */}
         <div className="xl:col-span-5 space-y-6">
           
-          {/* Section 1: Directory Upload Input Card */}
+          {/* Section 1: Directory & File Upload Input Card */}
           <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm rounded-2xl p-6 transition-all">
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 mb-4 flex items-center gap-2">
               <Upload className="h-4.5 w-4.5 text-teal-500" />
-              {lang === "vi" ? "1. Tải Lên Thư Mục" : "1. Directory Upload"}
+              {lang === "vi" ? "1. Tải Lên Thư Mục / Tệp" : "1. Directory / File Upload"}
             </h3>
 
-            {/* Custom Webkit directory uploader */}
-            <div className="border-2 border-dashed border-slate-200 dark:border-white/10 hover:border-teal-500/50 dark:hover:border-teal-500/40 rounded-xl p-6 text-center transition-all cursor-pointer relative bg-slate-100/50 dark:bg-slate-950/20 group">
-              <input
-                type="file"
-                // @ts-ignore
-                webkitdirectory=""
-                directory=""
-                multiple
-                onChange={handleDirectoryUpload}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                id="dir-uploader-agg"
-              />
-              <div className="flex flex-col items-center">
-                <div className="h-12 w-12 rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 mb-3 group-hover:scale-105 transition-transform">
-                  <Folder className="h-6 w-6 text-teal-500 dark:text-teal-400" />
+            {/* Custom Webkit directory & file uploader */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 border-2 border-dashed border-slate-200 dark:border-white/10 hover:border-teal-500/50 dark:hover:border-teal-500/40 rounded-xl p-6 text-center transition-all cursor-pointer relative bg-slate-100/50 dark:bg-slate-950/20 group">
+                <input
+                  type="file"
+                  // @ts-ignore
+                  webkitdirectory=""
+                  directory=""
+                  multiple
+                  onChange={handleDirectoryUpload}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                  id="dir-uploader-agg"
+                  title=""
+                />
+                <div className="flex flex-col items-center">
+                  <div className="h-10 w-10 rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 mb-2 group-hover:scale-105 transition-transform">
+                    <Folder className="h-5 w-5 text-teal-500 dark:text-teal-400" />
+                  </div>
+                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                    {lang === "vi" ? "Chọn Thư Mục" : "Select Folder"}
+                  </span>
                 </div>
-                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                  {lang === "vi" ? "Chọn Thư Mục Nguồn Local" : "Select Local Source Folder"}
-                </span>
-                <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs leading-relaxed">
-                  {lang === "vi"
-                    ? "Nhấn để chọn và quét đệ quy cấu trúc tệp .xlsx, .xls, .csv, .docx, .pdf"
-                    : "Recursively maps all inner Excel, CSV, Word docs, and PDF tables"}
-                </span>
               </div>
+              <div className="flex-1 border-2 border-dashed border-slate-200 dark:border-white/10 hover:border-teal-500/50 dark:hover:border-teal-500/40 rounded-xl p-6 text-center transition-all cursor-pointer relative bg-slate-100/50 dark:bg-slate-950/20 group">
+                <input
+                  type="file"
+                  multiple
+                  accept=".xlsx,.xls,.csv,.docx,.pdf"
+                  onChange={handleDirectoryUpload}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                  id="file-uploader-agg"
+                  title=""
+                />
+                <div className="flex flex-col items-center">
+                  <div className="h-10 w-10 rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 mb-2 group-hover:scale-105 transition-transform">
+                    <FileIcon className="h-5 w-5 text-teal-500 dark:text-teal-400" />
+                  </div>
+                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                    {lang === "vi" ? "Chọn Nhiều Tệp" : "Select Files"}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="text-center mt-3">
+              <span className="text-xs text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">
+                {lang === "vi"
+                  ? "Hỗ trợ định dạng .xlsx, .xls, .csv, .docx, .pdf"
+                  : "Supports Excel, CSV, Word docs, and PDF tables"}
+              </span>
             </div>
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-4">
@@ -1555,7 +1586,7 @@ export default function DirectoryAggregator({
                 {lang === "vi" ? "Xuất Bản & Thiết Lập Tên File" : "Export & Custom Filename Config"}
               </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* Mode Selector */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
@@ -1570,7 +1601,7 @@ export default function DirectoryAggregator({
                           : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
                       }`}
                     >
-                      {lang === "vi" ? "Tải 1 file gộp" : "Consolidated XLSX"}
+                      {lang === "vi" ? "Gộp" : "Consolidated"}
                     </button>
                     <button
                       onClick={() => setExportMode("individual")}
@@ -1580,7 +1611,36 @@ export default function DirectoryAggregator({
                           : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
                       }`}
                     >
-                      {lang === "vi" ? "Tải hàng loạt file" : "Batch Individual"}
+                      {lang === "vi" ? "Hàng loạt" : "Batch"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Format Selector */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
+                    {lang === "vi" ? "Định dạng xuất:" : "Export Format:"}
+                  </label>
+                  <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl gap-1">
+                    <button
+                      onClick={() => setExportFormat("xlsx")}
+                      className={`flex-1 text-center py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        exportFormat === "xlsx"
+                          ? "bg-white dark:bg-slate-800 text-teal-600 dark:text-teal-400 shadow-sm"
+                          : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      XLSX
+                    </button>
+                    <button
+                      onClick={() => setExportFormat("csv")}
+                      className={`flex-1 text-center py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        exportFormat === "csv"
+                          ? "bg-white dark:bg-slate-800 text-teal-600 dark:text-teal-400 shadow-sm"
+                          : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      CSV
                     </button>
                   </div>
                 </div>
@@ -1709,12 +1769,12 @@ export default function DirectoryAggregator({
 
               {/* Master Download trigger Button */}
               <button
-                onClick={handleDownloadExcel}
+                onClick={handleDownload}
                 className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md shadow-emerald-600/10 cursor-pointer"
               >
                 <Download className="h-3.5 w-3.5" />
                 {exportMode === "consolidated" 
-                  ? (lang === "vi" ? "Tải File Gộp XLSX" : "Download Consolidated XLSX")
+                  ? (lang === "vi" ? `Tải File Gộp ${exportFormat.toUpperCase()}` : `Download Consolidated ${exportFormat.toUpperCase()}`)
                   : (lang === "vi" ? "Tải Hàng Loạt Files" : "Batch Download Files")}
               </button>
             </div>

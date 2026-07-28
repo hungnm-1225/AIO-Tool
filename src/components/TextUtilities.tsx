@@ -524,9 +524,6 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
             </div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <span>{t("textUtils.title")}</span>
-              <span className="px-2.5 py-0.5 text-[11px] font-semibold rounded-full bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800">
-                Text & Duplicates
-              </span>
             </h2>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">

@@ -213,9 +213,6 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
               </div>
               <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <span>{t("compareMerge.title")}</span>
-                <span className="px-2.5 py-0.5 text-[11px] font-semibold rounded-full bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
-                  Compare & Merge
-                </span>
               </h2>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">

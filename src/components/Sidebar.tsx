@@ -71,9 +71,9 @@ export default function Sidebar({
         };
       case ActiveModule.FILE_RENAMER:
         return {
-          bg: "bg-fuchsia-50 dark:bg-fuchsia-600/10",
-          text: "text-fuchsia-600 dark:text-fuchsia-400",
-          border: "border-fuchsia-100 dark:border-fuchsia-500/20"
+          bg: "bg-amber-50 dark:bg-amber-600/10",
+          text: "text-amber-600 dark:text-amber-400",
+          border: "border-amber-100 dark:border-amber-500/20"
         };
       case ActiveModule.DIR_AGGREGATOR:
         return {

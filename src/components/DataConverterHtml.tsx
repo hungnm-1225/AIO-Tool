@@ -33,7 +33,8 @@ import {
   Monitor,
   Tablet,
   Smartphone,
-  Terminal
+  Terminal,
+  Upload
 } from "lucide-react";
 
 interface DataConverterHtmlProps {
@@ -172,24 +173,63 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
 
   // Sync parsed JSON state whenever rawJson changes
   useEffect(() => {
+    if (inputTab !== "json") return;
     try {
       if (state.rawJson.trim() === "") {
         setParsedJson([]);
         setJsonError(null);
+        if (state.rawCsv !== "") {
+          onChange({ rawCsv: "" });
+        }
         return;
       }
       const parsed = JSON.parse(state.rawJson);
       setParsedJson(parsed);
       setJsonError(null);
+      const dataForCsv = Array.isArray(parsed) ? parsed : [parsed];
+      const newCsv = jsonToCsv(dataForCsv);
+      if (newCsv !== state.rawCsv) {
+        onChange({ rawCsv: newCsv });
+      }
     } catch (err: any) {
       setJsonError(err.message);
     }
-  }, [state.rawJson]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.rawJson, inputTab]);
 
-  // Sync edited cells/inputs back to rawJson
+  // Sync JSON and parsed state whenever rawCsv changes
+  useEffect(() => {
+    if (inputTab !== "csv") return;
+    try {
+      if (state.rawCsv.trim() === "") {
+        setParsedJson([]);
+        if (state.rawJson !== "[]") {
+          onChange({ rawJson: "[]" });
+        }
+        return;
+      }
+      const parsed = csvToJson(state.rawCsv);
+      setParsedJson(parsed);
+      setJsonError(null);
+      const newJson = JSON.stringify(parsed, null, 2);
+      if (newJson !== state.rawJson) {
+        onChange({ rawJson: newJson });
+      }
+    } catch (err: any) {
+      // Don't show error continuously while typing
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.rawCsv, inputTab]);
+
+  // Sync edited cells/inputs back to rawJson and rawCsv
   const syncBackToJson = (updatedData: any) => {
     setParsedJson(updatedData);
-    onChange({ rawJson: JSON.stringify(updatedData, null, 2) });
+    const newJson = JSON.stringify(updatedData, null, 2);
+    let newCsv = state.rawCsv;
+    try {
+      newCsv = jsonToCsv(Array.isArray(updatedData) ? updatedData : [updatedData]);
+    } catch (e) {}
+    onChange({ rawJson: newJson, rawCsv: newCsv });
   };
 
   // --- SUB-FEATURE 1: FORMATTER ACTIONS ---
@@ -277,30 +317,75 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
     }
   };
 
-  const handleExportToXlsx = () => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        if (inputTab === "json") {
+          onChange({ rawJson: text });
+        } else {
+          onChange({ rawCsv: text });
+        }
+        showToast(lang === "vi" ? `Đã tải lên tệp thành công!` : `File uploaded successfully!`);
+      } catch (err: any) {
+        showToast(
+          lang === "vi" ? `Lỗi đọc tệp: ${err.message}` : `File read error: ${err.message}`,
+          true
+        );
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ""; // reset input
+  };
+
+  const handleExportFile = (format: "csv" | "json" | "xlsx") => {
     if (jsonError || !parsedJson) {
       showToast(
         lang === "vi"
-          ? "Dữ liệu JSON hiện tại không hợp lệ để xuất Excel!"
-          : "Current JSON is invalid for Excel export!",
+          ? "Dữ liệu hiện tại không hợp lệ để xuất!"
+          : "Current data is invalid for export!",
         true
       );
       return;
     }
     try {
       const dataToExport = Array.isArray(parsedJson) ? parsedJson : [parsedJson];
-      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
-      XLSX.writeFile(workbook, "vibecode_converted_data.xlsx");
+      
+      if (format === "xlsx") {
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+        XLSX.writeFile(workbook, "vibecode_converted_data.xlsx");
+      } else if (format === "csv") {
+        const csvContent = jsonToCsv(dataToExport);
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "vibecode_converted_data.csv";
+        link.click();
+        URL.revokeObjectURL(url);
+      } else if (format === "json") {
+        const jsonContent = JSON.stringify(dataToExport, null, 2);
+        const blob = new Blob([jsonContent], { type: "application/json;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "vibecode_converted_data.json";
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+
       showToast(
-        lang === "vi"
-          ? "Tải xuống tệp Excel (XLSX) thành công!"
-          : "Excel file (XLSX) downloaded successfully!"
+        lang === "vi" ? `Đã tải xuống tệp ${format.toUpperCase()} thành công!` : `${format.toUpperCase()} file downloaded successfully!`
       );
     } catch (err: any) {
       showToast(
-        lang === "vi" ? `Lỗi xuất Excel: ${err.message}` : `Excel Export Error: ${err.message}`,
+        lang === "vi" ? `Lỗi xuất dữ liệu: ${err.message}` : `Export error: ${err.message}`,
         true
       );
     }
@@ -421,9 +506,6 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
               </div>
               <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <span>{t("dataConverter.title")}</span>
-                <span className="px-2.5 py-0.5 text-[11px] font-semibold rounded-full bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800">
-                  Data & HTML Runner
-                </span>
               </h2>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -578,6 +660,11 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                           (Error)
                         </span>
                       )}
+                      <label className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer">
+                        <Upload className="h-3.5 w-3.5" />
+                        <span>{lang === "vi" ? "Tải lên" : "Upload"}</span>
+                        <input type="file" accept=".json" onChange={handleFileUpload} className="hidden" />
+                      </label>
                       <button
                         onClick={() => handleCopy(state.rawJson, "raw_json")}
                         className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer"
@@ -609,6 +696,11 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                     </>
                   ) : (
                     <>
+                      <label className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer">
+                        <Upload className="h-3.5 w-3.5" />
+                        <span>{lang === "vi" ? "Tải lên" : "Upload"}</span>
+                        <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
+                      </label>
                       <button
                         onClick={() => handleCopy(state.rawCsv, "raw_csv")}
                         className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer"
@@ -771,13 +863,25 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                   )}
                 </div>
 
-                {/* Right group of controls: Push Excel XLSX to the far right */}
-                <div className="sm:ml-auto flex-shrink-0">
+                {/* Right group of controls: Push Export to the far right */}
+                <div className="sm:ml-auto flex flex-wrap shrink-0 gap-2">
                   <button
-                    onClick={handleExportToXlsx}
+                    onClick={() => handleExportFile("csv")}
+                    className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Download className="h-3.5 w-3.5" /> CSV
+                  </button>
+                  <button
+                    onClick={() => handleExportFile("json")}
+                    className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Download className="h-3.5 w-3.5" /> JSON
+                  </button>
+                  <button
+                    onClick={() => handleExportFile("xlsx")}
                     className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
-                    <Download className="h-3.5 w-3.5" /> Excel (XLSX)
+                    <Download className="h-3.5 w-3.5" /> XLSX
                   </button>
                 </div>
               </div>

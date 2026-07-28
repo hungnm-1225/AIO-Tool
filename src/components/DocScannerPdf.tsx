@@ -593,22 +593,19 @@ export default function DocScannerPdf(_props: DocScannerPdfProps) {
   return (
     <div className="flex flex-col h-full overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto w-full">
       {/* Top Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2 border-b border-slate-200/60 dark:border-slate-800/60">
-        <div className="flex items-start gap-3.5">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-rose-500 to-red-600 text-white shadow-lg shadow-rose-500/20 flex items-center justify-center shrink-0 mt-0.5">
-            <ScanLine className="h-5 w-5" />
-          </div>
-          <div>
-            <h2 className="text-xl md:text-2xl font-bold font-sans tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-2">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5">
+        <div>
+          <div className="flex items-center gap-2.5 mb-1">
+            <div className="h-9 w-9 rounded-xl bg-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-600/20">
+              <ScanLine className="h-5 w-5" />
+            </div>
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <span>{t("docScanner.title")}</span>
-              <span className="px-2.5 py-0.5 text-[11px] font-semibold rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
-                PDF & CamScanner
-              </span>
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              {t("docScanner.subtitle")}
-            </p>
           </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            {t("docScanner.subtitle")}
+          </p>
         </div>
 
         {/* Export & Actions Toolbar */}

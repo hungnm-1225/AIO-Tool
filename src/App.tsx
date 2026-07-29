@@ -9,6 +9,7 @@ import ExcelMergerExtractor from "./components/ExcelMergerExtractor";
 import DocScannerPdf from "./components/DocScannerPdf";
 import FileRenamer from "./components/FileRenamer";
 import DirectoryAggregator from "./components/DirectoryAggregator";
+import FileMetadataEditor from "./components/FileMetadataEditor";
 import { I18nProvider, useI18n } from "./utils/i18n";
 import { Menu, Sun, Moon, Sliders } from "lucide-react";
 import { ToastContainer } from "react-toastify";
@@ -67,6 +68,11 @@ const HASH_MAP: Record<string, ActiveModule> = {
   "#dir-aggregator": ActiveModule.DIR_AGGREGATOR,
   "#dir_aggregator": ActiveModule.DIR_AGGREGATOR,
   "#ocr-parser": ActiveModule.DIR_AGGREGATOR,
+
+  "#file-metadata": ActiveModule.FILE_METADATA,
+  "#file-timestamp": ActiveModule.FILE_METADATA,
+  "#metadata-editor": ActiveModule.FILE_METADATA,
+  "#timestamp-editor": ActiveModule.FILE_METADATA,
 };
 
 const DEFAULT_STATE: AppState = {
@@ -289,6 +295,8 @@ function MainApp() {
                 ? "file-renamer"
                 : mod === ActiveModule.DIR_AGGREGATOR
                 ? "dir-aggregator"
+                : mod === ActiveModule.FILE_METADATA
+                ? "file-metadata"
                 : "excel-splitter";
             window.location.hash = canonicalHash;
             setIsMobileMenuOpen(false); // Auto-close drawer on selection!
@@ -352,6 +360,12 @@ function MainApp() {
           <DirectoryAggregator
             state={state.dirAggregator}
             onChange={(subState) => handleModuleStateChange("dirAggregator", subState)}
+          />
+        )}
+        {state.activeModule === ActiveModule.FILE_METADATA && (
+          <FileMetadataEditor
+            state={state.fileMetadata}
+            onChange={(subState) => handleModuleStateChange("fileMetadata", subState)}
           />
         )}
       </main>

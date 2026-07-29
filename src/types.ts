@@ -7,6 +7,13 @@ export enum ActiveModule {
   DOCUMENT_SCANNER = "document_scanner",
   FILE_RENAMER = "file_renamer",
   DIR_AGGREGATOR = "dir_aggregator",
+  FILE_METADATA = "file_metadata",
+}
+
+export interface FileMetadataState {
+  defaultBatchCreatedDate?: string;
+  defaultBatchModifiedDate?: string;
+  autoSyncModifiedWithCreated?: boolean;
 }
 
 export interface TextUtilsState {
@@ -89,4 +96,5 @@ export interface AppState {
   excelMerger: ExcelMergerState;
   fileRenamer: FileRenamerState;
   dirAggregator?: DirAggregatorState;
+  fileMetadata?: FileMetadataState;
 }

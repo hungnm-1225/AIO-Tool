@@ -9,6 +9,7 @@ import {
   ScanLine,
   FolderSync,
   FolderSearch,
+  FileClock,
   Download,
   Sun, 
   Moon, 
@@ -81,6 +82,12 @@ export default function Sidebar({
           text: "text-teal-600 dark:text-teal-400",
           border: "border-teal-100 dark:border-teal-500/20"
         };
+      case ActiveModule.FILE_METADATA:
+        return {
+          bg: "bg-amber-50 dark:bg-amber-600/10",
+          text: "text-amber-600 dark:text-amber-400",
+          border: "border-amber-100 dark:border-amber-500/20"
+        };
 
       default:
         return {
@@ -150,6 +157,13 @@ export default function Sidebar({
       description: t("sidebar.dirAggregatorDesc"),
       icon: FolderSearch,
       hashId: "dir-aggregator",
+    },
+    {
+      id: ActiveModule.FILE_METADATA,
+      label: t("sidebar.fileMetadataLabel"),
+      description: t("sidebar.fileMetadataDesc"),
+      icon: FileClock,
+      hashId: "file-metadata",
     }
   ];
 

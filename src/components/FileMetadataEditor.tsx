@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import JSZip from "jszip";
 import { useI18n } from "../utils/i18n";
 import { FileMetadataState } from "../types";
@@ -90,7 +90,38 @@ export default function FileMetadataEditor({
   hideInnerHeader = false,
 }: FileMetadataEditorProps) {
   const { t, lang } = useI18n();
-  const [fileList, setFileList] = useState<FileItem[]>([]);
+  const [fileList, setFileList] = useState<FileItem[]>(() => {
+    if (typeof window !== "undefined") {
+      const cached = (window as any).__session_file_cache?.['file_metadata_editor_items'];
+      if (cached && cached.length > 0) {
+        return cached;
+      }
+      
+      const stored = sessionStorage.getItem("file_metadata_editor_serialized");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          return parsed.map((item: any) => {
+            const blob = new Blob([""], { type: item.mimeType });
+            const file = new File([blob], item.originalName, { type: item.mimeType });
+            return {
+              id: item.id,
+              file,
+              originalName: item.originalName,
+              newName: item.newName,
+              size: item.size,
+              mimeType: item.mimeType,
+              createdDate: new Date(item.createdDate),
+              modifiedDate: new Date(item.modifiedDate),
+            };
+          });
+        } catch (e) {
+          return [];
+        }
+      }
+    }
+    return [];
+  });
   const [isZipping, setIsZipping] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -296,55 +327,76 @@ export default function FileMetadataEditor({
     );
   };
 
+  // Save to session cache
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      (window as any).__session_file_cache = (window as any).__session_file_cache || {};
+      (window as any).__session_file_cache['file_metadata_editor_items'] = fileList;
+      
+      const serializable = fileList.map(item => ({
+        id: item.id,
+        originalName: item.originalName,
+        newName: item.newName,
+        size: item.size,
+        mimeType: item.mimeType,
+        createdDate: item.createdDate.toISOString(),
+        modifiedDate: item.modifiedDate.toISOString(),
+      }));
+      sessionStorage.setItem("file_metadata_editor_serialized", JSON.stringify(serializable));
+    }
+  }, [fileList]);
+
   return (
     <div className="flex flex-col h-full overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto w-full">
       {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5">
-        {!hideInnerHeader && (
-          <div>
-            <div className="flex items-center gap-2.5 mb-1">
-              <div className="h-9 w-9 rounded-xl bg-amber-600 flex items-center justify-center text-white shadow-md shadow-amber-600/20">
-                <FileClock className="h-5 w-5" />
+      {(!hideInnerHeader || fileList.length > 0) && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5">
+          {!hideInnerHeader && (
+            <div>
+              <div className="flex items-center gap-2.5 mb-1">
+                <div className="h-9 w-9 rounded-xl bg-amber-600 flex items-center justify-center text-white shadow-md shadow-amber-600/20">
+                  <FileClock className="h-5 w-5" />
+                </div>
+                <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <span>{lang === "vi" ? "Chỉnh Sửa File Metadata & Timestamp" : "File Metadata & Timestamp Editor"}</span>
+                </h2>
               </div>
-              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <span>{lang === "vi" ? "Chỉnh Sửa File Metadata & Timestamp" : "File Metadata & Timestamp Editor"}</span>
-              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                {lang === "vi"
+                  ? "Tải lên mọi định dạng tệp, tùy chỉnh Tên, Ngày Tạo (Created Date) & Ngày Sửa (Last Modified Date). Xuất gói ZIP bảo toàn 100% nhãn thời gian tùy chỉnh."
+                  : "Upload any file format, customize Filename, Created Date & Last Modified Date. Export ZIP package preserving 100% custom timestamps."}
+              </p>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              {lang === "vi"
-                ? "Tải lên mọi định dạng tệp, tùy chỉnh Tên, Ngày Tạo (Created Date) & Ngày Sửa (Last Modified Date). Xuất gói ZIP bảo toàn 100% nhãn thời gian tùy chỉnh."
-                : "Upload any file format, customize Filename, Created Date & Last Modified Date. Export ZIP package preserving 100% custom timestamps."}
-            </p>
-          </div>
-        )}
-
-        {/* Action Buttons Toolbar */}
-        <div className="flex flex-wrap items-center gap-3">
-          {fileList.length > 0 && (
-            <>
-              {/* Reset to Original Timestamps Button - PROMINENT TOP LEVEL LOCATION */}
-              <button
-                type="button"
-                onClick={resetAllMetadata}
-                className="px-3.5 py-2 rounded-xl border border-amber-300 dark:border-amber-800/80 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-200 text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-xs"
-                title={lang === "vi" ? "Khôi phục ngày giờ và tên gốc cho toàn bộ danh sách" : "Reset timestamps and original names for all files"}
-              >
-                <RefreshCw className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                <span>{lang === "vi" ? "Khôi Phục Thời Gian Gốc" : "Reset to Original Timestamps"}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={clearAll}
-                className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-xs"
-              >
-                <Trash2 className="h-4 w-4 text-rose-500" />
-                <span>{t("common.clear")} ({fileList.length})</span>
-              </button>
-            </>
           )}
+
+          {/* Action Buttons Toolbar */}
+          <div className="flex flex-wrap items-center gap-3">
+            {fileList.length > 0 && (
+              <>
+                {/* Reset to Original Timestamps Button - PROMINENT TOP LEVEL LOCATION */}
+                <button
+                  type="button"
+                  onClick={resetAllMetadata}
+                  className="px-3.5 py-2 rounded-xl border border-amber-300 dark:border-amber-800/80 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-200 text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+                  title={lang === "vi" ? "Khôi phục ngày giờ và tên gốc cho toàn bộ danh sách" : "Reset timestamps and original names for all files"}
+                >
+                  <RefreshCw className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <span>{lang === "vi" ? "Khôi Phục Thời Gian Gốc" : "Reset to Original Timestamps"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+                >
+                  <Trash2 className="h-4 w-4 text-rose-500" />
+                  <span>{t("common.clear")} ({fileList.length})</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Upload Dropzone Area */}
       <div

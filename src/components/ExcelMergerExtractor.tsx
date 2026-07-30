@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { ExcelMergerState, ActiveModule } from "../types";
 import { useI18n } from "../utils/i18n";
@@ -89,6 +89,54 @@ export default function ExcelMergerExtractor({
   const [loadedFiles, setLoadedFiles] = useState<LoadedFileInfo[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<{ name: string; recordCount: number } | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleZoneClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  // Restore state from Session Cache
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const cachedStores = (window as any).__session_file_cache?.['excel_merger_stores'];
+      if (cachedStores && cachedStores.length > 0) {
+        setFileStores(cachedStores);
+        const cachedRecords = (window as any).__session_file_cache?.['excel_merger_records'];
+        if (cachedRecords) setRecords(cachedRecords);
+        const cachedFiles = (window as any).__session_file_cache?.['excel_merger_loaded_files'];
+        if (cachedFiles) setLoadedFiles(cachedFiles);
+      } else {
+        const storedStores = sessionStorage.getItem("excel_merger_stores_serialized");
+        if (storedStores) {
+          try {
+            const parsedStores = JSON.parse(storedStores);
+            setFileStores(parsedStores);
+            
+            const storedRecords = sessionStorage.getItem("excel_merger_records_serialized");
+            if (storedRecords) setRecords(JSON.parse(storedRecords));
+            
+            const storedFiles = sessionStorage.getItem("excel_merger_loaded_files_serialized");
+            if (storedFiles) setLoadedFiles(JSON.parse(storedFiles));
+          } catch (e) {}
+        }
+      }
+    }
+  }, []);
+
+  // Save state to Session Cache
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      (window as any).__session_file_cache = (window as any).__session_file_cache || {};
+      (window as any).__session_file_cache['excel_merger_stores'] = fileStores;
+      (window as any).__session_file_cache['excel_merger_records'] = records;
+      (window as any).__session_file_cache['excel_merger_loaded_files'] = loadedFiles;
+      
+      sessionStorage.setItem("excel_merger_stores_serialized", JSON.stringify(fileStores));
+      sessionStorage.setItem("excel_merger_records_serialized", JSON.stringify(records));
+      sessionStorage.setItem("excel_merger_loaded_files_serialized", JSON.stringify(loadedFiles));
+    }
+  }, [fileStores, records, loadedFiles]);
 
   // Drag & drop file reordering state
   const [draggedFileIndex, setDraggedFileIndex] = useState<number | null>(null);
@@ -691,15 +739,21 @@ export default function ExcelMergerExtractor({
               <div className="h-9 w-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-md shadow-emerald-600/20">
                 <Layers className="h-5 w-5" />
               </div>
-              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <span>{t("excelSuite.title")}</span>
-                <span className="px-2.5 py-0.5 text-[11px] font-semibold rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                  🌐 Pythaverse.space
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2 flex-wrap">
+                <span>{lang === "vi" ? "Chiết Xuất Thông Tin Tài Khoản" : "Account Information Extraction"}</span>
+                <span 
+                  onClick={() => window.open("https://pythaverse.space/", "_blank")}
+                  className="px-2.5 py-0.5 text-[10px] font-extrabold rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-dashed border-emerald-400 dark:border-emerald-600 shadow-sm cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors whitespace-nowrap"
+                  title="Visit Pythaverse.space"
+                >
+                  ★ Exclusively designed for Pythaverse.space
                 </span>
               </h2>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {t("excelSuite.subtitle")} • <span className="font-medium text-emerald-600 dark:text-emerald-400">{t("excelSuite.pythaverseNotice")}</span>
+              {lang === "vi"
+                ? "Tổng hợp dữ liệu từ nhiều file Excel, chiết xuất danh sách Username/Password, tự động lọc và loại bỏ dòng trùng lặp."
+                : "Aggregate data across multiple Excel files, extract Username/Password lists, and auto-deduplicate records."}
             </p>
           </div>
 
@@ -712,13 +766,13 @@ export default function ExcelMergerExtractor({
                   className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-500" />
-                  <span>{t("excelSuite.splitterTab")}</span>
+                  <span>{lang === "vi" ? "Xác Thực Tài Khoản" : "Account Validation"}</span>
                 </button>
                 <button
                   className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#111827] text-emerald-600 dark:text-emerald-400 shadow-xs flex items-center gap-1.5 cursor-default"
                 >
                   <Layers className="h-3.5 w-3.5 text-emerald-500" />
-                  <span>{t("excelSuite.mergerTab")}</span>
+                  <span>{lang === "vi" ? "Chiết Xuất Tài Khoản" : "Account Extraction"}</span>
                 </button>
               </div>
             )}
@@ -729,54 +783,50 @@ export default function ExcelMergerExtractor({
       {/* Drop Zone / Multi File Input Area */}
       {records.length === 0 ? (
         <div
+          onClick={handleZoneClick}
           onDragOver={(e) => {
             e.preventDefault();
             setIsDragging(true);
           }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
+          className={`relative border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center transition-all cursor-pointer group ${
             isDragging
-              ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 scale-[1.01]"
-              : "border-slate-300 dark:border-slate-800 bg-white dark:bg-[#111827] hover:border-emerald-400 dark:hover:border-emerald-500/50"
+              ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 scale-[0.99]"
+              : "border-emerald-300 dark:border-emerald-700/60 bg-emerald-50/30 dark:bg-emerald-950/10 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20"
           }`}
         >
-          <div className="h-16 w-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-100 dark:border-emerald-800/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-4 shadow-inner">
+          <div className="h-16 w-16 rounded-2xl bg-emerald-100 dark:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-4 shadow-inner group-hover:scale-105 transition-transform">
             <Upload className="h-8 w-8" />
           </div>
           <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 mb-1">
-            {t("excelSuite.mergeDropzone")}
+            {lang === "vi" ? "Kéo thả nhiều file vào đây hoặc click để tải lên" : "Drag & drop multiple files here or click to upload"}
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg mb-2 leading-relaxed">
-            {t("excelSuite.dragDropHelp")}
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg mb-6 leading-relaxed">
+            {lang === "vi"
+              ? "Hỗ trợ tải lên hàng loạt tệp Excel (.xlsx, .xls) hoặc CSV. Hệ thống tự động gộp dữ liệu và chiết xuất tài khoản."
+              : "Supports uploading multiple Excel (.xlsx, .xls) or CSV files. System automatically merges data and extracts accounts."}
           </p>
-          <div className="mb-5">
-            <span className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/80 inline-block">
-              ★ {t("excelSuite.pythaverseNotice")}
-            </span>
-          </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <label className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-md shadow-emerald-600/20 cursor-pointer transition-all flex items-center gap-2">
-              <FileSpreadsheet className="h-4 w-4" />
-              <span>{t("excelSuite.selectFile")}</span>
-              <input
-                type="file"
-                accept=".xlsx, .xls, .csv"
-                multiple
-                onChange={handleFileInputChange}
-                className="hidden"
-              />
-            </label>
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".xlsx, .xls, .csv"
+            multiple
+            onChange={handleFileInputChange}
+            className="hidden"
+          />
 
-            <button
-              onClick={handleLoadSampleDemo}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-2 cursor-pointer transition-all"
-            >
-              <Sparkles className="h-4 w-4 text-purple-400" />
-              <span>{t("excelSuite.loadSample")}</span>
-            </button>
-          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleLoadSampleDemo();
+            }}
+            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-2 cursor-pointer transition-all shadow-md shadow-emerald-600/20"
+          >
+            <Sparkles className="h-4 w-4 text-white" />
+            <span>{lang === "vi" ? "Thử Dữ Liệu Mẫu" : "Try sample data"}</span>
+          </button>
         </div>
       ) : (
         <>

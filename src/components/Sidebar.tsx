@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useI18n } from "../utils/i18n";
 import { MAIN_MENU_ITEMS, MainMenuItem, SubMenuItem, navigateTo } from "../utils/navigation";
 import { 
@@ -38,6 +38,10 @@ export default function Sidebar({
   // Accordion state: Record of mainSlug -> boolean (Default: all closed)
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
 
+  useEffect(() => {
+    setExpandedMenus({ [currentMainSlug]: true });
+  }, [currentMainSlug]);
+
   const handleToggleCollapse = () => {
     const nextVal = !isCollapsed;
     setIsCollapsed(nextVal);
@@ -46,19 +50,14 @@ export default function Sidebar({
 
   const toggleMainAccordion = (item: MainMenuItem) => {
     const isCurrentlyOpen = !!expandedMenus[item.mainSlug];
-    const newExpanded = { ...expandedMenus };
-
     if (isCurrentlyOpen) {
-      newExpanded[item.mainSlug] = false;
+      setExpandedMenus({});
     } else {
-      // Open this main menu item
-      newExpanded[item.mainSlug] = true;
-      // Also navigate to its first sub-slug if not already inside this main slug
+      setExpandedMenus({ [item.mainSlug]: true });
       if (currentMainSlug !== item.mainSlug) {
         navigateTo(`/${item.mainSlug}/${item.submenus[0].subSlug}`);
       }
     }
-    setExpandedMenus(newExpanded);
   };
 
   const handleSubmenuClick = (mainSlug: string, subSlug: string) => {
@@ -171,7 +170,7 @@ export default function Sidebar({
                   </h1>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-full font-bold">
-                      v2.6.0
+                      v2.8.0
                     </span>
                   </div>
                 </div>

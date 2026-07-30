@@ -60,7 +60,54 @@ export default function FileRenamer({ state, onChange, hideInnerHeader = false }
   const { t, lang } = useI18n();
   const currentState = state || DEFAULT_RENAMER_STATE;
 
-  const [files, setFiles] = useState<FileItem[]>([]);
+  const [files, setFiles] = useState<FileItem[]>(() => {
+    if (typeof window !== "undefined") {
+      const cached = (window as any).__session_file_cache?.['file_renamer_items'];
+      if (cached && cached.length > 0) {
+        return cached;
+      }
+      
+      const stored = sessionStorage.getItem("file_renamer_serialized");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          return parsed.map((item: any) => {
+            const blob = new Blob([""], { type: "application/octet-stream" });
+            const file = new File([blob], item.originalName, { type: "application/octet-stream" });
+            return {
+              id: item.id,
+              file,
+              originalName: item.originalName,
+              originalExt: item.originalExt,
+              nameWithoutExt: item.nameWithoutExt,
+              customOverride: item.customOverride,
+            };
+          });
+        } catch (e) {
+          return [];
+        }
+      }
+    }
+    return [];
+  });
+
+  // Save to session cache
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      (window as any).__session_file_cache = (window as any).__session_file_cache || {};
+      (window as any).__session_file_cache['file_renamer_items'] = files;
+      
+      const serializable = files.map(item => ({
+        id: item.id,
+        originalName: item.originalName,
+        originalExt: item.originalExt,
+        nameWithoutExt: item.nameWithoutExt,
+        customOverride: item.customOverride,
+      }));
+      sessionStorage.setItem("file_renamer_serialized", JSON.stringify(serializable));
+    }
+  }, [files]);
+
   const [isDragging, setIsDragging] = useState(false);
   const [isGeneratingZip, setIsGeneratingZip] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -306,274 +353,275 @@ export default function FileRenamer({ state, onChange, hideInnerHeader = false }
       {/* Main Container */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Renaming Rules Config Panel */}
-        <div className="lg:col-span-4 bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800/80 p-5 shadow-xs space-y-5">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-3">
-            <div className="flex items-center gap-2">
-              <Edit3 className="h-4 w-4 text-amber-500" />
-              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                {t("fileRenamer.renameOptions")}
-              </h3>
-            </div>
-            <button
-              onClick={() =>
-                updateState({
-                  prefix: "",
-                  suffix: "",
-                  findStr: "",
-                  replaceStr: "",
-                  enableNumbering: false,
-                  caseMode: "original",
-                  extensionCase: "original",
-                  customNewBaseName: "",
-                  enableCustomBaseName: false,
-                })
-              }
-              className="text-[11px] font-semibold text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 flex items-center gap-1 transition-colors cursor-pointer"
-            >
-              <RefreshCw className="h-3 w-3" />
-              <span>{t("common.reset")}</span>
-            </button>
-          </div>
-
-          {/* Custom Base Name Option */}
-          <div className="space-y-3 pb-3 border-b border-slate-100 dark:border-slate-800/60">
-            <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-slate-700 dark:text-slate-300">
-              <input
-                type="checkbox"
-                checked={currentState.enableCustomBaseName}
-                onChange={(e) => {
+        {files.length > 0 && (
+          <div className="lg:col-span-4 bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800/80 p-5 shadow-xs space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-3">
+              <div className="flex items-center gap-2">
+                <Edit3 className="h-4 w-4 text-amber-500" />
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                  {t("fileRenamer.renameOptions")}
+                </h3>
+              </div>
+              <button
+                onClick={() =>
                   updateState({
-                    enableCustomBaseName: e.target.checked,
-                    // Auto-enable numbering when setting custom base name to prevent duplicate name collisions
-                    enableNumbering: e.target.checked ? true : currentState.enableNumbering
-                  });
-                }}
-                className="rounded text-amber-600 focus:ring-amber-500 h-4 w-4 cursor-pointer"
-              />
-              <span>{lang === "vi" ? "Đổi tên file mới hoàn toàn" : "Rename all files completely"}</span>
-            </label>
-            
-            {currentState.enableCustomBaseName && (
-              <div className="space-y-1.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 animate-fade-in">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-semibold">{lang === "vi" ? "Nhập tên file gốc muốn đặt:" : "Enter custom base filename:"}</span>
-                <input
-                  type="text"
-                  placeholder={lang === "vi" ? "Ví dụ: Bao_Cao" : "e.g. Report_Master"}
-                  value={currentState.customNewBaseName}
-                  onChange={(e) => updateState({ customNewBaseName: e.target.value })}
-                  className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
-                />
-                <span className="text-[10px] text-slate-400 dark:text-slate-500 block leading-relaxed">
-                  {lang === "vi" ? "*Lưu ý: Chức năng Đánh Số Thứ Tự sẽ tự động bật để tránh trùng lặp tên tệp." : "*Note: Auto-numbering will be enabled automatically to keep file names unique."}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* 1. Prefix & Suffix */}
-          {!currentState.enableCustomBaseName && (
-            <div className="space-y-3">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                1. {t("fileRenamer.prefix")} / {t("fileRenamer.suffix")}
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.prefix")}</span>
-                  <input
-                    type="text"
-                    placeholder="e.g. Doc_"
-                    value={currentState.prefix}
-                    onChange={(e) => updateState({ prefix: e.target.value })}
-                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
-                  />
-                </div>
-                <div>
-                  <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.suffix")}</span>
-                  <input
-                    type="text"
-                    placeholder="e.g. _v1"
-                    value={currentState.suffix}
-                    onChange={(e) => updateState({ suffix: e.target.value })}
-                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
-                  />
-                </div>
-              </div>
+                    prefix: "",
+                    suffix: "",
+                    findStr: "",
+                    replaceStr: "",
+                    enableNumbering: false,
+                    caseMode: "original",
+                    extensionCase: "original",
+                    customNewBaseName: "",
+                    enableCustomBaseName: false,
+                  })
+                }
+                className="text-[11px] font-semibold text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <RefreshCw className="h-3 w-3" />
+                <span>{t("common.reset")}</span>
+              </button>
             </div>
-          )}
 
-          {/* 2. Find and Replace */}
-          {!currentState.enableCustomBaseName && (
-            <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800/60">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                2. {t("fileRenamer.findStr")} & {t("fileRenamer.replaceStr")}
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.findStr")}</span>
-                  <input
-                    type="text"
-                    placeholder="e.g. IMG_"
-                    value={currentState.findStr}
-                    onChange={(e) => updateState({ findStr: e.target.value })}
-                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
-                  />
-                </div>
-                <div>
-                  <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.replaceStr")}</span>
-                  <input
-                    type="text"
-                    placeholder="e.g. Photo_"
-                    value={currentState.replaceStr}
-                    onChange={(e) => updateState({ replaceStr: e.target.value })}
-                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 3. Auto Numbering */}
-          <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800/60">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer">
+            {/* Custom Base Name Option */}
+            <div className="space-y-3 pb-3 border-b border-slate-100 dark:border-slate-800/60">
+              <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-slate-700 dark:text-slate-300">
                 <input
                   type="checkbox"
-                  checked={currentState.enableNumbering}
-                  onChange={(e) => updateState({ enableNumbering: e.target.checked })}
-                  className="rounded-md border-slate-300 text-amber-600 focus:ring-amber-500 h-4 w-4"
+                  checked={currentState.enableCustomBaseName}
+                  onChange={(e) => {
+                    updateState({
+                      enableCustomBaseName: e.target.checked,
+                      // Auto-enable numbering when setting custom base name to prevent duplicate name collisions
+                      enableNumbering: e.target.checked ? true : currentState.enableNumbering
+                    });
+                  }}
+                  className="rounded text-amber-600 focus:ring-amber-500 h-4 w-4 cursor-pointer"
                 />
-                <span>3. {t("fileRenamer.enableNumbering")}</span>
+                <span>{lang === "vi" ? "Đổi tên file mới hoàn toàn" : "Rename all files completely"}</span>
               </label>
-            </div>
-
-            {currentState.enableNumbering && (
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-3">
-                <div>
-                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
-                    {t("fileRenamer.numberingPattern")}
-                  </span>
+              
+              {currentState.enableCustomBaseName && (
+                <div className="space-y-1.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 animate-fade-in">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-semibold">{lang === "vi" ? "Nhập tên file gốc muốn đặt:" : "Enter custom base filename:"}</span>
                   <input
                     type="text"
-                    value={currentState.numberingPattern}
-                    onChange={(e) => updateState({ numberingPattern: e.target.value })}
-                    placeholder="[name]_[x]"
-                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] text-xs font-mono focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
+                    placeholder={lang === "vi" ? "Ví dụ: Bao_Cao" : "e.g. Report_Master"}
+                    value={currentState.customNewBaseName}
+                    onChange={(e) => updateState({ customNewBaseName: e.target.value })}
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
                   />
-                  <span className="text-[10px] text-slate-400 mt-1 block">
-                    Gợi ý: <code>[name]_[x]</code> hoặc <code>File_[x]</code>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 block leading-relaxed">
+                    {lang === "vi" ? "*Lưu ý: Chức năng Đánh Số Thứ Tự sẽ tự động bật để tránh trùng lặp tên tệp." : "*Note: Auto-numbering will be enabled automatically to keep file names unique."}
                   </span>
                 </div>
+              )}
+            </div>
 
-                <div className="grid grid-cols-3 gap-2">
+            {/* 1. Prefix & Suffix */}
+            {!currentState.enableCustomBaseName && (
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                  1. {t("fileRenamer.prefix")} / {t("fileRenamer.suffix")}
+                </label>
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <span className="text-[10px] text-slate-400 block mb-1">{t("fileRenamer.startNumber")}</span>
+                    <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.prefix")}</span>
                     <input
-                      type="number"
-                      value={currentState.startNumber}
-                      onChange={(e) => updateState({ startNumber: parseInt(e.target.value) || 1 })}
-                      className="w-full px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] text-xs font-medium"
+                      type="text"
+                      placeholder="e.g. Doc_"
+                      value={currentState.prefix}
+                      onChange={(e) => updateState({ prefix: e.target.value })}
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
                     />
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block mb-1">{t("fileRenamer.stepNumber")}</span>
+                    <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.suffix")}</span>
                     <input
-                      type="number"
-                      value={currentState.stepNumber}
-                      onChange={(e) => updateState({ stepNumber: parseInt(e.target.value) || 1 })}
-                      className="w-full px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] text-xs font-medium"
+                      type="text"
+                      placeholder="e.g. _v1"
+                      value={currentState.suffix}
+                      onChange={(e) => updateState({ suffix: e.target.value })}
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
                     />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 block mb-1">{t("fileRenamer.zeroPadding")}</span>
-                    <select
-                      value={currentState.zeroPadding}
-                      onChange={(e) => updateState({ zeroPadding: parseInt(e.target.value) })}
-                      className="w-full px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] text-xs font-medium cursor-pointer"
-                    >
-                      <option value={1}>1 (1, 2, 3)</option>
-                      <option value={2}>2 (01, 02)</option>
-                      <option value={3}>3 (001, 002)</option>
-                      <option value={4}>4 (0001)</option>
-                    </select>
                   </div>
                 </div>
               </div>
             )}
-          </div>
 
-          {/* 4. Letter Case & Extension Case */}
-          <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800/60">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-              4. {t("fileRenamer.caseMode")}
-            </label>
-
+            {/* 2. Find and Replace */}
             {!currentState.enableCustomBaseName && (
-              <div>
-                <span className="text-[11px] text-slate-400 block mb-1">Filename Case</span>
-                <select
-                  value={currentState.caseMode}
-                  onChange={(e) => updateState({ caseMode: e.target.value as any })}
-                  className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all cursor-pointer"
-                >
-                  <option value="original">{t("fileRenamer.originalCase")}</option>
-                  <option value="lowercase">{t("fileRenamer.lowercase")}</option>
-                  <option value="uppercase">{t("fileRenamer.uppercase")}</option>
-                  <option value="titlecase">{t("fileRenamer.titlecase")}</option>
-                </select>
+              <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800/60">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                  2. {t("fileRenamer.findStr")} & {t("fileRenamer.replaceStr")}
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.findStr")}</span>
+                    <input
+                      type="text"
+                      placeholder="e.g. IMG_"
+                      value={currentState.findStr}
+                      onChange={(e) => updateState({ findStr: e.target.value })}
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.replaceStr")}</span>
+                    <input
+                      type="text"
+                      placeholder="e.g. Photo_"
+                      value={currentState.replaceStr}
+                      onChange={(e) => updateState({ replaceStr: e.target.value })}
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
+                    />
+                  </div>
+                </div>
               </div>
             )}
 
-            <div>
-              <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.extensionCase")}</span>
-              <select
-                value={currentState.extensionCase}
-                onChange={(e) => updateState({ extensionCase: e.target.value as any })}
-                className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all cursor-pointer"
-              >
-                <option value="original">Giữ nguyên (.PNG, .xlsx...)</option>
-                <option value="lowercase">Chữ thường (.png, .xlsx...)</option>
-                <option value="uppercase">CHỮ HOA (.PNG, .XLSX...)</option>
-              </select>
+            {/* 3. Auto Numbering */}
+            <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800/60">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={currentState.enableNumbering}
+                    onChange={(e) => updateState({ enableNumbering: e.target.checked })}
+                    className="rounded-md border-slate-300 text-amber-600 focus:ring-amber-500 h-4 w-4"
+                  />
+                  <span>3. {t("fileRenamer.enableNumbering")}</span>
+                </label>
+              </div>
+
+              {currentState.enableNumbering && (
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-3">
+                  <div>
+                    <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
+                      {t("fileRenamer.numberingPattern")}
+                    </span>
+                    <input
+                      type="text"
+                      value={currentState.numberingPattern}
+                      onChange={(e) => updateState({ numberingPattern: e.target.value })}
+                      placeholder="[name]_[x]"
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] text-xs font-mono focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-1 block">
+                      Gợi ý: <code>[name]_[x]</code> hoặc <code>File_[x]</code>
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block mb-1">{t("fileRenamer.startNumber")}</span>
+                      <input
+                        type="number"
+                        value={currentState.startNumber}
+                        onChange={(e) => updateState({ startNumber: parseInt(e.target.value) || 1 })}
+                        className="w-full px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] text-xs font-medium"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block mb-1">{t("fileRenamer.stepNumber")}</span>
+                      <input
+                        type="number"
+                        value={currentState.stepNumber}
+                        onChange={(e) => updateState({ stepNumber: parseInt(e.target.value) || 1 })}
+                        className="w-full px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] text-xs font-medium"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block mb-1">{t("fileRenamer.zeroPadding")}</span>
+                      <select
+                        value={currentState.zeroPadding}
+                        onChange={(e) => updateState({ zeroPadding: parseInt(e.target.value) })}
+                        className="w-full px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] text-xs font-medium cursor-pointer"
+                      >
+                        <option value={1}>1 (1, 2, 3)</option>
+                        <option value={2}>2 (01, 02)</option>
+                        <option value={3}>3 (001, 002)</option>
+                        <option value={4}>4 (0001)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 4. Letter Case & Extension Case */}
+            <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800/60">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                4. {t("fileRenamer.caseMode")}
+              </label>
+
+              {!currentState.enableCustomBaseName && (
+                <div>
+                  <span className="text-[11px] text-slate-400 block mb-1">Filename Case</span>
+                  <select
+                    value={currentState.caseMode}
+                    onChange={(e) => updateState({ caseMode: e.target.value as any })}
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all cursor-pointer"
+                  >
+                    <option value="original">{t("fileRenamer.originalCase")}</option>
+                    <option value="lowercase">{t("fileRenamer.lowercase")}</option>
+                    <option value="uppercase">{t("fileRenamer.uppercase")}</option>
+                    <option value="titlecase">{t("fileRenamer.titlecase")}</option>
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <span className="text-[11px] text-slate-400 block mb-1">{t("fileRenamer.extensionCase")}</span>
+                <select
+                  value={currentState.extensionCase}
+                  onChange={(e) => updateState({ extensionCase: e.target.value as any })}
+                  className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden transition-all cursor-pointer"
+                >
+                  <option value="original">Giữ nguyên (.PNG, .xlsx...)</option>
+                  <option value="lowercase">Chữ thường (.png, .xlsx...)</option>
+                  <option value="uppercase">CHỮ HOA (.PNG, .XLSX...)</option>
+                </select>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Right Column: Upload Area & File List Table */}
-        <div className="lg:col-span-8 flex flex-col space-y-4">
+        <div className={`${files.length > 0 ? "lg:col-span-8" : "lg:col-span-12"} flex flex-col space-y-4`}>
           {/* Dropzone Area */}
           <div
+            onClick={() => document.getElementById("renamer-file-input")?.click()}
             onDragOver={(e) => {
               e.preventDefault();
               setIsDragging(true);
             }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-2xl p-6 transition-all text-center flex flex-col items-center justify-center cursor-pointer ${
+            className={`relative border-2 border-dashed rounded-2xl p-8 transition-all text-center flex flex-col items-center justify-center cursor-pointer group ${
               isDragging
-                ? "border-amber-500 bg-amber-50/50 dark:bg-amber-950/20 scale-[1.01]"
-                : "border-slate-300 dark:border-slate-800 bg-white dark:bg-[#111827] hover:border-amber-400 dark:hover:border-amber-500/50"
+                ? "border-amber-500 bg-amber-50/50 dark:bg-amber-950/20 scale-[0.99]"
+                : "border-amber-300 dark:border-amber-700/60 bg-amber-50/30 dark:bg-amber-950/10 hover:bg-amber-50/60 dark:hover:bg-amber-950/20"
             }`}
           >
-            <div className="h-12 w-12 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-100 dark:border-amber-800/60 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-2 shadow-inner">
+            <input
+              id="renamer-file-input"
+              type="file"
+              multiple
+              onChange={(e) => handleFileUpload(e.target.files)}
+              className="hidden"
+            />
+            <div className="h-12 w-12 rounded-xl bg-amber-100 dark:bg-amber-900/50 border border-amber-200 dark:border-amber-800/40 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-2 shadow-inner group-hover:scale-105 transition-transform">
               <Upload className="h-6 w-6" />
             </div>
             <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">
-              {t("fileRenamer.dropzoneTitle")}
+              {lang === "vi" ? "Kéo & Thả hoặc Bấm Để Chọn Tệp Cần Đổi Tên" : "Drag & Drop or Click to Select Files to Rename"}
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mb-3 leading-relaxed">
-              {t("fileRenamer.dropzoneSubtitle")}
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md leading-relaxed">
+              {lang === "vi"
+                ? "Hỗ trợ tải lên mọi định dạng tệp (PDF, Excel, hình ảnh, văn bản...)"
+                : "Supports uploading any file format (PDF, Excel, images, texts...)"}
             </p>
-
-            <label className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs shadow-md shadow-amber-600/20 cursor-pointer transition-all flex items-center gap-2">
-              <FolderSync className="h-4 w-4" />
-              <span>{t("excelSuite.selectFile")}</span>
-              <input
-                type="file"
-                multiple
-                onChange={(e) => handleFileUpload(e.target.files)}
-                className="hidden"
-              />
-            </label>
           </div>
 
           {/* Table Container */}
@@ -752,18 +800,6 @@ export default function FileRenamer({ state, onChange, hideInnerHeader = false }
             </div>
           )}
 
-          {/* Empty state when no files */}
-          {files.length === 0 && (
-            <div className="p-12 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-white/40 dark:bg-slate-900/20">
-              <FolderSync className="h-10 w-10 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
-              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
-                {t("fileRenamer.noFiles")}
-              </p>
-              <p className="text-xs text-slate-400 mt-1">
-                {t("fileRenamer.noFilesSub")}
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>

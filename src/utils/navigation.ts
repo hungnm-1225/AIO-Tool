@@ -51,7 +51,7 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
   {
     mainSlug: "text-suite",
     module: ActiveModule.TEXT_SUITE,
-    labelVi: "Text Utilities Suite",
+    labelVi: "Bộ Công Cụ Văn Bản",
     labelEn: "Text Utilities Suite",
     descriptionVi: "Chuyển chữ, đếm từ, cắt chuỗi, so sánh diff, ghép cột & tự tăng số",
     descriptionEn: "Case converter, word counter, string cutter, diff checker, column joiner & auto inc",
@@ -59,7 +59,7 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
     submenus: [
       {
         subSlug: "case-converter",
-        labelVi: "Case Converter",
+        labelVi: "Chuyển Đổi Kiểu Chữ",
         labelEn: "Case Converter",
         descriptionVi: "Chuyển đổi kiểu chữ: IN HOA, in thường, Title Case, camelCase, kebab-case",
         descriptionEn: "Convert text letter casing: UPPERCASE, lowercase, Title Case, camelCase",
@@ -68,7 +68,7 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
       },
       {
         subSlug: "word-counter-duplicate-filter",
-        labelVi: "Word Counter & Duplicate Filter",
+        labelVi: "Đếm Từ & Lọc Trùng Lặp",
         labelEn: "Word Counter & Duplicate Filter",
         descriptionVi: "Đếm từ, đếm ký tự, đếm dòng & lọc danh sách trùng lặp",
         descriptionEn: "Count words, characters, lines & filter duplicate records",
@@ -77,7 +77,7 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
       },
       {
         subSlug: "string-cutter",
-        labelVi: "String Cutter",
+        labelVi: "Cắt & Thay Thế Chuỗi",
         labelEn: "String Cutter",
         descriptionVi: "Cắt chuỗi, cắt bớt ký tự đầu/cuối dòng & tìm kiếm thay thế Regex",
         descriptionEn: "Slice lines, trim prefix/suffix & Regex find-replace",
@@ -86,7 +86,7 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
       },
       {
         subSlug: "diff-checker",
-        labelVi: "Diff Checker",
+        labelVi: "So Sánh Văn Bản (Diff)",
         labelEn: "Diff Checker",
         descriptionVi: "So sánh khác biệt văn bản & mã nguồn theo từng dòng",
         descriptionEn: "Line-by-line text and code diff comparison",
@@ -95,7 +95,7 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
       },
       {
         subSlug: "column-joiner",
-        labelVi: "Column Joiner",
+        labelVi: "Ghép Cột Văn Bản",
         labelEn: "Column Joiner",
         descriptionVi: "Ghép hai danh sách cột văn bản nối tiếp nhau theo ký tự phân cách",
         descriptionEn: "Join two lists of text side by side with delimiter",
@@ -104,7 +104,7 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
       },
       {
         subSlug: "auto-increasement-generator",
-        labelVi: "Auto Increasement Generator",
+        labelVi: "Tạo Dãy Số Tự Tăng",
         labelEn: "Auto Increasement Generator",
         descriptionVi: "Tạo dãy văn bản có chèn số tự động tăng dần theo mẫu quy định",
         descriptionEn: "Generate text sequence with auto-incrementing numbers",
@@ -116,7 +116,7 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
   {
     mainSlug: "web-data-html",
     module: ActiveModule.DATA_CONVERTER,
-    labelVi: "Data & Live HTML Runner",
+    labelVi: "Dữ Liệu & Chạy Live HTML",
     labelEn: "Data & Live HTML Runner",
     descriptionVi: "Định dạng JSON/CSV, xem dạng lưới & chạy live HTML",
     descriptionEn: "Format JSON/CSV, view JSON grid & live HTML preview",
@@ -124,7 +124,7 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
     submenus: [
       {
         subSlug: "format-json-csv",
-        labelVi: "Format JSON & CSV",
+        labelVi: "Định Dạng JSON & CSV",
         labelEn: "Format JSON & CSV",
         descriptionVi: "Làm đẹp (Beautify) & nén (Minify) mã JSON, CSV",
         descriptionEn: "Beautify and minify JSON, CSV code",
@@ -133,7 +133,7 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
       },
       {
         subSlug: "json-grid-viewer",
-        labelVi: "JSON Grid Viewer",
+        labelVi: "Xem Lưới JSON",
         labelEn: "JSON Grid Viewer",
         descriptionVi: "Hiển thị dữ liệu JSON cấu trúc dưới dạng bảng tương tác",
         descriptionEn: "Display structured JSON data as an interactive grid",
@@ -142,7 +142,7 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
       },
       {
         subSlug: "live-html-runner",
-        labelVi: "Live HTML Runner",
+        labelVi: "Trình Chạy Live HTML",
         labelEn: "Live HTML Runner",
         descriptionVi: "Xem trước trực tiếp giao diện HTML/CSS/JS",
         descriptionEn: "Real-time preview for HTML/CSS/JS code",
@@ -154,7 +154,7 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
   {
     mainSlug: "excel-suite",
     module: ActiveModule.EXCEL_SUITE,
-    labelVi: "Excel & Data Suite",
+    labelVi: "Bộ Công Cụ Excel",
     labelEn: "Excel & Data Suite",
     descriptionVi: "Tách file, check lỗi account & gộp thư mục XLSX/CSV",
     descriptionEn: "Split files, validate accounts & merge XLSX/CSV folders",
@@ -162,25 +162,25 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
     submenus: [
       {
         subSlug: "split-and-validate",
-        labelVi: "Split & Validate",
-        labelEn: "Split & Validate",
-        descriptionVi: "Chia nhỏ tệp Excel lớn và phát hiện dòng lỗi tài khoản",
-        descriptionEn: "Split large Excel files and detect credential errors",
+        labelVi: "Xác Thực Tạo Tài Khoản",
+        labelEn: "Account Creation Validation",
+        descriptionVi: "Tự động phát hiện cấu trúc cột, kiểm tra lỗi định dạng Email/Số điện thoại/Ngày sinh và chuẩn hoá dữ liệu đăng ký hàng loạt.",
+        descriptionEn: "Auto-detect columns, validate Email/Phone/DOB formats, auto-normalize data for bulk registration.",
         icon: Split,
         componentKey: "splitter",
       },
       {
         subSlug: "merge-and-extract-account",
-        labelVi: "Merge & Extract Account",
-        labelEn: "Merge & Extract Account",
-        descriptionVi: "Hợp nhất nhiều tệp Excel và trích xuất tài khoản/mật khẩu",
-        descriptionEn: "Combine Excel files and extract account credentials",
+        labelVi: "Chiết Xuất Thông Tin Tài Khoản",
+        labelEn: "Account Information Extraction",
+        descriptionVi: "Tổng hợp dữ liệu từ nhiều file Excel, chiết xuất danh sách Username/Password, tự động lọc và loại bỏ dòng trùng lặp.",
+        descriptionEn: "Aggregate data across multiple Excel files, extract Username/Password lists, and auto-deduplicate records.",
         icon: Layers,
         componentKey: "merger",
       },
       {
         subSlug: "directory-aggregator",
-        labelVi: "Directory Aggregator",
+        labelVi: "Gộp Thư Mục Excel/CSV",
         labelEn: "Directory Aggregator",
         descriptionVi: "Tải nguyên thư mục & gộp toàn bộ bảng dữ liệu Excel/CSV",
         descriptionEn: "Upload entire directory & aggregate all Excel/CSV tables",
@@ -192,15 +192,15 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
   {
     mainSlug: "pdf-suite",
     module: ActiveModule.DOCUMENT_SCANNER,
-    labelVi: "PDF Utilities Suite",
+    labelVi: "Bộ Công Cụ PDF",
     labelEn: "PDF Utilities Suite",
-    descriptionVi: "Quét ảnh nắn góc 4 điểm, tạo PDF, ghép và chia nhỏ file PDF",
-    descriptionEn: "4-point perspective crop, image to PDF, merge & split PDF files",
+    descriptionVi: "Chuyển ảnh sang PDF, ghép file, chia nhỏ & chỉnh sửa PDF",
+    descriptionEn: "Image to PDF, merge, split & edit PDF documents",
     icon: ScanLine,
     submenus: [
       {
         subSlug: "create-pdf-from-images",
-        labelVi: "Create PDF from Images",
+        labelVi: "Chuyển Ảnh Sang PDF",
         labelEn: "Create PDF from Images",
         descriptionVi: "Quét tài liệu, nắn góc 4 điểm, bộ lọc CamScanner & xuất PDF",
         descriptionEn: "Scan document, 4-point crop, CamScanner filters & export PDF",
@@ -208,20 +208,38 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
         componentKey: "scanner",
       },
       {
-        subSlug: "merge-and-split-pdf",
-        labelVi: "Merger & Split PDF Files",
-        labelEn: "Merger & Split PDF Files",
-        descriptionVi: "Hợp nhất nhiều tệp PDF thành 1 hoặc trích xuất/chia nhỏ các trang PDF",
-        descriptionEn: "Merge multiple PDFs into one or split/extract PDF pages",
+        subSlug: "merge-pdf",
+        labelVi: "Ghép File PDF",
+        labelEn: "Merge PDF",
+        descriptionVi: "Hợp nhất nhiều tệp PDF, xem preview, đổi thứ tự, xoá xoay trang",
+        descriptionEn: "Merge multiple PDFs, preview, reorder, delete & rotate pages",
         icon: FileStack,
-        componentKey: "pdf-merge-split",
+        componentKey: "pdf-merge",
+      },
+      {
+        subSlug: "split-pdf",
+        labelVi: "Chia Nhỏ PDF",
+        labelEn: "Split PDF",
+        descriptionVi: "Chia nhỏ tệp PDF theo dải trang tùy chỉnh, xem preview trang cắt",
+        descriptionEn: "Split PDF into smaller files by range with range preview",
+        icon: Split,
+        componentKey: "pdf-split",
+      },
+      {
+        subSlug: "edit-pdf",
+        labelVi: "Chỉnh Sửa PDF",
+        labelEn: "Edit PDF",
+        descriptionVi: "Thêm trang từ ảnh/PDF khác, nắn góc 4 điểm, chỉnh sửa bộ lọc",
+        descriptionEn: "Insert pages from images/PDFs, crop 4 points, edit with filters",
+        icon: Edit3,
+        componentKey: "pdf-edit",
       },
     ],
   },
   {
     mainSlug: "file-manager",
     module: ActiveModule.FILE_MANAGER,
-    labelVi: "File & Metadata Manager",
+    labelVi: "Quản Lý Tệp & Metadata",
     labelEn: "File & Metadata Manager",
     descriptionVi: "Đổi tên hàng loạt, sửa ngày tạo/sửa tệp, tải ZIP & chuyển đổi định dạng tệp",
     descriptionEn: "Batch rename, edit file timestamps, ZIP download & universal converter",
@@ -229,7 +247,7 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
     submenus: [
       {
         subSlug: "batch-file-renamer",
-        labelVi: "Batch File Renamer",
+        labelVi: "Đổi Tên Hàng Loạt",
         labelEn: "Batch File Renamer",
         descriptionVi: "Thêm tiền tố, hậu tố, số thứ tự cho hàng loạt tệp",
         descriptionEn: "Add prefix, suffix and numbering pattern to batch files",
@@ -238,7 +256,7 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
       },
       {
         subSlug: "metadata-timestamp-editor",
-        labelVi: "Metadata & Timestamp Editor",
+        labelVi: "Sửa Lịch Sử File",
         labelEn: "Metadata & Timestamp Editor",
         descriptionVi: "Sửa ngày khởi tạo và ngày chỉnh sửa tệp rồi tải ZIP",
         descriptionEn: "Modify file created/modified dates and export as ZIP",
@@ -247,7 +265,7 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
       },
       {
         subSlug: "universal-file-converter",
-        labelVi: "Universal File Converter",
+        labelVi: "Chuyển Định Dạng Đa Năng",
         labelEn: "Universal File Converter",
         descriptionVi: "Chuyển đổi đa định dạng: PDF, DOCX, PNG, JPG, WEBP, MP3, WAV, XLSX, CSV, JSON",
         descriptionEn: "Convert between PDF, DOCX, PNG, JPG, WEBP, MP3, WAV, XLSX, CSV, JSON",
@@ -308,9 +326,9 @@ const LEGACY_HASH_MAP: Record<string, { mainSlug: string; subSlug: string }> = {
   "xu-ly-tai-lieu-pdf": { mainSlug: "pdf-suite", subSlug: "create-pdf-from-images" },
   "tao-pdf-tu-anh": { mainSlug: "pdf-suite", subSlug: "create-pdf-from-images" },
   "create-pdf-from-images": { mainSlug: "pdf-suite", subSlug: "create-pdf-from-images" },
-  "ghep-chia-pdf": { mainSlug: "pdf-suite", subSlug: "merge-and-split-pdf" },
-  "gop-chia-nho-pdf": { mainSlug: "pdf-suite", subSlug: "merge-and-split-pdf" },
-  "merge-and-split-pdf": { mainSlug: "pdf-suite", subSlug: "merge-and-split-pdf" },
+  "ghep-chia-pdf": { mainSlug: "pdf-suite", subSlug: "merge-pdf" },
+  "gop-chia-nho-pdf": { mainSlug: "pdf-suite", subSlug: "merge-pdf" },
+  "merge-and-split-pdf": { mainSlug: "pdf-suite", subSlug: "merge-pdf" },
   "xem-sach-song-song": { mainSlug: "pdf-suite", subSlug: "create-pdf-from-images" },
 
   // File manager & Converter

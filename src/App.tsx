@@ -5,6 +5,9 @@ import TextAndCompareSuite from "./components/TextAndCompareSuite";
 import DataConverterHtml from "./components/DataConverterHtml";
 import ExcelSuite from "./components/ExcelSuite";
 import DocScannerPdf from "./components/DocScannerPdf";
+import PdfMerge from "./components/PdfMerge";
+import PdfSplit from "./components/PdfSplit";
+import PdfEdit from "./components/PdfEdit";
 import FileManagerSuite from "./components/FileManagerSuite";
 import FileConverter from "./components/FileConverter";
 import { I18nProvider, useI18n } from "./utils/i18n";
@@ -194,7 +197,7 @@ function MainApp() {
             Vibe Code Workstation
           </span>
           <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded-md font-bold">
-            v2.4.4
+            v2.8.0
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -269,7 +272,15 @@ function MainApp() {
           />
         )}
         {state.activeModule === ActiveModule.DOCUMENT_SCANNER && (
-          <DocScannerPdf subSlug={currentSubSlug} />
+          currentSubSlug === "merge-pdf" ? (
+            <PdfMerge />
+          ) : currentSubSlug === "split-pdf" ? (
+            <PdfSplit />
+          ) : currentSubSlug === "edit-pdf" ? (
+            <PdfEdit />
+          ) : (
+            <DocScannerPdf subSlug={currentSubSlug} />
+          )
         )}
         {state.activeModule === ActiveModule.FILE_MANAGER && (
           <FileManagerSuite

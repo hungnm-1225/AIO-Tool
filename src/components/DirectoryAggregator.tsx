@@ -304,11 +304,11 @@ export default function DirectoryAggregator({
   const loadDemoFolder = () => {
     // Generate dummy files with fake schemas
     const textData = `Mã Nhân Viên,Họ Tên,Chức Danh,Phòng Ban\nNV-001,Nguyễn Văn Linh,Kỹ Sư Hệ Thống,Phòng Kỹ Thuật\nNV-002,Lê Thị Thu Thảo,Phân Tích Viên,Phòng Kế Hoạch\nNV-001,Nguyễn Văn Linh,Trùng Lặp,Ngoại Lệ`;
-    const blob1 = new Blob([textData], { type: "text/csv" });
+    const blob1 = new Blob(["\ufeff" + textData], { type: "text/csv;charset=utf-8" });
     const file1 = new File([blob1], "HaNoi_NhanVien_PL1.csv");
 
     const textData2 = `Ma Nhan Vien,Ho Ten,Chuc Danh,Email\nNV-003,Trần Hữu Kiên,Trưởng Nhóm,kien.th@company.com\nNV-004,Đặng Minh Hoàng,Nhân Viên Lập Trình,hoang.dm@company.com\nNV-003,Trần Hữu Kiên,Trùng Lặp,kien.th@company.com`;
-    const blob2 = new Blob([textData2], { type: "text/csv" });
+    const blob2 = new Blob(["\ufeff" + textData2], { type: "text/csv;charset=utf-8" });
     const file2 = new File([blob2], "HoChiMinh_NhanVien_PL2.csv");
 
     const mockFiles: UploadedFileWrapper[] = [
@@ -1207,7 +1207,7 @@ export default function DirectoryAggregator({
                 className="px-4 py-2 bg-teal-50 dark:bg-teal-600/10 border border-teal-200 dark:border-teal-500/20 hover:bg-teal-100 dark:hover:bg-teal-600/20 text-teal-600 dark:text-teal-400 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer"
               >
                 <Sparkles className="h-4 w-4" />
-                {lang === "vi" ? "Chạy Dữ Liệu Demo" : "Load Sample Demo Folders"}
+                {lang === "vi" ? "Thử Dữ Liệu Mẫu" : "Try Sample Data"}
               </button>
               
               {fileList.length > 0 && (
@@ -1223,15 +1223,15 @@ export default function DirectoryAggregator({
           </div>
 
           {/* Section 2: Smart Filter & Multi Keyword Query */}
-          <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm rounded-2xl p-6 transition-all">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 mb-4 flex items-center gap-2">
-              <Search className="h-4.5 w-4.5 text-teal-500" />
-              {lang === "vi" ? "2. Lọc Đa Tên Tệp Linh Hoạt" : "2. Smart Multi-Keyword Filtering"}
-            </h3>
+          {fileList.length > 0 && (
+            <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm rounded-2xl p-6 transition-all">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 mb-4 flex items-center gap-2">
+                <Search className="h-4.5 w-4.5 text-teal-500" />
+                {lang === "vi" ? "2. Lọc Đa Tên Tệp Linh Hoạt" : "2. Smart Multi-Keyword Filtering"}
+              </h3>
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-2">
+              <div className="space-y-4">
+                <div>
                   <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
                     {lang === "vi"
                       ? "Tìm kiếm cùng lúc nhiều từ khóa (ngăn cách bằng dấu phẩy ',' hoặc ';')"
@@ -1254,84 +1254,67 @@ export default function DirectoryAggregator({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
-                    {lang === "vi" ? "Lọc theo loại tệp" : "Filter by file type"}
+                  <label className="block text-xs font-semibold text-rose-500 dark:text-rose-400 mb-1.5 flex items-center gap-1.5">
+                    <MinusCircle className="h-3.5 w-3.5" />
+                    {lang === "vi"
+                      ? "Loại trừ các file chứa từ khóa (ngăn cách bằng dấu phẩy ',' hoặc ';')"
+                      : "Exclude files containing keywords (separated by ',' or ';')"}
                   </label>
-                  <select
-                    value={fileTypeFilter}
-                    onChange={(e) => setFileTypeFilter(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-slate-800 dark:text-slate-200 text-sm px-3.5 py-2.5 rounded-xl transition-all cursor-pointer font-medium"
-                  >
-                    <option value="all">{lang === "vi" ? "Tất cả loại tệp" : "All file types"}</option>
-                    <option value="excel">Excel (.xlsx, .xls)</option>
-                    <option value="csv">CSV (.csv)</option>
-                    <option value="word">Word (.docx, .doc)</option>
-                    <option value="pdf">PDF (.pdf)</option>
-                  </select>
+                  <div className="relative">
+                    <XCircle className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-rose-400 dark:text-rose-500/80" />
+                    <input
+                      type="text"
+                      placeholder={
+                        lang === "vi"
+                          ? "Ví dụ: nhap, test, backup..."
+                          : "Example: draft, test, backup..."
+                      }
+                      value={excludeQuery}
+                      onChange={(e) => setExcludeQuery(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-slate-800 dark:text-slate-200 text-sm pl-10 pr-4 py-2.5 rounded-xl transition-all"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-rose-500 dark:text-rose-400 mb-1.5 flex items-center gap-1.5">
-                  <MinusCircle className="h-3.5 w-3.5" />
+                {/* Sensitivity checkboxes */}
+                <div className="bg-slate-50 dark:bg-slate-950/20 border border-slate-200/60 dark:border-white/5 rounded-xl p-3.5 space-y-2.5">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={diacriticSensitive}
+                      onChange={(e) => setDiacriticSensitive(e.target.checked)}
+                      className="rounded text-teal-600 focus:ring-teal-500 border-slate-300 dark:border-white/10 bg-white dark:bg-slate-950"
+                    />
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                      {lang === "vi"
+                        ? "Phân biệt dấu tiếng Việt (Diacritic Sensitive)"
+                        : "Vietnamese Diacritic Sensitive matching"}
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={caseSensitive}
+                      onChange={(e) => setCaseSensitive(e.target.checked)}
+                      className="rounded text-teal-600 focus:ring-teal-500 border-slate-300 dark:border-white/10 bg-white dark:bg-slate-950"
+                    />
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                      {lang === "vi"
+                        ? "Phân biệt viết hoa (Case Sensitive)"
+                        : "Case Sensitive search matching"}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 italic leading-relaxed">
                   {lang === "vi"
-                    ? "Loại trừ các file chứa từ khóa (ngăn cách bằng dấu phẩy ',' hoặc ';')"
-                    : "Exclude files containing keywords (separated by ',' or ';')"}
-                </label>
-                <div className="relative">
-                  <XCircle className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-rose-400 dark:text-rose-500/80" />
-                  <input
-                    type="text"
-                    placeholder={
-                      lang === "vi"
-                        ? "Ví dụ: nhap, test, backup..."
-                        : "Example: draft, test, backup..."
-                    }
-                    value={excludeQuery}
-                    onChange={(e) => setExcludeQuery(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-slate-800 dark:text-slate-200 text-sm pl-10 pr-4 py-2.5 rounded-xl transition-all"
-                  />
+                    ? "💡 Khi tắt phân biệt dấu, 'phu luc' sẽ khớp với 'Phụ lục', 'Phú Lực', 'PHỤ LỤC'."
+                    : "💡 Turn off diacritic matching to easily query Vietnamese tones using raw English alphabet keys."}
                 </div>
-              </div>
-
-              {/* Sensitivity checkboxes */}
-              <div className="bg-slate-50 dark:bg-slate-950/20 border border-slate-200/60 dark:border-white/5 rounded-xl p-3.5 space-y-2.5">
-                <label className="flex items-center gap-3 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={diacriticSensitive}
-                    onChange={(e) => setDiacriticSensitive(e.target.checked)}
-                    className="rounded text-teal-600 focus:ring-teal-500 border-slate-300 dark:border-white/10 bg-white dark:bg-slate-950"
-                  />
-                  <span className="text-xs font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                    {lang === "vi"
-                      ? "Phân biệt dấu tiếng Việt (Diacritic Sensitive)"
-                      : "Vietnamese Diacritic Sensitive matching"}
-                  </span>
-                </label>
-
-                <label className="flex items-center gap-3 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={caseSensitive}
-                    onChange={(e) => setCaseSensitive(e.target.checked)}
-                    className="rounded text-teal-600 focus:ring-teal-500 border-slate-300 dark:border-white/10 bg-white dark:bg-slate-950"
-                  />
-                  <span className="text-xs font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                    {lang === "vi"
-                      ? "Phân biệt viết hoa (Case Sensitive)"
-                      : "Case Sensitive search matching"}
-                  </span>
-                </label>
-              </div>
-
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 italic leading-relaxed">
-                {lang === "vi"
-                  ? "💡 Khi tắt phân biệt dấu, 'phu luc' sẽ khớp với 'Phụ lục', 'Phú Lực', 'PHỤ LỤC'."
-                  : "💡 Turn off diacritic matching to easily query Vietnamese tones using raw English alphabet keys."}
               </div>
             </div>
-          </div>
+          )}
 
           {/* Section 3: In-file Deduplicate & Auto Generator Columns */}
           {mergedRows.length > 0 && (
@@ -1359,7 +1342,7 @@ export default function DirectoryAggregator({
                     <option value="">-- {lang === "vi" ? "Chọn Cột Khóa" : "Select Key Column"} --</option>
                     {mergedHeaders.map((h) => (
                       <option key={h} value={h}>
-                        {h}
+                        {h.length > 25 ? `${h.substring(0, 25)}...` : h}
                       </option>
                     ))}
                   </select>
@@ -1400,7 +1383,7 @@ export default function DirectoryAggregator({
                         <option value="">-- {lang === "vi" ? "Chọn Cột" : "Select Col"} --</option>
                         {mergedHeaders.map((h) => (
                           <option key={h} value={h}>
-                            {h}
+                            {h.length > 25 ? `${h.substring(0, 25)}...` : h}
                           </option>
                         ))}
                       </select>
@@ -1454,133 +1437,135 @@ export default function DirectoryAggregator({
         <div className="xl:col-span-7 space-y-6">
           
           {/* Section 4: File Selection and Queue Control */}
-          <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm rounded-2xl p-6 transition-all">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 flex items-center gap-2">
-                  <FileText className="h-4.5 w-4.5 text-teal-500" />
-                  {lang === "vi" ? "Hàng Đợi File Thư Mục Quét Được" : "Parsed Directory File Queue"}
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  {lang === "vi"
-                    ? `Đang lọc hiển thị ${filteredFiles.length} tệp khớp bộ lọc (Tổng ${fileList.length} tệp nạp)`
-                    : `Showing ${filteredFiles.length} match(es) (Total ${fileList.length} imported folder items)`}
-                </p>
-              </div>
-
-              {filteredFiles.length > 0 && (
-                <button
-                  onClick={executeExtractAndMerge}
-                  disabled={isProcessing}
-                  className="px-5 py-2.5 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-500 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-teal-600/10"
-                >
-                  <Play className="h-3.5 w-3.5" />
-                  {lang === "vi" ? "Trích Xuất & Gộp Ngay" : "Extract & Merge Folder"}
-                </button>
-              )}
-            </div>
-
-            {/* OCR/Parsing Progress Info Panel */}
-            {isProcessing && progressInfo && (
-              <div className="mb-6 p-4 bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-500/20 rounded-xl space-y-2">
-                <div className="flex items-center justify-between text-xs font-semibold">
-                  <span className="text-teal-600 dark:text-teal-400 truncate max-w-xs">{progressInfo.fileName || "Directory Aggregator"}</span>
-                  <span className="text-slate-700 dark:text-slate-300">{progressInfo.progress}%</span>
+          {fileList.length > 0 && (
+            <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm rounded-2xl p-6 transition-all">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 flex items-center gap-2">
+                    <FileText className="h-4.5 w-4.5 text-teal-500" />
+                    {lang === "vi" ? "Hàng Đợi File Thư Mục Quét Được" : "Parsed Directory File Queue"}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {lang === "vi"
+                      ? `Đang lọc hiển thị ${filteredFiles.length} tệp khớp bộ lọc (Tổng ${fileList.length} tệp nạp)`
+                      : `Showing ${filteredFiles.length} match(es) (Total ${fileList.length} imported folder items)}`}
+                  </p>
                 </div>
-                <div className="text-[11px] text-teal-500 dark:text-teal-300 font-medium">{progressInfo.phase}</div>
-                <div className="w-full bg-slate-200 dark:bg-slate-900 h-2.5 rounded-full overflow-hidden">
-                  <div
-                    className="bg-teal-600 dark:bg-teal-500 h-full transition-all duration-300"
-                    style={{ width: `${progressInfo.progress}%` }}
-                  />
-                </div>
-              </div>
-            )}
 
-            {filteredFiles.length === 0 ? (
-              <div className="border border-slate-200 dark:border-white/10 rounded-xl p-10 text-center text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-950/15">
-                <FileIcon className="h-10 w-10 text-slate-300 dark:text-slate-600 mx-auto mb-2.5" />
-                <p className="text-xs">
-                  {lang === "vi"
-                    ? "Chưa nạp thư mục nào. Tải lên thư mục local ở cột trái hoặc nạp dữ liệu Demo mẫu!"
-                    : "File queue is empty. Upload folder or click sample dataset to explore!"}
-                </p>
+                {filteredFiles.length > 0 && (
+                  <button
+                    onClick={executeExtractAndMerge}
+                    disabled={isProcessing}
+                    className="px-5 py-2.5 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-500 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-teal-600/10"
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                    {lang === "vi" ? "Trích Xuất & Gộp Ngay" : "Extract & Merge Folder"}
+                  </button>
+                )}
               </div>
-            ) : (
-              <div className="max-h-[320px] overflow-y-auto space-y-2 pr-1 scrollbar-thin">
-                {filteredFiles.map((item, idx) => {
-                  return (
+
+              {/* OCR/Parsing Progress Info Panel */}
+              {isProcessing && progressInfo && (
+                <div className="mb-6 p-4 bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-500/20 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between text-xs font-semibold">
+                    <span className="text-teal-600 dark:text-teal-400 truncate max-w-xs">{progressInfo.fileName || "Directory Aggregator"}</span>
+                    <span className="text-slate-700 dark:text-slate-300">{progressInfo.progress}%</span>
+                  </div>
+                  <div className="text-[11px] text-teal-500 dark:text-teal-300 font-medium">{progressInfo.phase}</div>
+                  <div className="w-full bg-slate-200 dark:bg-slate-900 h-2.5 rounded-full overflow-hidden">
                     <div
-                      key={item.id}
-                      className={`flex items-center justify-between p-3 border rounded-xl transition-all ${
-                        item.excluded
-                          ? "bg-slate-100/40 dark:bg-slate-950/10 border-slate-200 dark:border-white/5 opacity-50"
-                          : "bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 hover:shadow-sm"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        {/* Exclude Toggle */}
-                        <button
-                          onClick={() => toggleExclude(item.id)}
-                          className="text-slate-400 dark:text-slate-500 hover:text-teal-500 transition-colors cursor-pointer"
-                          title={item.excluded ? "Include" : "Exclude"}
-                        >
-                          {item.excluded ? (
-                            <Square className="h-4.5 w-4.5" />
-                          ) : (
-                            <CheckSquare className="h-4.5 w-4.5 text-teal-600 dark:text-teal-400" />
-                          )}
-                        </button>
+                      className="bg-teal-600 dark:bg-teal-500 h-full transition-all duration-300"
+                      style={{ width: `${progressInfo.progress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
 
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate flex items-center gap-1.5">
-                            <span className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-white/5 text-[9px] uppercase font-bold text-teal-600 dark:text-teal-400">
-                              {item.extension.replace(".", "")}
-                            </span>
-                            <span className="truncate" title={item.name}>
-                              {item.name}
-                            </span>
-                          </div>
-                          
-                          {/* Folder path breadcrumb / tooltip */}
-                          <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 truncate font-mono" title={item.relativePath}>
-                            {item.relativePath.split("/").slice(0, -1).join(" ❯ ") || "Root"}
+              {filteredFiles.length === 0 ? (
+                <div className="border border-slate-200 dark:border-white/10 rounded-xl p-10 text-center text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-950/15">
+                  <FileIcon className="h-10 w-10 text-slate-300 dark:text-slate-600 mx-auto mb-2.5" />
+                  <p className="text-xs">
+                    {lang === "vi"
+                      ? "Chưa nạp thư mục nào. Tải lên thư mục local ở cột trái hoặc nạp dữ liệu Demo mẫu!"
+                      : "File queue is empty. Upload folder or click sample dataset to explore!"}
+                  </p>
+                </div>
+              ) : (
+                <div className="max-h-[320px] overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                  {filteredFiles.map((item, idx) => {
+                    return (
+                      <div
+                        key={item.id}
+                        className={`flex items-center justify-between p-3 border rounded-xl transition-all ${
+                          item.excluded
+                            ? "bg-slate-100/40 dark:bg-slate-950/10 border-slate-200 dark:border-white/5 opacity-50"
+                            : "bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 hover:shadow-sm"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          {/* Exclude Toggle */}
+                          <button
+                            onClick={() => toggleExclude(item.id)}
+                            className="text-slate-400 dark:text-slate-500 hover:text-teal-500 transition-colors cursor-pointer"
+                            title={item.excluded ? "Include" : "Exclude"}
+                          >
+                            {item.excluded ? (
+                              <Square className="h-4.5 w-4.5" />
+                            ) : (
+                              <CheckSquare className="h-4.5 w-4.5 text-teal-600 dark:text-teal-400" />
+                            )}
+                          </button>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate flex items-center gap-1.5">
+                              <span className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-white/5 text-[9px] uppercase font-bold text-teal-600 dark:text-teal-400">
+                                {item.extension.replace(".", "")}
+                              </span>
+                              <span className="truncate" title={item.name}>
+                                {item.name}
+                              </span>
+                            </div>
+                            
+                            {/* Folder path breadcrumb / tooltip */}
+                            <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 truncate font-mono" title={item.relativePath}>
+                              {item.relativePath.split("/").slice(0, -1).join(" ❯ ") || "Root"}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Controls to reorder and remove file */}
-                      <div className="flex items-center gap-1.5 ml-2">
-                        <button
-                          onClick={() => moveFileOrder(idx, "up")}
-                          disabled={idx === 0}
-                          className="p-1 hover:bg-slate-200 dark:hover:bg-white/5 rounded text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white disabled:opacity-20 cursor-pointer"
-                          title="Move Up"
-                        >
-                          <ArrowUp className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => moveFileOrder(idx, "down")}
-                          disabled={idx === filteredFiles.length - 1}
-                          className="p-1 hover:bg-slate-200 dark:hover:bg-white/5 rounded text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white disabled:opacity-20 cursor-pointer"
-                          title="Move Down"
-                        >
-                          <ArrowDown className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => removeFile(item.id)}
-                          className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded text-slate-400 dark:text-slate-500 hover:text-rose-500 cursor-pointer"
-                          title="Remove from List"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        {/* Controls to reorder and remove file */}
+                        <div className="flex items-center gap-1.5 ml-2">
+                          <button
+                            onClick={() => moveFileOrder(idx, "up")}
+                            disabled={idx === 0}
+                            className="p-1 hover:bg-slate-200 dark:hover:bg-white/5 rounded text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white disabled:opacity-20 cursor-pointer"
+                            title="Move Up"
+                          >
+                            <ArrowUp className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => moveFileOrder(idx, "down")}
+                            disabled={idx === filteredFiles.length - 1}
+                            className="p-1 hover:bg-slate-200 dark:hover:bg-white/5 rounded text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white disabled:opacity-20 cursor-pointer"
+                            title="Move Down"
+                          >
+                            <ArrowDown className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => removeFile(item.id)}
+                            className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded text-slate-400 dark:text-slate-500 hover:text-rose-500 cursor-pointer"
+                            title="Remove from List"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Section 5: Download configuration setting controls */}
           {mergedRows.length > 0 && (

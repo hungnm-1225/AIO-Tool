@@ -1,6 +1,6 @@
 # AIO Tool — Hệ Thống Công Cụ Tổng Hợp (AIO Web Tools)
 
-> **Phiên bản hiện tại:** `v2.6.0`  
+> **Phiên bản hiện tại:** `v2.8.0`  
 > **Kiến trúc:** Client-Side Single Page Application (SPA) / React 19 + Vite 6 + TypeScript 5 + Tailwind CSS 4  
 > **Chế độ hoạt động:** 100% Offline-First (Xử lý trực tiếp trên Sandbox Browser của người dùng, không truyền dữ liệu lên máy chủ)
 
@@ -13,7 +13,7 @@ Hệ thống tuân thủ nghiêm ngặt quy chuẩn ngữ nghĩa **Semantic Vers
 - **Minor (`vX.Y.0`)**: Thêm tính năng mới hoặc nâng cấp quy trình cho các mô-đun chính (Feature Addition / Module Revamp).
 - **Patch (`vX.Y.Z`)**: Sửa lỗi kỹ thuật, tinh chỉnh giao diện, tối ưu hiệu năng hoặc sửa bug phát sinh.
 
-*Phiên bản `v2.6.0` cập nhật giao diện đồng bộ màu sắc thương hiệu của bộ công cụ Universal File Converter sang tông màu vàng hổ phách (Amber) khớp với thiết kế Sidebar chính của nhóm File & Metadata Manager, đồng thời tối ưu hóa và làm tinh gọn bảng điều khiển chân trang (Footer), loại bỏ các thông tin dư thừa.*
+*Phiên bản `v2.8.0` mang đến đợt cải tiến trải nghiệm người dùng (UX) chuyên sâu cho Phân hệ Excel & Quản lý Tệp tin. Chức năng "Batch File Renamer" được nâng cấp khung tải lên, loại bỏ các nút thừa để thao tác click/drag-and-drop liền mạch. Hai phân hệ "Account Information Extraction" và "Account Creation Validation" được làm mới giao diện với màu nền viền đồng bộ, trang bị nút "Thử dữ liệu mẫu" màu xanh lá nổi bật và đính kèm Badge "★ Exclusively designed for Pythaverse.space" với hiệu ứng nhịp tim (heartbeat) sinh động. Phân hệ "Directory Data Aggregator" được vá lỗi mã hóa tiếng Việt bằng cấu trúc BOM UTF-8 giúp nạp và trích xuất dữ liệu không bị lỗi phông.*
 
 ---
 
@@ -126,13 +126,27 @@ src/
   - *Luồng hoạt động:* Người dùng tải lên toàn bộ thư mục chứa hàng chục tệp Excel/CSV qua tính năng kéo thả. Ứng dụng tự động duyệt qua cây thư mục, chỉ lọc ra các tệp bảng tính hợp lệ, hợp nhất chúng thành một bảng dữ liệu hợp nhất khổng lồ ở RAM, hỗ trợ tìm kiếm và xuất kết quả tức thì.
 
 ### 4. Phân Hệ Xử Lý Ảnh Tài Liệu & PDF (`pdf-suite`)
-- **Create PDF from Images (`create-pdf-from-images`)**:
+- **Chuyển Ảnh Sang PDF (`create-pdf-from-images`)**:
   - *Cơ chế Nắn góc 4 điểm (Perspective Crop):* Sử dụng Canvas HTML5 để hiển thị ảnh tài liệu bị nghiêng, hiển thị 4 điểm neo tròn ở 4 góc kèm kính lúp phóng to tọa độ pixel. Khi người dùng xác nhận, thuật toán nội suy bilinear sẽ tính toán ma trận biến đổi phối cảnh 2D để biến vùng ảnh méo thành một hình chữ nhật phẳng phiu, loại bỏ các góc nghiêng.
   - *Bộ lọc màu:* Áp dụng các bộ lọc điểm ảnh trực tiếp trên mảng dữ liệu ảnh (`ImageData`): Grayscale (Ảnh xám), CamScanner B&W (Tăng tương phản đen trắng lọc bóng mờ), Magic Color (Làm nét chữ và rực rỡ màu sắc).
   - *Xuất PDF:* Sử dụng `jspdf` để chèn các ảnh sau khi lọc màu thành từng trang của file tài liệu PDF, hỗ trợ căn chỉnh lề và khổ giấy.
-- **Merger & Split PDF Files (`merge-and-split-pdf`)**:
-  - *Gộp PDF:* Đọc nhị phân các file PDF thông qua thư viện `pdf-lib`. Tạo một tài liệu trống mới, sao chép tuần tự toàn bộ các trang (`copyPages`) từ các file nguồn sang file mới rồi xuất file.
-  - *Chia nhỏ PDF:* Đọc file PDF nguồn, cho phép người dùng chỉ định dải trang cần trích xuất (ví dụ: `1-3, 5, 8-10`). Thư viện sẽ tách các trang tương ứng ra thành một file PDF mới độc lập hoặc giải nén toàn bộ các trang thành các file PDF đơn lẻ đóng gói trong file ZIP.
+- **Ghép File PDF (`merge-pdf`)**:
+  - *Luồng hoạt động:* Nhận nhiều file PDF nguồn đồng thời thông qua tính năng kéo thả. Sử dụng `pdfjs-dist` để chuyển dịch và hiển thị thumbnail thời gian thực cho **tất cả** các trang của tất cả tài liệu đã tải lên.
+  - *Tương tác trực quan:* Người dùng có thể kéo thả hoặc nhấn nút mũi tên để thay đổi thứ tự các trang, xoay góc trang (xoay 90, 180, 270 độ), xóa trang không cần thiết, hoặc nhấp vào bất kỳ trang nào để xem ở chế độ fullscreen sắc nét.
+  - *Tạo PDF mới:* Sử dụng thư viện `pdf-lib` nạp các tệp nguồn ở mức độ nhị phân, sao chép tuần tự các trang đã chọn và sắp xếp lại theo ý muốn (`copyPages` và `insertPage`), sau đó kết xuất tệp đã ghép hoàn chỉnh.
+- **Chia Nhỏ PDF (`split-pdf`)**:
+  - *Luồng hoạt động:* Người dùng tải lên một tệp PDF bất kỳ. Ứng dụng phân tích và kết xuất toàn bộ số trang của tệp dưới dạng các trang lưới.
+  - *Tách theo dải trang (Extract Range):* Cung cấp ô nhập dải trang chuyên nghiệp (ví dụ: `1-3, 5, 8-10`). Hệ thống sẽ phân tách dải trang thông qua bộ phân tích chuỗi Regex thông minh.
+  - *Xem trước dải trang:* Đối với mỗi dải trang cấu hình, hệ thống kết xuất một khối preview gồm hình thu nhỏ của trang đầu tiên và trang cuối cùng của dải đó. Khi người dùng bấm vào trang preview, một cửa sổ xem fullscreen xuất hiện cho phép duyệt qua tất cả các trang nằm trong dải đó bằng nút mũi tên điều hướng.
+  - *Kết xuất & Đóng gói:* Sử dụng `pdf-lib` để trích xuất dải trang thành các tệp PDF độc lập tương ứng. Cho phép người dùng tải trực tiếp từng tệp nhỏ hoặc đóng gói toàn bộ danh sách tệp con vào một tệp tin nén `.zip` (sử dụng `jszip`).
+- **Chỉnh Sửa PDF (`edit-pdf`)**:
+  - *Luồng hoạt động:* Trình biên tập tổng hợp toàn năng. Người dùng có thể nạp các trang ban đầu từ cả hai nguồn: tệp ảnh chụp (JPEG, PNG) hoặc các tệp tin PDF khác.
+  - *Trích xuất trang PDF nguồn:* Đối với tệp PDF tải lên, hệ thống gọi `pdfjs-dist` kết xuất từng trang với hệ số phóng đại chất lượng cao (zoom 1.5x) sang canvas trong bộ nhớ đệm RAM để chuyển thành trang chỉnh sửa.
+  - *Biên tập nâng cao:* Với từng trang trong danh sách, người dùng được cung cấp đầy đủ bộ công cụ:
+    - **Nắn góc 4 điểm (Perspective Crop):** Chỉnh ma trận 4 góc bằng điểm neo tương tác trực tiếp trên ảnh gốc, biến đổi phối cảnh 2D tức thì.
+    - **Bộ lọc màu (CamScanner Filters):** Giao diện bảng điều khiển các thanh kéo cho phép tinh chỉnh Độ sáng (Brightness), Độ tương phản (Contrast), Ngưỡng nhị phân (B&W Threshold), chế độ Magic Color và Grayscale.
+    - **Sắp xếp & Xoay trang:** Đổi vị trí trang và xoay góc tức thời.
+  - *Xuất bản chất lượng cao:* Thiết lập kích thước khổ giấy đích (A4, Letter, Legal), hướng xoay trang giấy (Portrait/Landscape), lề trang giấy (pdfMargin) và đóng gói xuất bản tệp PDF hoàn chỉnh qua `jspdf`.
 
 ### 5. Phân Hệ Quản Lý Tệp & Metadata (`file-manager`)
 - **Batch File Renamer (`batch-file-renamer`)**:
@@ -245,4 +259,4 @@ npm run build
 
 ---
 
-*Cảm ơn bạn đã đồng hành và phát triển hệ thống AIO Tool v2.6.0! Hãy tiếp tục giữ vững tôn chỉ: Code sạch, kiểu dữ liệu an toàn, xử lý 100% Client-Side bảo mật.*
+*Cảm ơn bạn đã đồng hành và phát triển hệ thống AIO Tool v2.8.0! Hãy tiếp tục giữ vững tôn chỉ: Code sạch, kiểu dữ liệu an toàn, xử lý 100% Client-Side bảo mật.*

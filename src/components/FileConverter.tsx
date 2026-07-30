@@ -89,9 +89,64 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
   };
 
   const [activeCategory, setActiveCategory] = useState<CategoryType>(() => getCategoryFromSlug(subSlug));
-  const [fileList, setFileList] = useState<ConvertedFileItem[]>([]);
+  const [fileList, setFileList] = useState<ConvertedFileItem[]>(() => {
+    if (typeof window !== "undefined") {
+      const cached = (window as any).__session_file_cache?.['file_converter_items'];
+      if (cached && cached.length > 0) {
+        return cached;
+      }
+      
+      const stored = sessionStorage.getItem("file_converter_serialized");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          return parsed.map((item: any) => {
+            const blob = new Blob([""], { type: "application/octet-stream" });
+            const file = new File([blob], item.name, { type: "application/octet-stream" });
+            return {
+              id: item.id,
+              originalFile: file,
+              name: item.name,
+              sourceExt: item.sourceExt,
+              targetFormat: item.targetFormat,
+              status: item.status,
+              progress: item.progress,
+              resultBlob: null,
+              resultFilename: item.resultFilename,
+              category: item.category,
+              errorMessage: item.errorMessage,
+            };
+          });
+        } catch (e) {
+          return [];
+        }
+      }
+    }
+    return [];
+  });
   const [isBatchConverting, setIsBatchConverting] = useState(false);
   const [imageQuality, setImageQuality] = useState(0.92);
+
+  // Save to session cache
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      (window as any).__session_file_cache = (window as any).__session_file_cache || {};
+      (window as any).__session_file_cache['file_converter_items'] = fileList;
+      
+      const serializable = fileList.map(item => ({
+        id: item.id,
+        name: item.name,
+        sourceExt: item.sourceExt,
+        targetFormat: item.targetFormat,
+        status: item.status,
+        progress: item.progress,
+        resultFilename: item.resultFilename,
+        category: item.category,
+        errorMessage: item.errorMessage,
+      }));
+      sessionStorage.setItem("file_converter_serialized", JSON.stringify(serializable));
+    }
+  }, [fileList]);
 
   useEffect(() => {
     if (subSlug) {
@@ -535,8 +590,8 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
   return (
     <div className="flex-1 flex flex-col h-full overflow-auto bg-slate-50 dark:bg-[#0B0F1A] p-6 text-slate-800 dark:text-slate-100 font-sans">
       {/* Top Title & Header */}
-      <div className="border-b border-slate-200 dark:border-slate-800/80 pb-5 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {!hideInnerHeader && (
+      {!hideInnerHeader && (
+        <div className="border-b border-slate-200 dark:border-slate-800/80 pb-5 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2.5 mb-1">
               <div className="h-9 w-9 rounded-xl bg-amber-600 flex items-center justify-center text-white shadow-md shadow-amber-600/20">
@@ -552,30 +607,8 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
                 : "Cross-convert between PDF, DOCX, TXT, PNG, JPG, WEBP, MP3, WAV, MP4, XLSX, CSV, JSON directly in browser."}
             </p>
           </div>
-        )}
-
-        {/* Global actions */}
-        <div className="flex items-center gap-3 self-start md:self-center">
-          {fileList.some((f) => f.status === "done") && (
-            <button
-              onClick={downloadAllAsZip}
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-all shadow-xs flex items-center gap-2 cursor-pointer"
-            >
-              <Download className="h-4 w-4" />
-              <span>{lang === "vi" ? "Tải File Nén ZIP" : "Download ZIP"}</span>
-            </button>
-          )}
-
-          <button
-            onClick={handleBatchConvert}
-            disabled={fileList.length === 0 || isBatchConverting}
-            className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-semibold text-xs transition-all shadow-md shadow-amber-600/20 flex items-center gap-2 cursor-pointer"
-          >
-            <RefreshCw className={`h-4 w-4 ${isBatchConverting ? "animate-spin" : ""}`} />
-            <span>{lang === "vi" ? "Chuyển Đổi Hàng Loạt" : "Convert All"}</span>
-          </button>
         </div>
-      </div>
+      )}
 
       {/* Category Filter Pills */}
       <div className="flex flex-wrap items-center gap-2 mb-6">
@@ -641,7 +674,7 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
       </div>
 
       {/* Upload Dropzone */}
-      <div className="border-2 border-dashed border-slate-300 dark:border-slate-800 hover:border-amber-500/50 rounded-2xl p-8 text-center transition-all relative bg-white dark:bg-[#111827] mb-6 group cursor-pointer shadow-xs">
+      <div className="relative border-2 border-dashed border-amber-300 dark:border-amber-700/60 rounded-2xl p-8 bg-amber-50/30 dark:bg-amber-950/10 hover:bg-amber-50/60 dark:hover:bg-amber-950/20 transition-all text-center flex flex-col items-center justify-center cursor-pointer group mb-6">
         <input
           type="file"
           multiple
@@ -782,14 +815,30 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
               );
             })}
           </div>
+
+          {/* New Footer with Action Buttons */}
+          <div className="p-4 bg-slate-50 dark:bg-slate-900/40 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-end gap-3 flex-wrap">
+            {fileList.some((f) => f.status === "done") && (
+              <button
+                onClick={downloadAllAsZip}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-all shadow-xs flex items-center gap-2 cursor-pointer animate-fadeIn"
+              >
+                <Download className="h-4 w-4" />
+                <span>{lang === "vi" ? "Tải File Nén ZIP" : "Download ZIP"}</span>
+              </button>
+            )}
+
+            <button
+              onClick={handleBatchConvert}
+              disabled={isBatchConverting}
+              className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-semibold text-xs transition-all shadow-md shadow-amber-600/20 flex items-center gap-2 cursor-pointer"
+            >
+              <RefreshCw className={`h-4 w-4 ${isBatchConverting ? "animate-spin" : ""}`} />
+              <span>{lang === "vi" ? "Chuyển Đổi Hàng Loạt" : "Convert All"}</span>
+            </button>
+          </div>
         </div>
-      ) : (
-        <div className="text-center py-12 text-slate-400">
-          <p className="text-sm font-medium">
-            {lang === "vi" ? "Chưa có tệp nào trong danh sách. Hãy nạp tệp ở trên!" : "No files added to conversion queue."}
-          </p>
-        </div>
-      )}
+      ) : null}
     </div>
   );
 }

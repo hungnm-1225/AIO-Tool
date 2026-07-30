@@ -170,7 +170,7 @@ export default function Sidebar({
                   </h1>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-full font-bold">
-                      v2.8.0
+                      v2.8.3
                     </span>
                   </div>
                 </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
+import JSZip from "jszip";
 import { DataConverterState, ActiveModule } from "../types";
 import { useI18n } from "../utils/i18n";
 import CodeEditor from "./CodeEditor";
@@ -35,7 +36,8 @@ import {
   Tablet,
   Smartphone,
   Terminal,
-  Upload
+  Upload,
+  FolderArchive
 } from "lucide-react";
 
 interface DataConverterHtmlProps {
@@ -387,6 +389,32 @@ export default function DataConverterHtml({ state, onChange, subSlug = "dinh-dan
     }
   };
 
+  const handleDownloadZip = async () => {
+    try {
+      const zip = new JSZip();
+      if (state.htmlPreviewMode === "single") {
+        zip.file("index.html", state.htmlSingleInput || "");
+      } else {
+        zip.file("index.html", state.htmlSplitInput || "");
+        zip.file("style.css", state.cssSplitInput || "");
+        zip.file("script.js", state.jsSplitInput || "");
+      }
+      const content = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "vibecode_html_project.zip";
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast(lang === "vi" ? "Đã tải xuống tệp ZIP thành công!" : "ZIP package downloaded successfully!");
+    } catch (err: any) {
+      showToast(
+        lang === "vi" ? `Lỗi tạo tệp ZIP: ${err.message}` : `ZIP creation error: ${err.message}`,
+        true
+      );
+    }
+  };
+
   // Cell editing handlers
   const handleCellChange = (rowIndex: number, key: string, value: string) => {
     if (state.lockEdit) return;
@@ -504,7 +532,7 @@ export default function DataConverterHtml({ state, onChange, subSlug = "dinh-dan
       <div className="bg-white dark:bg-[#111827] border-b border-slate-200 dark:border-slate-800/80 -m-6 mb-6 p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-sky-600 flex items-center justify-center text-white shadow-md shadow-sky-600/20">
+            <div className="flex-shrink-0 h-10 w-10 md:h-10 md:w-10 rounded-xl bg-sky-600 flex items-center justify-center text-white shadow-md shadow-sky-600/20">
               <SubIcon className="h-5 w-5" />
             </div>
             <div>
@@ -850,7 +878,7 @@ export default function DataConverterHtml({ state, onChange, subSlug = "dinh-dan
                     className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-2 shadow-xs cursor-pointer"
                   >
                     <Download className="h-3.5 w-3.5" />
-                    <span>{lang === "vi" ? "Tải Xuất" : "Download"}</span>
+                    <span>{lang === "vi" ? "Tải Xuống" : "Download"}</span>
                     <span className="text-[10px]">▼</span>
                   </button>
 
@@ -867,7 +895,7 @@ export default function DataConverterHtml({ state, onChange, subSlug = "dinh-dan
                         className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer"
                       >
                         <span className="h-2 w-2 rounded-full bg-sky-500" />
-                        <span>Tải CSV (.csv)</span>
+                        <span>Tải CSV</span>
                       </button>
                       <button
                         onClick={() => {
@@ -877,7 +905,7 @@ export default function DataConverterHtml({ state, onChange, subSlug = "dinh-dan
                         className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer"
                       >
                         <span className="h-2 w-2 rounded-full bg-amber-500" />
-                        <span>Tải JSON (.json)</span>
+                        <span>Tải JSON</span>
                       </button>
                       <button
                         onClick={() => {
@@ -887,7 +915,7 @@ export default function DataConverterHtml({ state, onChange, subSlug = "dinh-dan
                         className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer"
                       >
                         <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                        <span>Tải Excel (.xlsx)</span>
+                        <span>Tải Excel</span>
                       </button>
                     </div>
                   )}
@@ -1278,6 +1306,15 @@ export default function DataConverterHtml({ state, onChange, subSlug = "dinh-dan
               </div>
 
               <div className="flex items-center gap-3">
+                <button
+                  onClick={handleDownloadZip}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title={lang === "vi" ? "Tải xuống gói ZIP (HTML, CSS, JS)" : "Download ZIP package"}
+                >
+                  <FolderArchive className="h-3.5 w-3.5" />
+                  <span>{lang === "vi" ? "Tải Zip" : "Download ZIP"}</span>
+                </button>
+                <div className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
                 <button
                   onClick={handleRefreshCode}
                   className="text-[10px] font-mono text-sky-600 dark:text-sky-400 flex items-center gap-1 hover:underline cursor-pointer"

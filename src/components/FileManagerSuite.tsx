@@ -40,7 +40,7 @@ export default function FileManagerSuite({
       {/* Unified Single Header Bar for File Manager Suite (Amber color) */}
       <div className="bg-white dark:bg-[#111827] border-b border-slate-200 dark:border-slate-800/80 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-amber-500 flex items-center justify-center text-white shadow-md shadow-amber-500/20">
+          <div className="flex-shrink-0 h-10 w-10 rounded-xl bg-amber-500 flex items-center justify-center text-white shadow-md shadow-amber-500/20">
             {SubIcon && <SubIcon className="h-5 w-5" />}
           </div>
           <div>

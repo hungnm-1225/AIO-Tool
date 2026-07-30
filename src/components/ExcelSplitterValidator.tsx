@@ -30,7 +30,8 @@ import {
   ArrowDown,
   ArrowUpDown,
   Lock,
-  Unlock
+  Unlock,
+  Sparkles
 } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -1179,7 +1180,7 @@ export default function ExcelSplitterValidator({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5">
           <div>
             <div className="flex items-center gap-2.5 mb-1">
-              <div className="h-9 w-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-md shadow-emerald-600/20">
+              <div className="flex-shrink-0 h-10 w-10 md:h-10 md:w-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-md shadow-emerald-600/20">
                 <FileSpreadsheet className="h-5 w-5" />
               </div>
               <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2 flex-wrap">
@@ -1277,7 +1278,7 @@ export default function ExcelSplitterValidator({
               }}
               className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-2 cursor-pointer transition-all shadow-md shadow-emerald-600/20"
             >
-              <FileCheck className="h-4 w-4" />
+              <Sparkles className="h-4 w-4" />
               <span>{lang === "vi" ? "Thử Dữ Liệu Mẫu" : "Try sample data"}</span>
             </button>
           </div>

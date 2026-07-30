@@ -347,14 +347,14 @@ export default function FileMetadataEditor({
   }, [fileList]);
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto w-full">
+    <div className="flex flex-col h-full overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 w-full">
       {/* Top Header */}
       {(!hideInnerHeader || fileList.length > 0) && (
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5">
           {!hideInnerHeader && (
             <div>
               <div className="flex items-center gap-2.5 mb-1">
-                <div className="h-9 w-9 rounded-xl bg-amber-600 flex items-center justify-center text-white shadow-md shadow-amber-600/20">
+                <div className="flex-shrink-0 h-10 w-10 md:h-10 md:w-10 rounded-xl bg-amber-600 flex items-center justify-center text-white shadow-md shadow-amber-600/20">
                   <FileClock className="h-5 w-5" />
                 </div>
                 <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">

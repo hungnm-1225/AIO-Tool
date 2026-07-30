@@ -1,5 +1,5 @@
 {
-  "name": "Vibe Code AIO",
+  "name": "AIO Tool",
   "description": "An all-in-one developer & productivity utility tool featuring Directory Data Aggregator & OCR Parser, Multilingual support (VN/EN), Document Scanner & Image-to-PDF tool with 4-point perspective warp, Excel Account Suite, text processing, side-by-side comparison, and live HTML/CSS/JS sandbox.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 import { CompareMergeState } from "../types";
 import { useI18n } from "../utils/i18n";
 import { diffLines, LineDiff, DiffToken } from "../utils/diff";
+import { navigateTo } from "../utils/navigation";
 import { 
   GitCompare, 
   Columns, 
@@ -19,40 +20,34 @@ import {
 interface CompareMergeProps {
   state: CompareMergeState;
   onChange: (newState: Partial<CompareMergeState>) => void;
+  subSlug?: string;
+  hideInnerHeader?: boolean;
 }
 
-export default function CompareMerge({ state, onChange }: CompareMergeProps) {
+export default function CompareMerge({ state, onChange, subSlug, hideInnerHeader = false }: CompareMergeProps) {
   const { lang, t } = useI18n();
   const [activeSubTab, setActiveSubTab] = useState<"diff" | "combine" | "autoinc">("diff");
 
-  // Synchronize sub-tab from hash
+  // Synchronize sub-tab from subSlug
   useEffect(() => {
-    const syncSubTab = () => {
-      const hash = window.location.hash.toLowerCase();
-      if (hash === "#compare-text" || hash === "#diff") {
-        setActiveSubTab("diff");
-      } else if (hash === "#merge-columns" || hash === "#combine") {
-        setActiveSubTab("combine");
-      } else if (hash === "#auto-increment" || hash === "#autoinc") {
-        setActiveSubTab("autoinc");
-      }
-    };
-
-    syncSubTab();
-
-    window.addEventListener("hashchange", syncSubTab);
-    return () => window.removeEventListener("hashchange", syncSubTab);
-  }, []);
+    if (subSlug === "so-sanh-ma-diff" || subSlug === "diff-checker") {
+      setActiveSubTab("diff");
+    } else if (subSlug === "ghep-cot" || subSlug === "column-joiner") {
+      setActiveSubTab("combine");
+    } else if (subSlug === "tu-dong-tang-so" || subSlug === "auto-increasement-generator") {
+      setActiveSubTab("autoinc");
+    }
+  }, [subSlug]);
 
   const handleTabChange = (tab: "diff" | "combine" | "autoinc") => {
     setActiveSubTab(tab);
-    const hash =
+    const path =
       tab === "diff"
-        ? "compare-text"
+        ? "/text-suite/diff-checker"
         : tab === "combine"
-        ? "merge-columns"
-        : "auto-increment";
-    window.location.hash = hash;
+        ? "/text-suite/column-joiner"
+        : "/text-suite/auto-increasement-generator";
+    navigateTo(path);
   };
   const [diffResults, setDiffResults] = useState<LineDiff[] | null>(null);
   const [diffViewMode, setDiffViewMode] = useState<"unified" | "side-by-side">("unified");
@@ -204,57 +199,59 @@ export default function CompareMerge({ state, onChange }: CompareMergeProps) {
     <div className="flex-1 overflow-auto bg-slate-50 dark:bg-[#0B0F1A] p-6 space-y-6">
 
       {/* Header Info with Sub-navigation tabs */}
-      <div className="border-b border-slate-200 dark:border-slate-800/80 pb-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5 mb-1">
-              <div className="h-9 w-9 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-600/20">
-                <GitCompare className="h-5 w-5" />
+      {!hideInnerHeader && (
+        <div className="border-b border-slate-200 dark:border-slate-800/80 pb-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2.5 mb-1">
+                <div className="h-9 w-9 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-600/20">
+                  <GitCompare className="h-5 w-5" />
+                </div>
+                <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <span>{t("compareMerge.title")}</span>
+                </h2>
               </div>
-              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <span>{t("compareMerge.title")}</span>
-              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {t("compareMerge.subtitle")}
+              </p>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {t("compareMerge.subtitle")}
-            </p>
-          </div>
 
-          {/* Sub tabs */}
-          <div className="flex bg-slate-100 dark:bg-[#111827] p-1 rounded-xl border border-slate-200/50 dark:border-slate-800/50">
-            <button
-              onClick={() => handleTabChange("diff")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                activeSubTab === "diff"
-                  ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-              }`}
-            >
-              <GitCompare className="h-3.5 w-3.5" /> {t("compareMerge.diffTab")}
-            </button>
-            <button
-              onClick={() => handleTabChange("combine")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                activeSubTab === "combine"
-                  ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-              }`}
-            >
-              <Columns className="h-3.5 w-3.5" /> {t("compareMerge.mergeTab")}
-            </button>
-            <button
-              onClick={() => handleTabChange("autoinc")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                activeSubTab === "autoinc"
-                  ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-              }`}
-            >
-              <PlusCircle className="h-3.5 w-3.5" /> {t("compareMerge.autoIncTab")}
-            </button>
+            {/* Sub tabs */}
+            <div className="flex bg-slate-100 dark:bg-[#111827] p-1 rounded-xl border border-slate-200/50 dark:border-slate-800/50">
+              <button
+                onClick={() => handleTabChange("diff")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  activeSubTab === "diff"
+                    ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                }`}
+              >
+                <GitCompare className="h-3.5 w-3.5" /> {t("compareMerge.diffTab")}
+              </button>
+              <button
+                onClick={() => handleTabChange("combine")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  activeSubTab === "combine"
+                    ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                }`}
+              >
+                <Columns className="h-3.5 w-3.5" /> {t("compareMerge.mergeTab")}
+              </button>
+              <button
+                onClick={() => handleTabChange("autoinc")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  activeSubTab === "autoinc"
+                    ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                }`}
+              >
+                <PlusCircle className="h-3.5 w-3.5" /> {t("compareMerge.autoIncTab")}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* SUB-TAB 1: TEXT DIFF CHECKER */}
       {activeSubTab === "diff" && (

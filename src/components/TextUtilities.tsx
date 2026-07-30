@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { TextUtilsState } from "../types";
 import { useI18n } from "../utils/i18n";
+import { navigateTo } from "../utils/navigation";
 import { 
   Copy, 
   Check, 
@@ -19,12 +20,24 @@ import {
 interface TextUtilitiesProps {
   state: TextUtilsState;
   onChange: (newState: Partial<TextUtilsState>) => void;
+  subSlug?: string;
+  hideInnerHeader?: boolean;
 }
 
-export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
+export default function TextUtilities({ state, onChange, subSlug, hideInnerHeader = false }: TextUtilitiesProps) {
   const { t, lang } = useI18n();
   // Sub-tab navigation
   const [activeSubTab, setActiveSubTab] = useState<"case-converter" | "text-utilities" | "string-cutter">("case-converter");
+
+  useEffect(() => {
+    if (subSlug === "chuyen-doi-kieu-chu" || subSlug === "case-converter") {
+      setActiveSubTab("case-converter");
+    } else if (subSlug === "dem-tu-va-loc-trung" || subSlug === "word-counter-duplicate-filter" || subSlug === "van-ban-va-loc-trung") {
+      setActiveSubTab("text-utilities");
+    } else if (subSlug === "cat-va-thay-the-chuoi" || subSlug === "string-cutter") {
+      setActiveSubTab("string-cutter");
+    }
+  }, [subSlug]);
 
   // State for Case Converter
   const [caseInputText, setCaseInputText] = useState("Vibe Code AIO - Universal Developer Toolset\nHello Google AI Studio!\nJavascript & Typescript React App");
@@ -59,28 +72,15 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
     }
   }, [state.inputText, originalTextBackup]);
 
-  // Synchronize active sub-tab from hash
-  useEffect(() => {
-    const syncSubTab = () => {
-      const hash = window.location.hash.toLowerCase();
-      if (hash === "#case-converter" || hash === "#case_converter" || hash === "#case") {
-        setActiveSubTab("case-converter");
-      } else if (hash === "#text-utilities" || hash === "#text_utils" || hash === "#text-utils" || hash === "#text") {
-        setActiveSubTab("text-utilities");
-      } else if (hash === "#string-cutter" || hash === "#line-slicer" || hash === "#cutter" || hash === "#slicer") {
-        setActiveSubTab("string-cutter");
-      }
-    };
-
-    syncSubTab();
-
-    window.addEventListener("hashchange", syncSubTab);
-    return () => window.removeEventListener("hashchange", syncSubTab);
-  }, []);
-
   const handleSubTabChange = (tab: "case-converter" | "text-utilities" | "string-cutter") => {
     setActiveSubTab(tab);
-    window.location.hash = tab;
+    if (tab === "case-converter") {
+      navigateTo("/text-suite/case-converter");
+    } else if (tab === "text-utilities") {
+      navigateTo("/text-suite/word-counter-duplicate-filter");
+    } else if (tab === "string-cutter") {
+      navigateTo("/text-suite/string-cutter");
+    }
   };
 
   const showToast = (msg: string, type: "success" | "error" | "info" | "warning" = "info") => {
@@ -516,55 +516,57 @@ export default function TextUtilities({ state, onChange }: TextUtilitiesProps) {
   return (
     <div className="flex-1 overflow-auto bg-slate-50 dark:bg-[#0B0F1A] p-6 space-y-6">
       {/* Header Info */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5">
-        <div>
-          <div className="flex items-center gap-2.5 mb-1">
-            <div className="h-9 w-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-600/20">
-              <Type className="h-5 w-5" />
+      {!hideInnerHeader && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5">
+          <div>
+            <div className="flex items-center gap-2.5 mb-1">
+              <div className="h-9 w-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-600/20">
+                <Type className="h-5 w-5" />
+              </div>
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <span>{t("textUtils.title")}</span>
+              </h2>
             </div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <span>{t("textUtils.title")}</span>
-            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              {t("textUtils.subtitle")}
+            </p>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            {t("textUtils.subtitle")}
-          </p>
-        </div>
 
-        {/* Sub-tabs Navigation */}
-        <div className="flex bg-slate-100 dark:bg-[#111827] p-1 rounded-xl border border-slate-200/50 dark:border-slate-800/50 self-start md:self-center">
-          <button
-            onClick={() => handleSubTabChange("case-converter")}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              activeSubTab === "case-converter"
-                ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-xs"
-                : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
-            }`}
-          >
-            <Type className="h-3.5 w-3.5" /> {t("textUtils.caseConverterTab")}
-          </button>
-          <button
-            onClick={() => handleSubTabChange("text-utilities")}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              activeSubTab === "text-utilities"
-                ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-xs"
-                : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
-            }`}
-          >
-            <Filter className="h-3.5 w-3.5" /> {t("textUtils.textUtilitiesTab")}
-          </button>
-          <button
-            onClick={() => handleSubTabChange("string-cutter")}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              activeSubTab === "string-cutter"
-                ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-xs"
-                : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
-            }`}
-          >
-            <Scissors className="h-3.5 w-3.5" /> {t("textUtils.stringCutterTab")}
-          </button>
+          {/* Sub-tabs Navigation */}
+          <div className="flex bg-slate-100 dark:bg-[#111827] p-1 rounded-xl border border-slate-200/50 dark:border-slate-800/50 self-start md:self-center">
+            <button
+              onClick={() => handleSubTabChange("case-converter")}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                activeSubTab === "case-converter"
+                  ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-xs"
+                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+              }`}
+            >
+              <Type className="h-3.5 w-3.5" /> {t("textUtils.caseConverterTab")}
+            </button>
+            <button
+              onClick={() => handleSubTabChange("text-utilities")}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                activeSubTab === "text-utilities"
+                  ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-xs"
+                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+              }`}
+            >
+              <Filter className="h-3.5 w-3.5" /> {t("textUtils.textUtilitiesTab")}
+            </button>
+            <button
+              onClick={() => handleSubTabChange("string-cutter")}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                activeSubTab === "string-cutter"
+                  ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-xs"
+                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+              }`}
+            >
+              <Scissors className="h-3.5 w-3.5" /> {t("textUtils.stringCutterTab")}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* CASE CONVERTER TAB */}
       {activeSubTab === "case-converter" && (

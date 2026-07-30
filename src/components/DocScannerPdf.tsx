@@ -1,5 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { jsPDF } from "jspdf";
+import { PDFDocument } from "pdf-lib";
+import JSZip from "jszip";
+import { MAIN_MENU_ITEMS } from "../utils/navigation";
 import { useI18n } from "../utils/i18n";
 import { 
   Point, 
@@ -68,17 +71,27 @@ export interface ScannedPage {
 }
 
 interface DocScannerPdfProps {
-  // Optional state integration
+  subSlug?: string;
 }
 
-export default function DocScannerPdf(_props: DocScannerPdfProps) {
+export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
   const { t, lang } = useI18n();
 
   const [pages, setPages] = useState<ScannedPage[]>([]);
   const [activePageIndex, setActivePageIndex] = useState<number>(0);
 
   // View Layout Mode ("grid" | "column" | "book")
-  const [viewLayout, setViewLayout] = useState<"grid" | "column" | "book">("grid");
+  const [viewLayout, setViewLayout] = useState<"grid" | "column" | "book">(
+    subSlug === "xem-sach-song-song" ? "book" : "grid"
+  );
+
+  useEffect(() => {
+    if (subSlug === "xem-sach-song-song") {
+      setViewLayout("book");
+    } else if (subSlug === "quet-va-cat-goc-4-diem") {
+      setViewLayout("grid");
+    }
+  }, [subSlug]);
   const [isPage1Cover, setIsPage1Cover] = useState<boolean>(true);
   const [bookTheme, setBookTheme] = useState<"light" | "sepia" | "dark">("light");
 
@@ -105,6 +118,132 @@ export default function DocScannerPdf(_props: DocScannerPdfProps) {
   );
   const [pageNumberStartPage, setPageNumberStartPage] = useState<number>(1);
   const [pageNumberStartVal, setPageNumberStartVal] = useState<number>(1);
+
+  // PDF Merge & Split State
+  const [mergeFiles, setMergeFiles] = useState<File[]>([]);
+  const [mergeOutputName, setMergeOutputName] = useState("Merged_Document");
+  const [isMerging, setIsMerging] = useState(false);
+
+  const [splitFile, setSplitFile] = useState<File | null>(null);
+  const [splitPageCount, setSplitPageCount] = useState<number>(0);
+  const [splitRange, setSplitRange] = useState<string>("");
+  const [isSplitting, setIsSplitting] = useState(false);
+  const [splitMode, setSplitMode] = useState<"range" | "all">("range");
+
+  // Merge PDFs Action
+  const handleMergePdfs = async () => {
+    if (mergeFiles.length < 2) return;
+    setIsMerging(true);
+    try {
+      const mergedPdf = await PDFDocument.create();
+      for (const file of mergeFiles) {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await PDFDocument.load(arrayBuffer);
+        const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+        copiedPages.forEach((page) => mergedPdf.addPage(page));
+      }
+      const pdfBytes = await mergedPdf.save();
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${mergeOutputName || "Merged_Document"}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(lang === "vi" ? `Lỗi khi ghép PDF: ${err.message}` : `Failed to merge PDFs: ${err.message}`);
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
+  // Handle Split PDF File selection
+  const handleSplitFileSelect = async (file: File) => {
+    setSplitFile(file);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await PDFDocument.load(arrayBuffer);
+      const count = pdf.getPageCount();
+      setSplitPageCount(count);
+      setSplitRange(`1-${Math.min(count, 3)}`);
+    } catch (err: any) {
+      alert(lang === "vi" ? `Lỗi đọc file PDF: ${err.message}` : `Failed to read PDF file: ${err.message}`);
+    }
+  };
+
+  // Helper to parse page range (e.g. "1-3, 5, 7-10")
+  const parsePageRange = (rangeStr: string, totalPages: number): number[] => {
+    const indices = new Set<number>();
+    const parts = rangeStr.split(",");
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (trimmed.includes("-")) {
+        const [start, end] = trimmed.split("-").map((s) => parseInt(s.trim(), 10));
+        if (!isNaN(start) && !isNaN(end)) {
+          for (let i = Math.max(1, start); i <= Math.min(totalPages, end); i++) {
+            indices.add(i - 1);
+          }
+        }
+      } else {
+        const pageNum = parseInt(trimmed, 10);
+        if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+          indices.add(pageNum - 1);
+        }
+      }
+    }
+    return Array.from(indices).sort((a, b) => a - b);
+  };
+
+  // Split PDF Action
+  const handleSplitPdf = async () => {
+    if (!splitFile || splitPageCount === 0) return;
+    setIsSplitting(true);
+    try {
+      const arrayBuffer = await splitFile.arrayBuffer();
+      const pdf = await PDFDocument.load(arrayBuffer);
+
+      if (splitMode === "range") {
+        const pagesToExtract = parsePageRange(splitRange, splitPageCount);
+        if (pagesToExtract.length === 0) {
+          alert(lang === "vi" ? "Vui lòng nhập phạm vi trang hợp lệ!" : "Please enter a valid page range!");
+          setIsSplitting(false);
+          return;
+        }
+        const newPdf = await PDFDocument.create();
+        const copiedPages = await newPdf.copyPages(pdf, pagesToExtract);
+        copiedPages.forEach((p) => newPdf.addPage(p));
+        const pdfBytes = await newPdf.save();
+        const blob = new Blob([pdfBytes], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${splitFile.name.replace(/\.pdf$/i, "")}_split.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        // Extract all pages as ZIP of individual PDFs
+        const zip = new JSZip();
+        for (let i = 0; i < splitPageCount; i++) {
+          const singlePdf = await PDFDocument.create();
+          const [page] = await singlePdf.copyPages(pdf, [i]);
+          singlePdf.addPage(page);
+          const pdfBytes = await singlePdf.save();
+          zip.file(`Page_${i + 1}.pdf`, pdfBytes);
+        }
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${splitFile.name.replace(/\.pdf$/i, "")}_all_pages.zip`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err: any) {
+      alert(lang === "vi" ? `Lỗi chia file PDF: ${err.message}` : `Failed to split PDF: ${err.message}`);
+    } finally {
+      setIsSplitting(false);
+    }
+  };
 
   // Drag & Drop Reordering state
   const [draggedPageIndex, setDraggedPageIndex] = useState<number | null>(null);
@@ -693,6 +832,16 @@ export default function DocScannerPdf(_props: DocScannerPdfProps) {
     </div>
   );
 
+  // Find active sub-item info from MAIN_MENU_ITEMS
+  const mainItem = MAIN_MENU_ITEMS.find((m) => m.mainSlug === "pdf-suite" || m.mainSlug === "xu-ly-tai-lieu-pdf");
+  const activeSub = mainItem?.submenus.find((s) => s.subSlug === subSlug) || mainItem?.submenus[0];
+
+  const SubIcon = activeSub?.icon || ScanLine;
+  const subTitle = lang === "vi" ? activeSub?.labelVi : activeSub?.labelEn;
+  const subDesc = lang === "vi" ? activeSub?.descriptionVi : activeSub?.descriptionEn;
+
+  const isMergeSplitMode = subSlug === "merge-and-split-pdf" || subSlug === "gop-chia-nho-pdf";
+
   return (
     <div className="flex flex-col h-full overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto w-full">
       {/* Top Header */}
@@ -700,20 +849,20 @@ export default function DocScannerPdf(_props: DocScannerPdfProps) {
         <div>
           <div className="flex items-center gap-2.5 mb-1">
             <div className="h-9 w-9 rounded-xl bg-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-600/20">
-              <ScanLine className="h-5 w-5" />
+              <SubIcon className="h-5 w-5" />
             </div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <span>{t("docScanner.title")}</span>
+              <span>{subTitle}</span>
             </h2>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            {t("docScanner.subtitle")}
+            {subDesc}
           </p>
         </div>
 
         {/* Export & Actions Toolbar */}
         <div className="flex flex-wrap items-center gap-3">
-          {pages.length > 0 && (
+          {!isMergeSplitMode && pages.length > 0 && (
             <>
               <button
                 type="button"
@@ -736,6 +885,207 @@ export default function DocScannerPdf(_props: DocScannerPdfProps) {
           )}
         </div>
       </div>
+
+      {isMergeSplitMode ? (
+        <div className="space-y-6">
+          {/* Sub-feature 1: Merge PDFs & Sub-feature 2: Split PDFs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* MERGE SECTION */}
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400">
+                  <Upload className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">
+                    {lang === "vi" ? "Ghép Nhiều File PDF Thành 1" : "Merge Multiple PDFs into One"}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {lang === "vi" ? "Tải lên các file PDF và gộp thành 1 tài liệu duy nhất" : "Upload PDF files and combine them into a single document"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Upload Dropzone for Merge */}
+              <div className="relative border-2 border-dashed border-rose-200 dark:border-rose-800/60 rounded-xl p-6 bg-rose-50/20 dark:bg-rose-950/10 text-center flex flex-col items-center justify-center cursor-pointer hover:border-rose-400 transition-colors">
+                <input
+                  type="file"
+                  multiple
+                  accept="application/pdf"
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      const filesArr = Array.from(e.target.files);
+                      setMergeFiles((prev) => [...prev, ...filesArr]);
+                    }
+                  }}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                />
+                <Upload className="h-8 w-8 text-rose-500 mb-2" />
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  {lang === "vi" ? "Nhấp hoặc kéo thả các file PDF vào đây" : "Click or drag & drop PDF files here"}
+                </span>
+              </div>
+
+              {/* Merge File List */}
+              {mergeFiles.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-xs text-slate-500">
+                    <span>{lang === "vi" ? "Danh sách file đã chọn" : "Selected files"} ({mergeFiles.length})</span>
+                    <button
+                      onClick={() => setMergeFiles([])}
+                      className="text-rose-500 hover:underline font-medium cursor-pointer"
+                    >
+                      {lang === "vi" ? "Xóa tất cả" : "Clear all"}
+                    </button>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto space-y-1.5 border border-slate-100 dark:border-slate-800 rounded-xl p-2">
+                    {mergeFiles.map((f, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-[#0B0F1A] rounded-lg text-xs font-mono">
+                        <span className="truncate max-w-[240px] font-medium text-slate-700 dark:text-slate-300">{idx + 1}. {f.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-400">{(f.size / 1024 / 1024).toFixed(2)} MB</span>
+                          <button
+                            onClick={() => setMergeFiles((prev) => prev.filter((_, i) => i !== idx))}
+                            className="text-slate-400 hover:text-rose-500 p-1 cursor-pointer"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-1 pt-2">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      {lang === "vi" ? "Tên file kết quả" : "Output File Name"}
+                    </label>
+                    <input
+                      type="text"
+                      value={mergeOutputName}
+                      onChange={(e) => setMergeOutputName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B0F1A] text-xs font-mono text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleMergePdfs}
+                    disabled={isMerging || mergeFiles.length < 2}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer mt-3"
+                  >
+                    <FileDown className="h-4 w-4" />
+                    <span>{isMerging ? (lang === "vi" ? "Đang ghép..." : "Merging...") : (lang === "vi" ? "Ghép PDF Ngay" : "Merge PDFs Now")}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* SPLIT SECTION */}
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400">
+                  <Crop className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">
+                    {lang === "vi" ? "Chia Nhỏ / Tách Trang PDF" : "Split / Extract PDF Pages"}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {lang === "vi" ? "Tách trang cụ thể hoặc chia từng trang thành các file riêng lẻ" : "Extract specific page ranges or split every page"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Upload Dropzone for Split */}
+              {!splitFile ? (
+                <div className="relative border-2 border-dashed border-rose-200 dark:border-rose-800/60 rounded-xl p-6 bg-rose-50/20 dark:bg-rose-950/10 text-center flex flex-col items-center justify-center cursor-pointer hover:border-rose-400 transition-colors">
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        handleSplitFileSelect(e.target.files[0]);
+                      }
+                    }}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                  <Upload className="h-8 w-8 text-rose-500 mb-2" />
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    {lang === "vi" ? "Chọn 1 file PDF cần chia nhỏ" : "Select 1 PDF file to split"}
+                  </span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-[#0B0F1A] border border-slate-200 dark:border-slate-800 rounded-xl">
+                    <div>
+                      <div className="font-bold text-xs text-slate-800 dark:text-slate-200 truncate max-w-[200px]">{splitFile.name}</div>
+                      <div className="text-[11px] text-slate-500">{splitPageCount} {lang === "vi" ? "trang" : "pages"} • {(splitFile.size / 1024 / 1024).toFixed(2)} MB</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSplitFile(null);
+                        setSplitPageCount(0);
+                      }}
+                      className="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 p-1.5 rounded-lg text-xs font-semibold cursor-pointer"
+                    >
+                      {lang === "vi" ? "Đổi file" : "Change"}
+                    </button>
+                  </div>
+
+                  {/* Mode switch */}
+                  <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
+                    <button
+                      onClick={() => setSplitMode("range")}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                        splitMode === "range"
+                          ? "bg-rose-600 text-white shadow-xs"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                      }`}
+                    >
+                      {lang === "vi" ? "Tách Theo Phạm Vi" : "Extract Range"}
+                    </button>
+                    <button
+                      onClick={() => setSplitMode("all")}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                        splitMode === "all"
+                          ? "bg-rose-600 text-white shadow-xs"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                      }`}
+                    >
+                      {lang === "vi" ? "Chia Từng Trang (ZIP)" : "Split All Pages (ZIP)"}
+                    </button>
+                  </div>
+
+                  {splitMode === "range" && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex justify-between">
+                        <span>{lang === "vi" ? "Nhập trang muốn tách" : "Pages to extract"}</span>
+                        <span className="text-[10px] text-slate-400">Ví dụ: 1-3, 5, 8-10</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={splitRange}
+                        onChange={(e) => setSplitRange(e.target.value)}
+                        placeholder="1-3, 5"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B0F1A] text-xs font-mono text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500"
+                      />
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleSplitPdf}
+                    disabled={isSplitting}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer mt-3"
+                  >
+                    <FileDown className="h-4 w-4" />
+                    <span>{isSplitting ? (lang === "vi" ? "Đang xử lý..." : "Processing...") : (lang === "vi" ? "Tải File Đã Chia" : "Download Split PDF")}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
 
       {/* Bulk Dropzone Area */}
       <div className="relative border-2 border-dashed border-rose-300 dark:border-rose-700/60 rounded-2xl p-8 bg-rose-50/30 dark:bg-rose-950/10 hover:bg-rose-50/60 dark:hover:bg-rose-950/20 transition-all text-center flex flex-col items-center justify-center cursor-pointer group">
@@ -2351,6 +2701,8 @@ export default function DocScannerPdf(_props: DocScannerPdfProps) {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

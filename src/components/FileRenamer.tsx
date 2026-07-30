@@ -37,6 +37,7 @@ export interface FileItem {
 interface FileRenamerProps {
   state?: FileRenamerState;
   onChange?: (updated: Partial<FileRenamerState>) => void;
+  hideInnerHeader?: boolean;
 }
 
 const DEFAULT_RENAMER_STATE: FileRenamerState = {
@@ -55,7 +56,7 @@ const DEFAULT_RENAMER_STATE: FileRenamerState = {
   enableCustomBaseName: false,
 };
 
-export default function FileRenamer({ state, onChange }: FileRenamerProps) {
+export default function FileRenamer({ state, onChange, hideInnerHeader = false }: FileRenamerProps) {
   const { t, lang } = useI18n();
   const currentState = state || DEFAULT_RENAMER_STATE;
 
@@ -284,21 +285,23 @@ export default function FileRenamer({ state, onChange }: FileRenamerProps) {
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 overflow-y-auto p-4 md:p-6 space-y-6">
       {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5">
-        <div>
-          <div className="flex items-center gap-2.5 mb-1">
-            <div className="h-9 w-9 rounded-xl bg-amber-600 flex items-center justify-center text-white shadow-md shadow-amber-600/20">
-              <FolderSync className="h-5 w-5" />
+      {!hideInnerHeader && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5">
+          <div>
+            <div className="flex items-center gap-2.5 mb-1">
+              <div className="h-9 w-9 rounded-xl bg-amber-600 flex items-center justify-center text-white shadow-md shadow-amber-600/20">
+                <FolderSync className="h-5 w-5" />
+              </div>
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <span>{t("fileRenamer.title")}</span>
+              </h2>
             </div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <span>{t("fileRenamer.title")}</span>
-            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t("fileRenamer.subtitle")}
+            </p>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {t("fileRenamer.subtitle")}
-          </p>
         </div>
-      </div>
+      )}
 
       {/* Main Container */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

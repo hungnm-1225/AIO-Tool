@@ -43,6 +43,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 interface DirectoryAggregatorProps {
   state?: DirAggregatorState;
   onChange?: (newState: Partial<DirAggregatorState>) => void;
+  hideInnerHeader?: boolean;
 }
 
 interface UploadedFileWrapper {
@@ -64,6 +65,7 @@ interface ProgressInfo {
 export default function DirectoryAggregator({
   state,
   onChange,
+  hideInnerHeader = false,
 }: DirectoryAggregatorProps) {
   const { lang } = useI18n();
   
@@ -135,7 +137,7 @@ export default function DirectoryAggregator({
     if (!files || files.length === 0) return;
 
     const wrappedFiles: UploadedFileWrapper[] = [];
-    const allowedExtensions = [".xlsx", ".xls", ".csv", ".docx", ".pdf"];
+    const allowedExtensions = [".xlsx", ".xls", ".csv"];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -160,8 +162,8 @@ export default function DirectoryAggregator({
     if (wrappedFiles.length === 0) {
       toast.warn(
         lang === "vi"
-          ? "Không tìm thấy tệp .xlsx, .xls, .csv, .docx, hoặc .pdf nào hợp lệ."
-          : "No valid .xlsx, .xls, .csv, .docx, or .pdf files found."
+          ? "Không tìm thấy tệp .xlsx, .xls, hoặc .csv nào hợp lệ."
+          : "No valid .xlsx, .xls, or .csv files found."
       );
       return;
     }
@@ -1116,23 +1118,25 @@ export default function DirectoryAggregator({
   return (
     <div className="flex-1 flex flex-col h-full overflow-y-auto bg-slate-50 dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-100 font-sans p-4 lg:p-6 transition-colors duration-200">
       {/* Upper Title Area */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5 mb-6">
-        <div>
-          <div className="flex items-center gap-2.5 mb-1">
-            <div className="h-9 w-9 rounded-xl bg-teal-600 flex items-center justify-center text-white shadow-md shadow-teal-600/20">
-              <FolderOpen className="h-5 w-5" />
+      {!hideInnerHeader && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5 mb-6">
+          <div>
+            <div className="flex items-center gap-2.5 mb-1">
+              <div className="h-9 w-9 rounded-xl bg-teal-600 flex items-center justify-center text-white shadow-md shadow-teal-600/20">
+                <FolderOpen className="h-5 w-5" />
+              </div>
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <span>{lang === "vi" ? "Hợp Nhất Thư Mục & Quét OCR" : "Directory Data Aggregator & OCR Parser"}</span>
+              </h2>
             </div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <span>{lang === "vi" ? "Hợp Nhất Thư Mục & Quét OCR" : "Directory Data Aggregator & OCR Parser"}</span>
-            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              {lang === "vi"
+                ? "Tải lên thư mục, lọc tên tệp linh hoạt, quét bảng từ Word/Excel/PDF/OCR & tự sinh dữ liệu và loại bỏ trùng lặp."
+                : "Recursive folders parsing, diacritic multi-search, auto data mapping, in-file deduplication & smart auto column generator."}
+            </p>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            {lang === "vi"
-              ? "Tải lên thư mục, lọc tên tệp linh hoạt, quét bảng từ Word/Excel/PDF/OCR & tự sinh dữ liệu và loại bỏ trùng lặp."
-              : "Recursive folders parsing, diacritic multi-search, auto data mapping, in-file deduplication & smart auto column generator."}
-          </p>
         </div>
-      </div>
+      )}
 
       {/* Main Grid Layout split */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">

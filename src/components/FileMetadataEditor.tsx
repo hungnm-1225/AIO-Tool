@@ -37,6 +37,7 @@ export interface FileItem {
 interface FileMetadataEditorProps {
   state?: FileMetadataState;
   onChange?: (subState: Partial<FileMetadataState>) => void;
+  hideInnerHeader?: boolean;
 }
 
 // Helper to convert Date to string for datetime-local input (YYYY-MM-DDTHH:mm:ss)
@@ -86,6 +87,7 @@ const getFilenameParts = (filename: string): { baseName: string; ext: string } =
 export default function FileMetadataEditor({
   state,
   onChange,
+  hideInnerHeader = false,
 }: FileMetadataEditorProps) {
   const { t, lang } = useI18n();
   const [fileList, setFileList] = useState<FileItem[]>([]);
@@ -298,21 +300,23 @@ export default function FileMetadataEditor({
     <div className="flex flex-col h-full overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto w-full">
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5">
-        <div>
-          <div className="flex items-center gap-2.5 mb-1">
-            <div className="h-9 w-9 rounded-xl bg-amber-600 flex items-center justify-center text-white shadow-md shadow-amber-600/20">
-              <FileClock className="h-5 w-5" />
+        {!hideInnerHeader && (
+          <div>
+            <div className="flex items-center gap-2.5 mb-1">
+              <div className="h-9 w-9 rounded-xl bg-amber-600 flex items-center justify-center text-white shadow-md shadow-amber-600/20">
+                <FileClock className="h-5 w-5" />
+              </div>
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <span>{lang === "vi" ? "Chỉnh Sửa File Metadata & Timestamp" : "File Metadata & Timestamp Editor"}</span>
+              </h2>
             </div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <span>{lang === "vi" ? "Chỉnh Sửa File Metadata & Timestamp" : "File Metadata & Timestamp Editor"}</span>
-            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              {lang === "vi"
+                ? "Tải lên mọi định dạng tệp, tùy chỉnh Tên, Ngày Tạo (Created Date) & Ngày Sửa (Last Modified Date). Xuất gói ZIP bảo toàn 100% nhãn thời gian tùy chỉnh."
+                : "Upload any file format, customize Filename, Created Date & Last Modified Date. Export ZIP package preserving 100% custom timestamps."}
+            </p>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            {lang === "vi"
-              ? "Tải lên mọi định dạng tệp, tùy chỉnh Tên, Ngày Tạo (Created Date) & Ngày Sửa (Last Modified Date). Xuất gói ZIP bảo toàn 100% nhãn thời gian tùy chỉnh."
-              : "Upload any file format, customize Filename, Created Date & Last Modified Date. Export ZIP package preserving 100% custom timestamps."}
-          </p>
-        </div>
+        )}
 
         {/* Action Buttons Toolbar */}
         <div className="flex flex-wrap items-center gap-3">

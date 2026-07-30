@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
-import { DataConverterState } from "../types";
+import { DataConverterState, ActiveModule } from "../types";
 import { useI18n } from "../utils/i18n";
 import CodeEditor from "./CodeEditor";
 import { 
@@ -11,6 +11,7 @@ import {
   csvToJson, jsonToCsv 
 } from "../utils/formatters";
 import * as XLSX from "xlsx";
+import { MAIN_MENU_ITEMS, navigateTo } from "../utils/navigation";
 import { 
   Code, 
   Table, 
@@ -40,46 +41,41 @@ import {
 interface DataConverterHtmlProps {
   state: DataConverterState;
   onChange: (newState: Partial<DataConverterState>) => void;
+  subSlug?: string;
 }
 
-export default function DataConverterHtml({ state, onChange }: DataConverterHtmlProps) {
+export default function DataConverterHtml({ state, onChange, subSlug = "dinh-dang-json-csv" }: DataConverterHtmlProps) {
   const { t, lang } = useI18n();
-  const [activeSubTab, setActiveSubTab] = useState<"format" | "convert" | "preview">("format");
+
+  const getSubTabFromSlug = (slug: string): "format" | "convert" | "preview" => {
+    if (slug === "json-grid-viewer" || slug === "xem-luoi-json") return "convert";
+    if (slug === "live-html-runner" || slug === "chay-html-truc-tiep") return "preview";
+    return "format";
+  };
+
+  const [activeSubTab, setActiveSubTab] = useState<"format" | "convert" | "preview">(() => getSubTabFromSlug(subSlug));
   const [activeFormatMode, setActiveFormatMode] = useState<"beautify" | "minify">("beautify");
   const [inputTab, setInputTab] = useState<"json" | "csv">("json");
   const [splitTab, setSplitTab] = useState<"html" | "css" | "js">("html");
   const [isInputFullScreen, setIsInputFullScreen] = useState(false);
   const [isPreviewFullScreen, setIsPreviewFullScreen] = useState(false);
+  const [isGridFullscreen, setIsGridFullscreen] = useState(false);
+  const [downloadDropdownOpen, setDownloadDropdownOpen] = useState(false);
   const [viewportMode, setViewportMode] = useState<"desktop" | "tablet" | "mobile">("desktop");
 
-  // Synchronize sub-tab from hash
   useEffect(() => {
-    const syncSubTab = () => {
-      const hash = window.location.hash.toLowerCase();
-      if (hash === "#formatter" || hash === "#format") {
-        setActiveSubTab("format");
-      } else if (hash === "#converter" || hash === "#convert") {
-        setActiveSubTab("convert");
-      } else if (hash === "#html-sandbox" || hash === "#preview" || hash === "#sandbox") {
-        setActiveSubTab("preview");
-      }
-    };
-
-    syncSubTab();
-
-    window.addEventListener("hashchange", syncSubTab);
-    return () => window.removeEventListener("hashchange", syncSubTab);
-  }, []);
+    setActiveSubTab(getSubTabFromSlug(subSlug));
+  }, [subSlug]);
 
   const handleTabChange = (tab: "format" | "convert" | "preview") => {
     setActiveSubTab(tab);
-    const hash =
+    const path =
       tab === "format"
-        ? "formatter"
+        ? "/web-data-html/format-json-csv"
         : tab === "convert"
-        ? "converter"
-        : "html-sandbox";
-    window.location.hash = hash;
+        ? "/web-data-html/json-grid-viewer"
+        : "/web-data-html/live-html-runner";
+    navigateTo(path);
   };
   const [copiedIdentifier, setCopiedIdentifier] = useState<string | null>(null);
 
@@ -493,57 +489,32 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
     activeSubTab
   ]);
 
+  // Find active sub-item info from MAIN_MENU_ITEMS
+  const mainItem = MAIN_MENU_ITEMS.find((m) => m.mainSlug === "web-data-html" || m.mainSlug === "du-lieu-va-html" || m.module === ActiveModule.DATA_CONVERTER);
+  const activeSub = mainItem?.submenus.find((s) => s.subSlug === subSlug) || mainItem?.submenus[0];
+
+  const SubIcon = activeSub?.icon || Terminal;
+  const subTitle = lang === "vi" ? activeSub?.labelVi : activeSub?.labelEn;
+  const subDesc = lang === "vi" ? activeSub?.descriptionVi : activeSub?.descriptionEn;
+
   return (
     <div className="flex-1 overflow-auto bg-slate-50 dark:bg-[#0B0F1A] p-6 space-y-6">
 
-      {/* Sub Navigation */}
-      <div className="border-b border-slate-200 dark:border-slate-800/80 pb-4">
+      {/* Sub Navigation Bar */}
+      <div className="bg-white dark:bg-[#111827] border-b border-slate-200 dark:border-slate-800/80 -m-6 mb-6 p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5 mb-1">
-              <div className="h-9 w-9 rounded-xl bg-sky-600 flex items-center justify-center text-white shadow-md shadow-sky-600/20">
-                <Terminal className="h-5 w-5" />
-              </div>
-              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <span>{t("dataConverter.title")}</span>
-              </h2>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-sky-600 flex items-center justify-center text-white shadow-md shadow-sky-600/20">
+              <SubIcon className="h-5 w-5" />
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {t("dataConverter.subtitle")}
-            </p>
-          </div>
-
-          <div className="flex bg-slate-100 dark:bg-[#111827] p-1 rounded-xl border border-slate-200/50 dark:border-slate-800/50">
-            <button
-              onClick={() => handleTabChange("format")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                activeSubTab === "format"
-                  ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-              }`}
-            >
-              <Code className="h-3.5 w-3.5" /> {t("dataConverter.dataFormatterTab")}
-            </button>
-            <button
-              onClick={() => handleTabChange("convert")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                activeSubTab === "convert"
-                  ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-              }`}
-            >
-              <Table className="h-3.5 w-3.5" /> {t("dataConverter.jsonTab")}
-            </button>
-            <button
-              onClick={() => handleTabChange("preview")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                activeSubTab === "preview"
-                  ? "bg-white dark:bg-[#0B0F1A] text-slate-800 dark:text-slate-200 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-              }`}
-            >
-              <Play className="h-3.5 w-3.5" /> {t("dataConverter.htmlRunnerTab")}
-            </button>
+            <div>
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <span>{subTitle}</span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {subDesc}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -776,7 +747,7 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
           </div>
 
           {/* Visual Table Grid Section - Right */}
-          <div className="xl:col-span-8 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col min-h-[580px]">
+          <div className={isGridFullscreen ? "fixed inset-0 z-50 bg-white dark:bg-[#111827] p-6 flex flex-col overflow-hidden shadow-2xl" : "xl:col-span-8 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col min-h-[580px]"}>
             <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
               <div className="flex items-center gap-3">
                 <span className="text-xs font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
@@ -801,6 +772,15 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                       <Unlock className="h-3 w-3" /> {t("dataConverter.editable")}
                     </>
                   )}
+                </button>
+
+                {/* Fullscreen Toggle Button */}
+                <button
+                  onClick={() => setIsGridFullscreen(!isGridFullscreen)}
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                  title={isGridFullscreen ? (lang === "vi" ? "Thoát toàn màn hình" : "Exit Fullscreen") : (lang === "vi" ? "Xem toàn màn hình" : "Fullscreen")}
+                >
+                  {isGridFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                 </button>
               </div>
 
@@ -863,26 +843,54 @@ export default function DataConverterHtml({ state, onChange }: DataConverterHtml
                   )}
                 </div>
 
-                {/* Right group of controls: Push Export to the far right */}
-                <div className="sm:ml-auto flex flex-wrap shrink-0 gap-2">
+                {/* Consolidated Download Dropdown Menu */}
+                <div className="sm:ml-auto relative shrink-0">
                   <button
-                    onClick={() => handleExportFile("csv")}
-                    className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    onClick={() => setDownloadDropdownOpen(!downloadDropdownOpen)}
+                    className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-2 shadow-xs cursor-pointer"
                   >
-                    <Download className="h-3.5 w-3.5" /> CSV
+                    <Download className="h-3.5 w-3.5" />
+                    <span>{lang === "vi" ? "Tải Xuất" : "Download"}</span>
+                    <span className="text-[10px]">▼</span>
                   </button>
-                  <button
-                    onClick={() => handleExportFile("json")}
-                    className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
-                  >
-                    <Download className="h-3.5 w-3.5" /> JSON
-                  </button>
-                  <button
-                    onClick={() => handleExportFile("xlsx")}
-                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
-                  >
-                    <Download className="h-3.5 w-3.5" /> XLSX
-                  </button>
+
+                  {downloadDropdownOpen && (
+                    <div 
+                      className="absolute right-0 mt-1.5 w-40 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-1 z-30 font-sans"
+                      onMouseLeave={() => setDownloadDropdownOpen(false)}
+                    >
+                      <button
+                        onClick={() => {
+                          handleExportFile("csv");
+                          setDownloadDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer"
+                      >
+                        <span className="h-2 w-2 rounded-full bg-sky-500" />
+                        <span>Tải CSV (.csv)</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleExportFile("json");
+                          setDownloadDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer"
+                      >
+                        <span className="h-2 w-2 rounded-full bg-amber-500" />
+                        <span>Tải JSON (.json)</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleExportFile("xlsx");
+                          setDownloadDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer"
+                      >
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                        <span>Tải Excel (.xlsx)</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -1,83 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { AppState, ActiveModule } from "./types";
 import Sidebar from "./components/Sidebar";
-import TextUtilities from "./components/TextUtilities";
-import CompareMerge from "./components/CompareMerge";
+import TextAndCompareSuite from "./components/TextAndCompareSuite";
 import DataConverterHtml from "./components/DataConverterHtml";
-import ExcelSplitterValidator from "./components/ExcelSplitterValidator";
-import ExcelMergerExtractor from "./components/ExcelMergerExtractor";
+import ExcelSuite from "./components/ExcelSuite";
 import DocScannerPdf from "./components/DocScannerPdf";
-import FileRenamer from "./components/FileRenamer";
-import DirectoryAggregator from "./components/DirectoryAggregator";
-import FileMetadataEditor from "./components/FileMetadataEditor";
+import FileManagerSuite from "./components/FileManagerSuite";
+import FileConverter from "./components/FileConverter";
 import { I18nProvider, useI18n } from "./utils/i18n";
+import { parseRoute } from "./utils/navigation";
 import { Menu, Sun, Moon, Sliders } from "lucide-react";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const STORAGE_KEY = "vibe_code_aio_state";
 
-const HASH_MAP: Record<string, ActiveModule> = {
-  "#case-converter": ActiveModule.TEXT_UTILS,
-  "#case_converter": ActiveModule.TEXT_UTILS,
-  "#case": ActiveModule.TEXT_UTILS,
-  "#text-utilities": ActiveModule.TEXT_UTILS,
-  "#text_utils": ActiveModule.TEXT_UTILS,
-  "#text-utils": ActiveModule.TEXT_UTILS,
-  "#text": ActiveModule.TEXT_UTILS,
-  "#string-cutter": ActiveModule.TEXT_UTILS,
-  "#line-slicer": ActiveModule.TEXT_UTILS,
-  "#cutter": ActiveModule.TEXT_UTILS,
-  "#slicer": ActiveModule.TEXT_UTILS,
-
-  "#compare-text": ActiveModule.COMPARE_MERGE,
-  "#diff": ActiveModule.COMPARE_MERGE,
-  "#merge-columns": ActiveModule.COMPARE_MERGE,
-  "#combine": ActiveModule.COMPARE_MERGE,
-  "#auto-increment": ActiveModule.COMPARE_MERGE,
-  "#autoinc": ActiveModule.COMPARE_MERGE,
-
-  "#formatter": ActiveModule.DATA_CONVERTER,
-  "#data-converter": ActiveModule.DATA_CONVERTER,
-  "#data_converter": ActiveModule.DATA_CONVERTER,
-  "#json-grid": ActiveModule.DATA_CONVERTER,
-  "#html-preview": ActiveModule.DATA_CONVERTER,
-  "#chuyen-doi-du-lieu": ActiveModule.DATA_CONVERTER,
-  "#chuyen-doi": ActiveModule.DATA_CONVERTER,
-
-  "#excel-splitter": ActiveModule.EXCEL_SPLITTER,
-  "#excel": ActiveModule.EXCEL_SPLITTER,
-  "#splitter": ActiveModule.EXCEL_SPLITTER,
-  "#account-template": ActiveModule.EXCEL_SPLITTER,
-
-  "#excel-merger": ActiveModule.EXCEL_MERGER,
-  "#merger": ActiveModule.EXCEL_MERGER,
-  "#extractor": ActiveModule.EXCEL_MERGER,
-  "#excel-extractor": ActiveModule.EXCEL_MERGER,
-  "#account-merger": ActiveModule.EXCEL_MERGER,
-
-  "#doc-scanner": ActiveModule.DOCUMENT_SCANNER,
-  "#scanner": ActiveModule.DOCUMENT_SCANNER,
-  "#document-scanner": ActiveModule.DOCUMENT_SCANNER,
-  "#pdf-scanner": ActiveModule.DOCUMENT_SCANNER,
-
-  "#file-renamer": ActiveModule.FILE_RENAMER,
-  "#renamer": ActiveModule.FILE_RENAMER,
-  "#batch-rename": ActiveModule.FILE_RENAMER,
-
-  "#dir-aggregator": ActiveModule.DIR_AGGREGATOR,
-  "#dir_aggregator": ActiveModule.DIR_AGGREGATOR,
-  "#ocr-parser": ActiveModule.DIR_AGGREGATOR,
-
-  "#file-metadata": ActiveModule.FILE_METADATA,
-  "#file-timestamp": ActiveModule.FILE_METADATA,
-  "#metadata-editor": ActiveModule.FILE_METADATA,
-  "#timestamp-editor": ActiveModule.FILE_METADATA,
-};
-
 const DEFAULT_STATE: AppState = {
   theme: "dark",
-  activeModule: ActiveModule.TEXT_UTILS,
+  activeModule: ActiveModule.TEXT_SUITE,
   textUtils: {
     inputText: "Line 1: Hello World\nLine 2: Web Developer\nLine 3: Google AI Studio\nLine 1: Hello World\nLine 4: Happy Coding",
     countSpaces: true,
@@ -107,12 +47,12 @@ const DEFAULT_STATE: AppState = {
     labelValueMode: false,
     lockEdit: false,
     activeFormatType: "json",
-    formatInput: "{\n  \"title\": \"Vibe Code AIO\",\n  \"version\": 1.0,\n  \"features\": [\n    \"Text processing\",\n    \"Diff checker\",\n    \"Grid table\",\n    \"HTML runner\"\n  ]\n}",
+    formatInput: "{\n  \"title\": \"Vibe Code Workspace\",\n  \"version\": \"2.4.4\",\n  \"features\": [\n    \"Text Processing\",\n    \"Diff Checker\",\n    \"Excel Split & Validate\",\n    \"Document Perspective Scanner\",\n    \"Metadata Timestamp Editor\",\n    \"Universal File Converter\"\n  ]\n}",
     htmlPreviewMode: "split",
-    htmlSingleInput: "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <style>\n    body {\n      font-family: system-ui, -apple-system, sans-serif;\n      background: #0f172a;\n      color: #f8fafc;\n      display: flex;\n      justify-content: center;\n      align-items: center;\n      height: 100vh;\n      margin: 0;\n    }\n    .greeting {\n      text-align: center;\n      padding: 2.5rem;\n      background: #1e293b;\n      border: 1px solid #334155;\n      border-radius: 1.5rem;\n      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);\n    }\n    button {\n      background: #6366f1;\n      color: white;\n      border: none;\n      padding: 0.6rem 1.2rem;\n      font-weight: bold;\n      border-radius: 0.5rem;\n      cursor: pointer;\n      margin-top: 1rem;\n      transition: opacity 0.2s;\n    }\n    button:hover {\n      opacity: 0.9;\n    }\n  </style>\n</head>\n<body>\n  <div class=\"greeting\">\n    <h3>Welcome to Vibe Code Sandbox!</h3>\n    <p>Modify HTML, CSS, and JS side-by-side to see immediate updates.</p>\n    <button id=\"action-btn\">Click Me</button>\n  </div>\n  <script>\n    const btn = document.getElementById(\"action-btn\");\n    if (btn) {\n      btn.addEventListener(\"click\", () => {\n        console.log(\"Button interactive click action!\");\n      });\n    }\n  </script>\n</body>\n</html>",
-    htmlSplitInput: "<div class='greeting'>\n  <h3>Welcome to Vibe Code Sandbox!</h3>\n  <p>Modify HTML, CSS, and JS side-by-side to see immediate updates.</p>\n  <button id='action-btn'>Click Me</button>\n</div>",
+    htmlSingleInput: "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <style>\n    body {\n      font-family: system-ui, -apple-system, sans-serif;\n      background: #0f172a;\n      color: #f8fafc;\n      display: flex;\n      justify-content: center;\n      align-items: center;\n      height: 100vh;\n      margin: 0;\n    }\n    .greeting {\n      text-align: center;\n      padding: 2.5rem;\n      background: #1e293b;\n      border: 1px solid #334155;\n      border-radius: 1.5rem;\n      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);\n    }\n    button {\n      background: #6366f1;\n      color: white;\n      border: none;\n      padding: 0.6rem 1.2rem;\n      font-weight: bold;\n      border-radius: 0.5rem;\n      cursor: pointer;\n      margin-top: 1rem;\n      transition: opacity 0.2s;\n    }\n    button:hover {\n      opacity: 0.9;\n    }\n  </style>\n</head>\n<body>\n  <div class=\"greeting\">\n    <h3>Welcome to Live HTML Runner!</h3>\n    <p>Modify HTML, CSS, and JS side-by-side with instant live rendering.</p>\n    <button id=\"action-btn\">Click Interactive Button</button>\n  </div>\n  <script>\n    const btn = document.getElementById(\"action-btn\");\n    if (btn) {\n      btn.addEventListener(\"click\", () => {\n        alert(\"Interactive button executed successfully!\");\n      });\n    }\n  </script>\n</body>\n</html>",
+    htmlSplitInput: "<div class='greeting'>\n  <h3>Welcome to Live HTML Runner!</h3>\n  <p>Modify HTML, CSS, and JS side-by-side with instant live rendering.</p>\n  <button id='action-btn'>Click Interactive Button</button>\n</div>",
     cssSplitInput: "body {\n  font-family: system-ui, -apple-system, sans-serif;\n  background: #0f172a;\n  color: #f8fafc;\n  display: flex;\n  justify-content: center;\n  align-items: center;\n  height: 100vh;\n  margin: 0;\n}\n.greeting {\n  text-align: center;\n  padding: 2.5rem;\n  background: #1e293b;\n  border: 1px solid #334155;\n  border-radius: 1.5rem;\n  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);\n}\nbutton {\n  background: #6366f1;\n  color: white;\n  border: none;\n  padding: 0.6rem 1.2rem;\n  font-weight: bold;\n  border-radius: 0.5rem;\n  cursor: pointer;\n  margin-top: 1rem;\n  transition: opacity 0.2s;\n}\nbutton:hover {\n  opacity: 0.9;\n}",
-    jsSplitInput: "const btn = document.getElementById('action-btn');\nif (btn) {\n  btn.addEventListener('click', () => {\n    console.log('Button interactive click action!');\n  });\n}",
+    jsSplitInput: "const btn = document.getElementById('action-btn');\nif (btn) {\n  btn.addEventListener('click', () => {\n    alert('Interactive button executed successfully!');\n  });\n}",
   },
   excelSplitter: {
     maxRecordsPerFile: 50,
@@ -146,10 +86,14 @@ const DEFAULT_STATE: AppState = {
 function MainApp() {
   const { lang, setLang } = useI18n();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [state, setState] = useState<AppState>(() => {
-    const currentHash = window.location.hash.toLowerCase();
-    const hashMatchedModule = currentHash ? HASH_MAP[currentHash] : undefined;
 
+  // Initialize Route Parsing
+  const initialRoute = parseRoute(window.location.pathname);
+
+  const [currentMainSlug, setCurrentMainSlug] = useState<string>(initialRoute.mainSlug);
+  const [currentSubSlug, setCurrentSubSlug] = useState<string>(initialRoute.subSlug);
+
+  const [state, setState] = useState<AppState>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
@@ -157,7 +101,7 @@ function MainApp() {
         return {
           ...DEFAULT_STATE,
           ...parsed,
-          activeModule: hashMatchedModule ?? parsed.activeModule ?? DEFAULT_STATE.activeModule,
+          activeModule: initialRoute.activeModule,
         };
       }
     } catch (e) {
@@ -165,9 +109,36 @@ function MainApp() {
     }
     return {
       ...DEFAULT_STATE,
-      activeModule: hashMatchedModule ?? DEFAULT_STATE.activeModule,
+      activeModule: initialRoute.activeModule,
     };
   });
+
+  // Execute initial redirect if needed (e.g. empty hash or /main-slug without sub-slug)
+  useEffect(() => {
+    const routeInfo = parseRoute(window.location.pathname);
+    if (routeInfo.shouldRedirect) {
+      window.history.replaceState(null, "", routeInfo.targetPath);
+    }
+    setCurrentMainSlug(routeInfo.mainSlug);
+    setCurrentSubSlug(routeInfo.subSlug);
+    setState((prev) => ({ ...prev, activeModule: routeInfo.activeModule }));
+  }, []);
+
+  // Listen for path changes
+  useEffect(() => {
+    const handleLocationChange = () => {
+      const routeInfo = parseRoute(window.location.pathname);
+      if (routeInfo.shouldRedirect) {
+        window.history.replaceState(null, "", routeInfo.targetPath);
+      }
+      setCurrentMainSlug(routeInfo.mainSlug);
+      setCurrentSubSlug(routeInfo.subSlug);
+      setState((prev) => (prev.activeModule === routeInfo.activeModule ? prev : { ...prev, activeModule: routeInfo.activeModule }));
+    };
+
+    window.addEventListener("popstate", handleLocationChange);
+    return () => window.removeEventListener("popstate", handleLocationChange);
+  }, []);
 
   // Persist state changes to Local Storage
   useEffect(() => {
@@ -191,31 +162,6 @@ function MainApp() {
     }));
   };
 
-  // Sync state.activeModule based on URL Hash
-  useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.toLowerCase();
-      if (hash) {
-        const matchedModule = HASH_MAP[hash];
-        if (matchedModule) {
-          setState((prev) => (prev.activeModule === matchedModule ? prev : { ...prev, activeModule: matchedModule }));
-        }
-      }
-    };
-
-    window.addEventListener("hashchange", handleHashChange);
-    return () => {
-      window.removeEventListener("hashchange", handleHashChange);
-    };
-  }, []);
-
-  // Ensure default hash if URL hash is empty on initial load
-  useEffect(() => {
-    if (!window.location.hash) {
-      window.history.replaceState(null, "", "#case-converter");
-    }
-  }, []);
-
   const handleModuleStateChange = <K extends keyof AppState>(
     moduleKey: K,
     updatedModuleState: any
@@ -236,6 +182,7 @@ function MainApp() {
         <button
           onClick={() => setIsMobileMenuOpen(true)}
           className="p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+          title="Open Menu"
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -243,7 +190,12 @@ function MainApp() {
           <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
             <Sliders className="h-4 w-4" />
           </div>
-          <span className="font-bold text-sm text-slate-800 dark:text-slate-100 font-sans tracking-tight">Vibe Code AIO</span>
+          <span className="font-bold text-sm text-slate-800 dark:text-slate-100 font-sans tracking-tight">
+            Vibe Code Workstation
+          </span>
+          <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded-md font-bold">
+            v2.4.4
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -255,6 +207,7 @@ function MainApp() {
           <button
             onClick={toggleTheme}
             className="p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+            title="Toggle Theme"
           >
             {state.theme === "dark" ? (
               <Sun className="h-4.5 w-4.5 text-amber-400" />
@@ -274,33 +227,12 @@ function MainApp() {
       )}
 
       {/* Sidebar Navigation (Responsive: overlay on mobile, static on desktop) */}
-      <div className={`fixed inset-y-0 left-0 z-40 md:relative md:translate-x-0 transform transition-transform duration-200 h-full ${
+      <div className={`fixed inset-y-0 left-0 z-40 md:relative md:translate-x-0 transform transition-transform duration-300 h-full ${
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
       }`}>
         <Sidebar
-          activeModule={state.activeModule}
-          setActiveModule={(mod) => {
-            const canonicalHash =
-              mod === ActiveModule.TEXT_UTILS
-                ? "case-converter"
-                : mod === ActiveModule.COMPARE_MERGE
-                ? "compare-text"
-                : mod === ActiveModule.DATA_CONVERTER
-                ? "formatter"
-                : mod === ActiveModule.EXCEL_MERGER
-                ? "excel-merger"
-                : mod === ActiveModule.DOCUMENT_SCANNER
-                ? "doc-scanner"
-                : mod === ActiveModule.FILE_RENAMER
-                ? "file-renamer"
-                : mod === ActiveModule.DIR_AGGREGATOR
-                ? "dir-aggregator"
-                : mod === ActiveModule.FILE_METADATA
-                ? "file-metadata"
-                : "excel-splitter";
-            window.location.hash = canonicalHash;
-            setIsMobileMenuOpen(false); // Auto-close drawer on selection!
-          }}
+          currentMainSlug={currentMainSlug}
+          currentSubSlug={currentSubSlug}
           theme={state.theme}
           toggleTheme={toggleTheme}
           onCloseMobileDrawer={() => setIsMobileMenuOpen(false)}
@@ -309,64 +241,47 @@ function MainApp() {
 
       {/* Main Workspace Frame */}
       <main className="flex-1 flex flex-col h-full overflow-hidden">
-        {state.activeModule === ActiveModule.TEXT_UTILS && (
-          <TextUtilities
-            state={state.textUtils}
-            onChange={(subState) => handleModuleStateChange("textUtils", subState)}
-          />
-        )}
-        {state.activeModule === ActiveModule.COMPARE_MERGE && (
-          <CompareMerge
-            state={state.compareMerge}
-            onChange={(subState) => handleModuleStateChange("compareMerge", subState)}
+        {state.activeModule === ActiveModule.TEXT_SUITE && (
+          <TextAndCompareSuite
+            textState={state.textUtils}
+            onTextChange={(subState) => handleModuleStateChange("textUtils", subState)}
+            compareState={state.compareMerge}
+            onCompareChange={(subState) => handleModuleStateChange("compareMerge", subState)}
+            subSlug={currentSubSlug}
           />
         )}
         {state.activeModule === ActiveModule.DATA_CONVERTER && (
           <DataConverterHtml
             state={state.dataConverter}
             onChange={(subState) => handleModuleStateChange("dataConverter", subState)}
+            subSlug={currentSubSlug}
           />
         )}
-        {state.activeModule === ActiveModule.EXCEL_SPLITTER && (
-          <ExcelSplitterValidator
-            state={state.excelSplitter}
-            onChange={(subState) => handleModuleStateChange("excelSplitter", subState)}
-            onSwitchModule={(mod) => {
-              const canonicalHash = mod === ActiveModule.EXCEL_MERGER ? "excel-merger" : "excel-splitter";
-              window.location.hash = canonicalHash;
-            }}
-          />
-        )}
-        {state.activeModule === ActiveModule.EXCEL_MERGER && (
-          <ExcelMergerExtractor
-            state={state.excelMerger}
-            onChange={(subState) => handleModuleStateChange("excelMerger", subState)}
-            onSwitchModule={(mod) => {
-              const canonicalHash = mod === ActiveModule.EXCEL_MERGER ? "excel-merger" : "excel-splitter";
-              window.location.hash = canonicalHash;
-            }}
+        {state.activeModule === ActiveModule.EXCEL_SUITE && (
+          <ExcelSuite
+            splitterState={state.excelSplitter}
+            onSplitterChange={(subState) => handleModuleStateChange("excelSplitter", subState)}
+            mergerState={state.excelMerger}
+            onMergerChange={(subState) => handleModuleStateChange("excelMerger", subState)}
+            dirAggregatorState={state.dirAggregator}
+            onDirAggregatorChange={(subState) => handleModuleStateChange("dirAggregator", subState)}
+            subSlug={currentSubSlug}
           />
         )}
         {state.activeModule === ActiveModule.DOCUMENT_SCANNER && (
-          <DocScannerPdf />
+          <DocScannerPdf subSlug={currentSubSlug} />
         )}
-        {state.activeModule === ActiveModule.FILE_RENAMER && (
-          <FileRenamer
-            state={state.fileRenamer}
-            onChange={(subState) => handleModuleStateChange("fileRenamer", subState)}
+        {state.activeModule === ActiveModule.FILE_MANAGER && (
+          <FileManagerSuite
+            renamerState={state.fileRenamer}
+            onRenamerChange={(subState) => handleModuleStateChange("fileRenamer", subState)}
+            metadataState={state.fileMetadata}
+            onMetadataChange={(subState) => handleModuleStateChange("fileMetadata", subState)}
+            subSlug={currentSubSlug}
           />
         )}
-        {state.activeModule === ActiveModule.DIR_AGGREGATOR && (
-          <DirectoryAggregator
-            state={state.dirAggregator}
-            onChange={(subState) => handleModuleStateChange("dirAggregator", subState)}
-          />
-        )}
-        {state.activeModule === ActiveModule.FILE_METADATA && (
-          <FileMetadataEditor
-            state={state.fileMetadata}
-            onChange={(subState) => handleModuleStateChange("fileMetadata", subState)}
-          />
+        {state.activeModule === ActiveModule.FILE_CONVERTER && (
+          <FileConverter subSlug={currentSubSlug} />
         )}
       </main>
       

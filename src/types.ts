@@ -1,13 +1,14 @@
 export enum ActiveModule {
-  TEXT_UTILS = "text_utils",
-  COMPARE_MERGE = "compare_merge",
+  TEXT_SUITE = "text_suite",
   DATA_CONVERTER = "data_converter",
-  EXCEL_SPLITTER = "excel_splitter",
-  EXCEL_MERGER = "excel_merger",
+  EXCEL_SUITE = "excel_suite",
   DOCUMENT_SCANNER = "document_scanner",
-  FILE_RENAMER = "file_renamer",
-  DIR_AGGREGATOR = "dir_aggregator",
-  FILE_METADATA = "file_metadata",
+  FILE_MANAGER = "file_manager",
+  FILE_CONVERTER = "file_converter",
+}
+
+export interface FileConverterState {
+  activeCategory?: "all" | "document" | "image" | "audio_video" | "spreadsheet_data";
 }
 
 export interface FileMetadataState {

@@ -185,8 +185,16 @@ export default function FileRenamer({ state, onChange, hideInnerHeader = false }
 
   // Compute final new filename for an item
   const computeNewName = (item: FileItem, index: number): string => {
-    if (item.customOverride) {
-      return item.customOverride;
+    // Extension case
+    let ext = item.originalExt;
+    if (currentState.extensionCase === "lowercase") {
+      ext = ext.toLowerCase();
+    } else if (currentState.extensionCase === "uppercase") {
+      ext = ext.toUpperCase();
+    }
+
+    if (item.customOverride !== undefined && item.customOverride !== null && item.customOverride !== "") {
+      return ext ? `${item.customOverride}.${ext}` : item.customOverride;
     }
 
     let base = (currentState.enableCustomBaseName && currentState.customNewBaseName)
@@ -224,14 +232,6 @@ export default function FileRenamer({ state, onChange, hideInnerHeader = false }
       } else if (currentState.caseMode === "titlecase") {
         base = base.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase());
       }
-    }
-
-    // Extension case
-    let ext = item.originalExt;
-    if (currentState.extensionCase === "lowercase") {
-      ext = ext.toLowerCase();
-    } else if (currentState.extensionCase === "uppercase") {
-      ext = ext.toUpperCase();
     }
 
     return ext ? `${base}.${ext}` : base;
@@ -640,14 +640,6 @@ export default function FileRenamer({ state, onChange, hideInnerHeader = false }
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={copyNewNamesList}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
-                  >
-                    <Copy className="h-3.5 w-3.5 text-amber-500" />
-                    <span>Copy Name List</span>
-                  </button>
-
-                  <button
                     onClick={downloadAllAsZip}
                     disabled={isGeneratingZip}
                     className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-amber-600/20 cursor-pointer transition-all disabled:opacity-50"
@@ -680,8 +672,17 @@ export default function FileRenamer({ state, onChange, hideInnerHeader = false }
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
                     {files.map((item, idx) => {
-                      const computedName = computeNewName(item, idx);
+                      const computedFullName = computeNewName(item, idx);
                       const isEditing = editingId === item.id;
+                      let ext = item.originalExt;
+                      if (currentState.extensionCase === "lowercase") {
+                        ext = ext.toLowerCase();
+                      } else if (currentState.extensionCase === "uppercase") {
+                        ext = ext.toUpperCase();
+                      }
+
+                      const lastDot = computedFullName.lastIndexOf(".");
+                      const computedBase = lastDot > 0 ? computedFullName.substring(0, lastDot) : computedFullName;
 
                       return (
                         <tr
@@ -701,10 +702,10 @@ export default function FileRenamer({ state, onChange, hideInnerHeader = false }
                           </td>
                           <td className="py-2.5 px-3">
                             {isEditing ? (
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1.5">
                                 <input
                                   type="text"
-                                  defaultValue={computedName}
+                                  defaultValue={item.customOverride !== undefined ? item.customOverride : computedBase}
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter") {
                                       const val = (e.target as HTMLInputElement).value;
@@ -730,11 +731,20 @@ export default function FileRenamer({ state, onChange, hideInnerHeader = false }
                                     setEditingId(null);
                                   }}
                                   autoFocus
-                                  className="px-2 py-1 rounded-lg border border-amber-500 bg-white dark:bg-slate-900 text-xs font-bold text-amber-700 dark:text-amber-300 w-full outline-hidden"
+                                  className="px-2 py-1 rounded-lg border border-amber-500 bg-white dark:bg-slate-900 text-xs font-bold text-amber-700 dark:text-amber-300 w-full max-w-[180px] sm:max-w-[220px] outline-hidden shadow-2xs"
+                                  placeholder={lang === "vi" ? "Tên tệp mới..." : "New base name..."}
                                 />
+                                {ext && (
+                                  <span
+                                    className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800/60 shrink-0 select-none"
+                                    title={lang === "vi" ? "Đuôi tệp được khóa an toàn" : "Extension locked"}
+                                  >
+                                    .{ext}
+                                  </span>
+                                )}
                                 <button
                                   onClick={() => setEditingId(null)}
-                                  className="p-1 text-emerald-600 hover:text-emerald-500"
+                                  className="p-1 text-emerald-600 hover:text-emerald-500 cursor-pointer"
                                 >
                                   <Check className="h-3.5 w-3.5" />
                                 </button>
@@ -742,7 +752,7 @@ export default function FileRenamer({ state, onChange, hideInnerHeader = false }
                             ) : (
                               <div className="flex items-center justify-between group-hover:pr-2">
                                 <span className="font-bold text-amber-700 dark:text-amber-300 font-mono tracking-tight">
-                                  {computedName}
+                                  {computedFullName}
                                 </span>
                                 <button
                                   onClick={() => setEditingId(item.id)}

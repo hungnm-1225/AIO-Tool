@@ -38,6 +38,10 @@ export default function Sidebar({
   // Accordion state: Record of mainSlug -> boolean (Default: all closed)
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
 
+  // Flyout menu state for collapsed mode
+  const [openFlyoutSlug, setOpenFlyoutSlug] = useState<string | null>(null);
+  const [flyoutTop, setFlyoutTop] = useState<number>(100);
+
   useEffect(() => {
     setExpandedMenus({ [currentMainSlug]: true });
   }, [currentMainSlug]);
@@ -96,10 +100,10 @@ export default function Sidebar({
       case "pdf-suite":
       case "quet-tai-lieu":
         return {
-          bg: "bg-rose-50 dark:bg-rose-600/10",
-          text: "text-rose-600 dark:text-rose-400",
-          border: "border-rose-100 dark:border-rose-500/20",
-          subActiveBg: "bg-rose-100/70 dark:bg-rose-600/20 text-rose-700 dark:text-rose-300 font-semibold"
+          bg: "bg-purple-50 dark:bg-purple-600/10",
+          text: "text-purple-600 dark:text-purple-400",
+          border: "border-purple-100 dark:border-purple-500/20",
+          subActiveBg: "bg-purple-100/70 dark:bg-purple-600/20 text-purple-700 dark:text-purple-300 font-semibold"
         };
       case "file-manager":
       case "quan-ly-tep":
@@ -170,7 +174,7 @@ export default function Sidebar({
                   </h1>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-full font-bold">
-                      v2.8.3
+                      v2.8.15
                     </span>
                   </div>
                 </div>
@@ -243,14 +247,21 @@ export default function Sidebar({
             const mainLabel = lang === "vi" ? item.labelVi : item.labelEn;
 
             if (isCollapsed) {
+              const isFlyoutOpen = openFlyoutSlug === item.mainSlug;
               return (
                 <div key={item.mainSlug} className="relative group">
                   <button
-                    onClick={() => {
-                      navigateTo(`/${item.mainSlug}/${item.submenus[0].subSlug}`);
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      if (openFlyoutSlug === item.mainSlug) {
+                        setOpenFlyoutSlug(null);
+                      } else {
+                        setOpenFlyoutSlug(item.mainSlug);
+                        setFlyoutTop(rect.top);
+                      }
                     }}
                     className={`h-11 w-11 flex items-center justify-center rounded-xl transition-all duration-200 cursor-pointer ${
-                      isMainActive
+                      isFlyoutOpen || isMainActive
                         ? `${activeColor.bg} ${activeColor.text} border ${activeColor.border}`
                         : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 border border-transparent"
                     }`}
@@ -378,6 +389,83 @@ export default function Sidebar({
           </div>
         </div>
       )}
+
+      {/* Flyout Submenu Overlay for Collapsed Mode */}
+      {isCollapsed && openFlyoutSlug && (() => {
+        const activeFlyoutItem = MAIN_MENU_ITEMS.find((i) => i.mainSlug === openFlyoutSlug);
+        if (!activeFlyoutItem) return null;
+        const activeColor = getMainActiveStyles(activeFlyoutItem.mainSlug);
+
+        return (
+          <>
+            {/* Click Outside Overlay */}
+            <div
+              className="fixed inset-0 z-40 bg-black/10 dark:bg-black/30 backdrop-blur-[1px]"
+              onClick={() => setOpenFlyoutSlug(null)}
+            />
+
+            {/* Flyout Popover Card */}
+            <div
+              className="fixed left-[84px] z-50 w-64 bg-white/95 dark:bg-[#111827]/95 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-3 backdrop-blur-md animate-in fade-in slide-in-from-left-2 duration-150"
+              style={{
+                top: `${Math.min(window.innerHeight - 300, Math.max(12, flyoutTop))}px`,
+              }}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded-lg ${activeColor.bg} ${activeColor.text}`}>
+                    <activeFlyoutItem.icon className="h-4 w-4" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                    {lang === "vi" ? activeFlyoutItem.labelVi : activeFlyoutItem.labelEn}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpenFlyoutSlug(null)}
+                  className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              {/* Submenu Options List */}
+              <div className="space-y-1">
+                {activeFlyoutItem.submenus.map((sub: SubMenuItem) => {
+                  const SubIcon = sub.icon;
+                  const isSubActive =
+                    currentMainSlug === activeFlyoutItem.mainSlug && currentSubSlug === sub.subSlug;
+                  const subLabel = lang === "vi" ? sub.labelVi : sub.labelEn;
+
+                  return (
+                    <button
+                      key={sub.subSlug}
+                      type="button"
+                      onClick={() => {
+                        handleSubmenuClick(activeFlyoutItem.mainSlug, sub.subSlug);
+                        setOpenFlyoutSlug(null);
+                      }}
+                      className={`w-full flex items-center gap-2.5 p-2 rounded-xl text-left transition-all duration-150 cursor-pointer ${
+                        isSubActive
+                          ? activeColor.subActiveBg
+                          : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white"
+                      }`}
+                    >
+                      <div className={isSubActive ? activeColor.text : "text-slate-400 dark:text-slate-500"}>
+                        <SubIcon className="h-4 w-4" />
+                      </div>
+                      <div className="text-xs font-semibold truncate">
+                        {subLabel}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        );
+      })()}
     </aside>
   );
 }

@@ -2,9 +2,12 @@ import React, { useState, useMemo, useEffect } from "react";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 import * as pdfjsLib from "pdfjs-dist";
+import { marked } from "marked";
 import { toast } from "react-toastify";
 import { useI18n } from "../utils/i18n";
+import { addUnicodeFont } from "../utils/unicodeFont";
 import {
   RefreshCw,
   Upload,
@@ -44,10 +47,11 @@ interface ConvertedFileItem {
 
 const SUPPORTED_CONVERSIONS: Record<string, string[]> = {
   // Document
-  pdf: ["docx", "txt"],
-  docx: ["pdf", "txt"],
-  txt: ["pdf", "docx"],
-  epub: ["pdf", "txt"],
+  pdf: ["docx", "txt", "md"],
+  docx: ["pdf", "txt", "md"],
+  txt: ["pdf", "docx", "md"],
+  md: ["pdf", "docx", "txt"],
+  epub: ["pdf", "txt", "md"],
 
   // Image
   png: ["jpg", "jpeg", "webp", "bmp"],
@@ -157,7 +161,7 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
   // Helper to detect category from file extension
   const getCategoryFromExt = (ext: string): CategoryType => {
     const e = ext.toLowerCase();
-    if (["pdf", "docx", "doc", "txt", "epub"].includes(e)) return "document";
+    if (["pdf", "docx", "doc", "txt", "epub", "md"].includes(e)) return "document";
     if (["png", "jpg", "jpeg", "webp", "bmp", "heic", "gif"].includes(e)) return "image";
     if (["mp3", "wav", "aac", "mp4", "avi", "mkv", "webm", "flac"].includes(e)) return "audio_video";
     if (["xlsx", "xls", "csv", "json", "xml"].includes(e)) return "data";
@@ -207,18 +211,48 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
     return fileList.filter((item) => item.category === activeCategory);
   }, [fileList, activeCategory]);
 
+  const categoryCounts = useMemo(() => {
+    const counts: Record<CategoryType, number> = { all: fileList.length, document: 0, image: 0, audio_video: 0, data: 0 };
+    fileList.forEach(item => {
+      if (counts[item.category] !== undefined) {
+        counts[item.category]++;
+      }
+    });
+    return counts;
+  }, [fileList]);
+
   // Target format selector change handler
   const handleTargetChange = (id: string, newTarget: string) => {
     setFileList((prev) =>
       prev.map((item) => {
         if (item.id === id) {
-          const newName = `${item.name.replace(/\.[a-z0-9]+$/i, "")}.${newTarget}`;
+          const lastDot = item.name.lastIndexOf(".");
+          const baseName = lastDot > 0 ? item.name.substring(0, lastDot) : item.name;
+          const newName = `${baseName}.${newTarget}`;
           return {
             ...item,
             targetFormat: newTarget,
             resultFilename: newName,
             status: "idle",
             resultBlob: null,
+          };
+        }
+        return item;
+      })
+    );
+  };
+
+  // Handle rename base filename (extension is locked)
+  const handleRenameBase = (id: string, newBase: string) => {
+    setFileList((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          const newFullName = `${newBase}.${item.sourceExt}`;
+          const newResultName = `${newBase}.${item.targetFormat}`;
+          return {
+            ...item,
+            name: newFullName,
+            resultFilename: newResultName,
           };
         }
         return item;
@@ -319,32 +353,173 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
     return new Blob([docxHtml], { type: "application/msword;charset=utf-8" });
   };
 
-  // 3. Convert DOCX to PDF or TXT
-  const convertDocxToPdfOrTxt = async (file: File, targetExt: string): Promise<Blob> => {
-    const mammoth = await import("mammoth");
-    const buffer = await file.arrayBuffer();
-    const result = await mammoth.extractRawText({ arrayBuffer: buffer });
-    const text = result.value || "";
+  // 3. Convert Documents (DOCX, PDF, TXT, MD) using mammoth, marked, and jsPDF html plugin
+  const convertDocument = async (file: File, sourceExt: string, targetExt: string): Promise<Blob> => {
+    let htmlContent = "";
+    let plainText = "";
 
-    if (targetExt === "txt") {
-      return new Blob([text], { type: "text/plain;charset=utf-8" });
+    const ext = sourceExt.toLowerCase();
+    if (ext === "docx" || ext === "doc") {
+      const mammoth = await import("mammoth");
+      const buffer = await file.arrayBuffer();
+      const htmlResult = await mammoth.convertToHtml({ arrayBuffer: buffer });
+      const textResult = await mammoth.extractRawText({ arrayBuffer: buffer });
+      htmlContent = htmlResult.value || "";
+      plainText = textResult.value || "";
+    } else if (ext === "md") {
+      const text = await file.text();
+      plainText = text;
+      htmlContent = await marked.parse(text);
+    } else if (ext === "pdf") {
+      const buffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+      let fullText = "";
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((it: any) => it.str).join(" ");
+        fullText += `<p>${pageText}</p>`;
+      }
+      plainText = fullText.replace(/<[^>]+>/g, "");
+      htmlContent = fullText;
+    } else {
+      plainText = await file.text();
+      htmlContent = `<p>${plainText.replace(/\n/g, "<br/>")}</p>`;
     }
 
-    // DOCX to PDF using jsPDF
-    const doc = new jsPDF();
-    const splitLines = doc.splitTextToSize(text, 180);
-    let cursorY = 20;
+    if (targetExt === "txt") {
+      return new Blob([plainText], { type: "text/plain;charset=utf-8" });
+    }
 
-    splitLines.forEach((line: string) => {
-      if (cursorY > 270) {
-        doc.addPage();
-        cursorY = 20;
+    if (targetExt === "md") {
+      const mdContent = `# ${file.name.replace(/\.[a-z0-9]+$/i, "")}\n\n${plainText}`;
+      return new Blob([mdContent], { type: "text/markdown;charset=utf-8" });
+    }
+
+    if (targetExt === "docx") {
+      const docxHtml = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head><meta charset='utf-8'><title>Converted Document</title></head>
+        <body style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6;">
+          <h2 style="color: #2563eb;">${file.name.replace(/\.[a-z0-9]+$/i, "")}</h2>
+          <div>${htmlContent}</div>
+        </body>
+        </html>
+      `;
+      return new Blob([docxHtml], { type: "application/msword;charset=utf-8" });
+    }
+
+    if (targetExt === "pdf") {
+      const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      addUnicodeFont(doc);
+
+      // Clean up Word/wingdings special bullet symbols & odd characters in htmlContent
+      const cleanHtml = htmlContent
+        .replace(/[\uF000-\uF0FF]/g, "•")
+        .replace(/%æ%/g, "")
+        .replace(/(<li[^>]*>)\s*[%æ%•\uF0B7\u2022\s]*/gi, "$1");
+
+      const container = document.createElement("div");
+      container.style.position = "fixed";
+      container.style.top = "0";
+      container.style.left = "0";
+      container.style.width = "545px";
+      container.style.padding = "0px";
+      container.style.boxSizing = "border-box";
+      container.style.backgroundColor = "#ffffff";
+      container.style.color = "#0f172a";
+      container.style.zIndex = "-99999";
+      container.style.opacity = "0.01";
+      container.style.pointerEvents = "none";
+
+      container.innerHTML = `
+        <style>
+          * { box-sizing: border-box; }
+          .pdf-content-body {
+            font-family: Arial, 'Helvetica Neue', Roboto, 'Segoe UI', sans-serif !important;
+            font-size: 13px !important;
+            line-height: 1.6 !important;
+            color: #0f172a !important;
+            width: 100% !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+          }
+          .pdf-content-body p { margin: 0 0 10px 0 !important; color: inherit; }
+          .pdf-content-body h1 { font-size: 22px !important; margin: 16px 0 8px 0 !important; font-weight: bold !important; color: #1e293b !important; page-break-after: avoid !important; break-after: avoid !important; }
+          .pdf-content-body h2 { font-size: 18px !important; margin: 14px 0 6px 0 !important; font-weight: bold !important; color: #1e293b !important; page-break-after: avoid !important; break-after: avoid !important; }
+          .pdf-content-body h3 { font-size: 15px !important; margin: 12px 0 6px 0 !important; font-weight: bold !important; color: #1e293b !important; page-break-after: avoid !important; break-after: avoid !important; }
+          .pdf-content-body ul { list-style: none !important; margin: 6px 0 10px 0 !important; padding-left: 18px !important; display: block !important; }
+          .pdf-content-body ul > li { position: relative !important; padding-left: 12px !important; margin-bottom: 4px !important; line-height: 1.5 !important; display: block !important; }
+          .pdf-content-body ul > li::before { content: "•" !important; position: absolute !important; left: -12px !important; top: 0 !important; font-size: 14px !important; line-height: 1.4 !important; color: #1e293b !important; font-weight: bold !important; }
+          .pdf-content-body ol { counter-reset: pdf-list-counter !important; list-style: none !important; margin: 6px 0 10px 0 !important; padding-left: 20px !important; display: block !important; }
+          .pdf-content-body ol > li { counter-increment: pdf-list-counter !important; position: relative !important; padding-left: 10px !important; margin-bottom: 4px !important; line-height: 1.5 !important; display: block !important; }
+          .pdf-content-body ol > li::before { content: counter(pdf-list-counter) "." !important; position: absolute !important; left: -18px !important; top: 0 !important; font-weight: bold !important; color: #1e293b !important; }
+          .pdf-content-body a { color: #2563eb !important; text-decoration: underline !important; }
+          .pdf-content-body table { border-collapse: collapse !important; width: 100% !important; margin: 12px 0 !important; page-break-inside: avoid !important; break-inside: avoid !important; table-layout: fixed !important; }
+          .pdf-content-body th, .pdf-content-body td { border: 1px solid #cbd5e1 !important; padding: 6px 10px !important; vertical-align: top !important; word-break: break-word !important; }
+          .pdf-content-body th { background-color: #f8fafc !important; font-weight: bold !important; }
+          .pdf-content-body img {
+            max-width: 100% !important;
+            height: auto !important;
+            max-height: 720px !important;
+            object-fit: contain !important;
+            display: block !important;
+            margin: 10px auto !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          .pdf-content-body figure { margin: 10px 0 !important; max-width: 100% !important; page-break-inside: avoid !important; break-inside: avoid !important; }
+          .pdf-content-body pre, .pdf-content-body code { background-color: #f1f5f9 !important; padding: 4px 8px !important; border-radius: 4px !important; font-family: monospace !important; white-space: pre-wrap !important; word-break: break-all !important; }
+          .pdf-content-body blockquote { border-left: 3px solid #cbd5e1 !important; padding-left: 10px !important; margin: 8px 0 !important; color: #64748b !important; page-break-inside: avoid !important; break-inside: avoid !important; }
+        </style>
+        <div class="pdf-content-body">
+          ${cleanHtml}
+        </div>
+      `;
+      document.body.appendChild(container);
+
+      // Wait for any embedded images (e.g. from mammoth base64, etc.) to fully load
+      const imgs = container.querySelectorAll("img");
+      if (imgs.length > 0) {
+        await Promise.all(
+          Array.from(imgs).map(
+            (img) =>
+              new Promise<void>((res) => {
+                if (img.complete) res();
+                else {
+                  img.onload = () => res();
+                  img.onerror = () => res();
+                }
+              })
+          )
+        );
       }
-      doc.text(line, 15, cursorY);
-      cursorY += 7;
-    });
 
-    return doc.output("blob");
+      await new Promise<void>((resolve, reject) => {
+        doc.html(container, {
+          html2canvas: {
+            scale: 1,
+            useCORS: true,
+            allowTaint: true,
+            logging: false,
+          },
+          margin: [25, 25, 25, 25],
+          autoPaging: "text",
+          x: 0,
+          y: 0,
+          width: 545,
+          windowWidth: 545,
+          callback: () => {
+            resolve();
+          },
+        }).catch((err) => reject(err));
+      });
+
+      document.body.removeChild(container);
+      return doc.output("blob");
+    }
+
+    return new Blob([plainText], { type: "text/plain;charset=utf-8" });
   };
 
   // 4. Convert Data / Spreadsheets (XLSX, CSV, JSON, XML)
@@ -488,10 +663,8 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
 
       if (cat === "image") {
         resultBlob = await convertImage(originalFile, targetFormat);
-      } else if (sourceExt === "pdf") {
-        resultBlob = await convertPdfToTextOrDocx(originalFile, targetFormat);
-      } else if (sourceExt === "docx") {
-        resultBlob = await convertDocxToPdfOrTxt(originalFile, targetFormat);
+      } else if (cat === "document") {
+        resultBlob = await convertDocument(originalFile, sourceExt, targetFormat);
       } else if (cat === "data") {
         resultBlob = await convertDataSpreadsheet(originalFile, sourceExt, targetFormat);
       } else if (cat === "audio_video") {
@@ -621,7 +794,7 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
           }`}
         >
           <Layers className="h-3.5 w-3.5" />
-          <span>{lang === "vi" ? "Tất Cả Định Dạng" : "All Formats"}</span>
+          <span>{lang === "vi" ? `Tất Cả (${categoryCounts.all})` : `All (${categoryCounts.all})`}</span>
         </button>
 
         <button
@@ -633,7 +806,7 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
           }`}
         >
           <FileText className="h-3.5 w-3.5" />
-          <span>{lang === "vi" ? "Tài Liệu Văn Bản (PDF/DOCX/TXT/EPUB)" : "Documents (PDF/DOCX/TXT)"}</span>
+          <span>{lang === "vi" ? `Tài Liệu (PDF/DOCX/TXT/MD) (${categoryCounts.document})` : `Documents (${categoryCounts.document})`}</span>
         </button>
 
         <button
@@ -645,7 +818,7 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
           }`}
         >
           <FileImage className="h-3.5 w-3.5" />
-          <span>{lang === "vi" ? "Hình Ảnh (PNG/JPG/WEBP/HEIC)" : "Images (PNG/JPG/WEBP)"}</span>
+          <span>{lang === "vi" ? `Hình Ảnh (${categoryCounts.image})` : `Images (${categoryCounts.image})`}</span>
         </button>
 
         <button
@@ -657,7 +830,7 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
           }`}
         >
           <FileAudio className="h-3.5 w-3.5" />
-          <span>{lang === "vi" ? "Âm Thanh & Video (MP3/WAV/MP4)" : "Audio & Video (MP3/MP4)"}</span>
+          <span>{lang === "vi" ? `Âm Thanh & Video (${categoryCounts.audio_video})` : `Audio & Video (${categoryCounts.audio_video})`}</span>
         </button>
 
         <button
@@ -669,7 +842,7 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
           }`}
         >
           <FileSpreadsheet className="h-3.5 w-3.5" />
-          <span>{lang === "vi" ? "Bảng Tính & Dữ Liệu (XLSX/CSV/JSON/XML)" : "Data (XLSX/CSV/JSON/XML)"}</span>
+          <span>{lang === "vi" ? `Bảng Tính & Dữ Liệu (${categoryCounts.data})` : `Data (${categoryCounts.data})`}</span>
         </button>
       </div>
 
@@ -692,8 +865,8 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               {lang === "vi"
-                ? "Hỗ trợ tệp PDF, DOCX, TXT, PNG, JPG, WEBP, MP3, WAV, MP4, XLSX, CSV, JSON, XML..."
-                : "Supports PDF, DOCX, TXT, PNG, JPG, WEBP, MP3, WAV, MP4, XLSX, CSV, JSON, XML..."}
+                ? "Hỗ trợ tệp PDF, DOCX, TXT, MD, PNG, JPG, WEBP, MP3, WAV, MP4, XLSX, CSV, JSON, XML..."
+                : "Supports PDF, DOCX, TXT, MD, PNG, JPG, WEBP, MP3, WAV, MP4, XLSX, CSV, JSON, XML..."}
             </p>
           </div>
         </div>
@@ -701,45 +874,83 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
 
       {/* File List Grid & Table */}
       {filteredFiles.length > 0 ? (
-        <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
-          <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+        <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden flex flex-col">
+          <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono font-bold uppercase text-slate-500">
                 {lang === "vi" ? `Danh sách tệp (${filteredFiles.length})` : `Conversion Queue (${filteredFiles.length})`}
               </span>
             </div>
-            <button
-              onClick={clearAll}
-              className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 cursor-pointer"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span>{lang === "vi" ? "Xóa Tất Cả" : "Clear All"}</span>
-            </button>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={handleBatchConvert}
+                disabled={isBatchConverting}
+                className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-semibold text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isBatchConverting ? "animate-spin" : ""}`} />
+                <span>
+                  {lang === "vi"
+                    ? `Chuyển Đổi Tất Cả (${fileList.filter((f) => f.status === "done").length}/${fileList.length})`
+                    : `Convert All (${fileList.filter((f) => f.status === "done").length}/${fileList.length})`}
+                </span>
+              </button>
+
+              {fileList.length > 0 && fileList.some((f) => f.status === "done") && (
+                <button
+                  onClick={downloadAllAsZip}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer animate-fadeIn"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>{lang === "vi" ? "Tải File Nén ZIP" : "Download ZIP"}</span>
+                </button>
+              )}
+
+              <button
+                onClick={clearAll}
+                className="px-3.5 py-1.5 rounded-xl border border-rose-500/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>{lang === "vi" ? "Xóa Tất Cả" : "Clear All"}</span>
+              </button>
+            </div>
           </div>
 
-          <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+          <div className="divide-y divide-slate-100 dark:divide-slate-800/60 max-h-[420px] overflow-y-auto">
             {filteredFiles.map((item) => {
               const allowedTargets = SUPPORTED_CONVERSIONS[item.sourceExt.toLowerCase()] || ["txt", "pdf"];
+              const lastDot = item.name.lastIndexOf(".");
+              const baseName = lastDot > 0 ? item.name.substring(0, lastDot) : item.name;
 
               return (
                 <div
                   key={item.id}
                   className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-900/40 transition-colors"
                 >
-                  {/* File Info */}
+                  {/* File Info & Inline Base Name Editing */}
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 flex-shrink-0">
                       <FileIcon className="h-5 w-5 text-amber-500" />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
-                        {item.name}
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <input
+                          type="text"
+                          value={baseName}
+                          onChange={(e) => handleRenameBase(item.id, e.target.value)}
+                          className="px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-xs font-semibold font-mono focus:outline-none focus:border-amber-500 w-full max-w-[220px] sm:max-w-[280px] shadow-2xs"
+                          placeholder={lang === "vi" ? "Đổi tên tệp..." : "Rename file..."}
+                          title={lang === "vi" ? "Sửa tên tệp trực tiếp" : "Edit base filename directly"}
+                        />
+                        <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800/60 shrink-0 select-none" title={lang === "vi" ? "Đuôi tệp được khóa an toàn" : "Extension locked"}>
+                          .{item.sourceExt}
+                        </span>
                       </div>
-                      <div className="text-xs text-slate-400 flex items-center gap-2">
+                      <div className="text-[11px] text-slate-400 flex items-center gap-2">
                         <span>{(item.originalFile.size / 1024).toFixed(1)} KB</span>
                         <span>•</span>
-                        <span className="uppercase font-mono text-amber-600 dark:text-amber-400 font-bold">
-                          {item.sourceExt}
+                        <span className="text-slate-500">
+                          {lang === "vi" ? "File đích:" : "Output:"} <strong className="text-amber-600 dark:text-amber-400 font-mono">{item.resultFilename}</strong>
                         </span>
                       </div>
                     </div>
@@ -814,28 +1025,6 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
                 </div>
               );
             })}
-          </div>
-
-          {/* New Footer with Action Buttons */}
-          <div className="p-4 bg-slate-50 dark:bg-slate-900/40 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-end gap-3 flex-wrap">
-            {fileList.some((f) => f.status === "done") && (
-              <button
-                onClick={downloadAllAsZip}
-                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-all shadow-xs flex items-center gap-2 cursor-pointer animate-fadeIn"
-              >
-                <Download className="h-4 w-4" />
-                <span>{lang === "vi" ? "Tải File Nén ZIP" : "Download ZIP"}</span>
-              </button>
-            )}
-
-            <button
-              onClick={handleBatchConvert}
-              disabled={isBatchConverting}
-              className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-semibold text-xs transition-all shadow-md shadow-amber-600/20 flex items-center gap-2 cursor-pointer"
-            >
-              <RefreshCw className={`h-4 w-4 ${isBatchConverting ? "animate-spin" : ""}`} />
-              <span>{lang === "vi" ? "Chuyển Đổi Hàng Loạt" : "Convert All"}</span>
-            </button>
           </div>
         </div>
       ) : null}

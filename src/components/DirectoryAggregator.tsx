@@ -307,7 +307,7 @@ export default function DirectoryAggregator({
     const blob1 = new Blob(["\ufeff" + textData], { type: "text/csv;charset=utf-8" });
     const file1 = new File([blob1], "HaNoi_NhanVien_PL1.csv");
 
-    const textData2 = `Ma Nhan Vien,Ho Ten,Chuc Danh,Email\nNV-003,Trần Hữu Kiên,Trưởng Nhóm,kien.th@company.com\nNV-004,Đặng Minh Hoàng,Nhân Viên Lập Trình,hoang.dm@company.com\nNV-003,Trần Hữu Kiên,Trùng Lặp,kien.th@company.com`;
+    const textData2 = `Mã Nhân Viên,Họ Tên,Chức Danh,Phòng Ban\nNV-003,Trần Hữu Kiên,Trưởng Nhóm,Phòng Marketing\nNV-004,Đặng Minh Hoàng,Nhân Viên Lập Trình,Phòng phát triển phần mềm\nNV-003,Trần Hữu Kiên,Trùng Lặp,Ngoại lệ`;
     const blob2 = new Blob(["\ufeff" + textData2], { type: "text/csv;charset=utf-8" });
     const file2 = new File([blob2], "HoChiMinh_NhanVien_PL2.csv");
 

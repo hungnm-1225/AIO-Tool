@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 import { PDFDocument, degrees } from "pdf-lib";
 import { useI18n } from "../utils/i18n";
+import { pdfSessionStore } from "../utils/sessionHelper";
 import { 
   Upload, 
   Trash2, 
@@ -36,15 +37,26 @@ interface PageItem {
 
 export default function PdfMerge() {
   const { lang } = useI18n();
-  const [pages, setPages] = useState<PageItem[]>([]);
+  const [pages, setPages] = useState<PageItem[]>(() => {
+    const saved = pdfSessionStore.getMerge();
+    return saved?.pages || [];
+  });
   const [loading, setLoading] = useState(false);
-  const [mergeOutputName, setMergeOutputName] = useState("Gop_Tai_Lieu");
+  const [mergeOutputName, setMergeOutputName] = useState(() => {
+    const saved = pdfSessionStore.getMerge();
+    return saved?.mergeOutputName || "Gop_Tai_Lieu";
+  });
   const [isMerging, setIsMerging] = useState(false);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   // Fullscreen Viewer state
   const [fullscreenIdx, setFullscreenIdx] = useState<number | null>(null);
+
+  // Sync to session store
+  useEffect(() => {
+    pdfSessionStore.setMerge({ pages, mergeOutputName });
+  }, [pages, mergeOutputName]);
 
   // Load pages from selected PDF files
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -66,11 +78,13 @@ export default function PdfMerge() {
     for (const file of pdfFiles) {
       try {
         const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+        // Clone arrayBuffer so worker transfer does not detach main buffer
+        const bytesForPdfjs = new Uint8Array(arrayBuffer.slice(0));
+        const pdf = await pdfjsLib.getDocument({ data: bytesForPdfjs }).promise;
 
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale: 0.4 }); // Thumbnail size
+          const viewport = page.getViewport({ scale: 1.0 }); // Larger crisp thumbnail rendering
 
           const canvas = document.createElement("canvas");
           const context = canvas.getContext("2d");
@@ -80,7 +94,7 @@ export default function PdfMerge() {
             await page.render({ canvasContext: context, viewport } as any).promise;
           }
 
-          const thumbnailUrl = canvas.toDataURL("image/jpeg", 0.85);
+          const thumbnailUrl = canvas.toDataURL("image/jpeg", 0.9);
 
           newPages.push({
             id: `page-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
@@ -136,10 +150,9 @@ export default function PdfMerge() {
   };
 
   const clearAll = () => {
-    if (window.confirm(lang === "vi" ? "Bạn có chắc muốn xoá tất cả trang đã chọn?" : "Are you sure you want to clear all pages?")) {
-      setPages([]);
-      toast.info(lang === "vi" ? "Đã dọn dẹp danh sách" : "Clear list");
-    }
+    setPages([]);
+    pdfSessionStore.clearMerge();
+    toast.info(lang === "vi" ? "Đã xoá sạch danh sách" : "List cleared");
   };
 
   // Merge Action
@@ -219,17 +232,12 @@ export default function PdfMerge() {
       {/* Upper Action Bar / Header */}
       <div className="bg-white dark:bg-[#111827] border-b border-slate-200 dark:border-slate-800/80 px-[25px] py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0">
         <div className="flex items-start gap-3.5">
-          <div className="h-11 w-11 rounded-xl bg-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-600/20 flex-shrink-0 mt-0.5">
+          <div className="h-11 w-11 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-600/20 flex-shrink-0 mt-0.5">
             <FileStack className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
-              <span>{lang === "vi" ? "Ghép File PDF" : "Merge PDF Files"}</span>
-              {pages.length > 0 && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400 font-bold border border-rose-100 dark:border-rose-900/40">
-                  {pages.length} {lang === "vi" ? "Trang" : "Pages"}
-                </span>
-              )}
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              {lang === "vi" ? "Ghép File PDF" : "Merge PDF Files"}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               {lang === "vi" 
@@ -238,39 +246,16 @@ export default function PdfMerge() {
             </p>
           </div>
         </div>
-
-        {pages.length > 0 && (
-          <div className="flex items-center gap-2 self-stretch md:self-auto">
-            <label className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs">
-              <Upload className="h-3.5 w-3.5 text-rose-500" />
-              <span>{lang === "vi" ? "Thêm tệp" : "Add files"}</span>
-              <input
-                type="file"
-                multiple
-                accept="application/pdf"
-                onChange={handlePdfUpload}
-                className="hidden"
-              />
-            </label>
-            <button
-              onClick={clearAll}
-              className="px-4 py-2 text-xs font-semibold rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span>{lang === "vi" ? "Xoá tất cả" : "Clear all"}</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Main Body Content Scrollable Area */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-6 max-w-5xl w-full mx-auto">
 
       {pages.length === 0 ? (
         <div className="w-full">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-16 space-y-3 bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-              <Loader2 className="h-10 w-10 text-rose-500 animate-spin" />
+              <Loader2 className="h-10 w-10 text-purple-500 animate-spin" />
               <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">
                 {lang === "vi" ? "Đang trích xuất nội dung và dựng ảnh các trang..." : "Extracting pages and rendering previews..."}
               </span>
@@ -289,10 +274,10 @@ export default function PdfMerge() {
                   await processFiles(Array.from(e.dataTransfer.files));
                 }
               }}
-              className={`relative border-2 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center min-h-[300px] transition-all cursor-pointer ${
+              className={`relative border-2 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center min-h-[320px] transition-all cursor-pointer ${
                 zoneDragOver 
-                  ? "border-rose-500 bg-rose-50/30 dark:bg-rose-950/20 scale-[0.99]" 
-                  : "border-rose-300 dark:border-rose-800/60 bg-rose-50/10 dark:bg-rose-950/5 hover:border-rose-500 dark:hover:border-rose-700/80"
+                  ? "border-purple-500 bg-purple-50/30 dark:bg-purple-950/20 scale-[0.99]" 
+                  : "border-purple-300 dark:border-purple-800/60 bg-purple-50/10 dark:bg-purple-950/5 hover:border-purple-500 dark:hover:border-purple-700/80"
               }`}
             >
               <input
@@ -302,7 +287,7 @@ export default function PdfMerge() {
                 onChange={handlePdfUpload}
                 className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
               />
-              <div className="p-4 rounded-2xl bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 mb-4">
+              <div className="p-4 rounded-2xl bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 mb-4">
                 <Upload className="h-8 w-8" />
               </div>
               <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
@@ -315,11 +300,77 @@ export default function PdfMerge() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Side: Upload Zone & Page Previews */}
-          <div className="lg:col-span-8 space-y-6">
+        <div className="space-y-6">
+          {/* Operational Action Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+              {lang === "vi" ? `Đã nạp ${pages.length} trang` : `${pages.length} pages loaded`}
+            </span>
+            <div className="flex items-center gap-2">
+              <label className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs">
+                <Upload className="h-3.5 w-3.5 text-purple-500" />
+                <span>{lang === "vi" ? "Thêm tệp" : "Add files"}</span>
+                <input
+                  type="file"
+                  multiple
+                  accept="application/pdf"
+                  onChange={handlePdfUpload}
+                  className="hidden"
+                />
+              </label>
+              <button
+                onClick={clearAll}
+                className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-rose-500/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>{lang === "vi" ? "Xoá tất cả" : "Clear all"}</span>
+              </button>
+            </div>
+          </div>
 
-          {/* Pages Grid */}
+          {/* Export Settings Panel (Positioned directly below Operational Action Bar) */}
+          <div className="bg-white dark:bg-[#111827] border border-purple-200 dark:border-purple-800/80 rounded-2xl p-5 shadow-xs space-y-4">
+            <h3 className="text-xs font-bold tracking-wider text-purple-600 dark:text-purple-400 uppercase pb-2 border-b border-slate-100 dark:border-slate-800">
+              {lang === "vi" ? "Cài Đặt Xuất File" : "Export Settings"}
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+              {/* Output File Name */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {lang === "vi" ? "Tên tệp xuất ra (.pdf)" : "Output file name (.pdf)"}
+                </label>
+                <input
+                  type="text"
+                  value={mergeOutputName}
+                  onChange={(e) => setMergeOutputName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B0F1A] text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-purple-500/20 text-slate-800 dark:text-slate-200"
+                  placeholder="Merged_Document"
+                />
+              </div>
+
+              {/* Export Trigger Button */}
+              <button
+                onClick={handleMerge}
+                disabled={pages.length === 0 || isMerging}
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-purple-600/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all h-[38px]"
+              >
+                {isMerging ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>{lang === "vi" ? "Đang ghép tệp PDF..." : "Merging PDFs..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <FileDown className="h-4 w-4" />
+                    <span>{lang === "vi" ? `Thực Hiện Ghép PDF (${pages.length} trang)` : `Proceed to Merge (${pages.length} pages)`}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Pages Grid List */}
           {!loading && pages.length > 0 && (
             <div className="space-y-3">
               <div className="flex justify-between items-center px-1">
@@ -365,7 +416,7 @@ export default function PdfMerge() {
 
                         {/* Page Preview Image */}
                         <img
-                          src={item.thumbnailUrl}
+                          src={item.thumbnailUrl || null}
                           alt={`Page ${idx + 1}`}
                           referrerPolicy="no-referrer"
                           style={{ transform: `rotate(${item.rotation}deg)` }}
@@ -376,7 +427,7 @@ export default function PdfMerge() {
                         <div className="absolute top-1.5 right-1.5 flex gap-1 z-20">
                           <button
                             onClick={() => deletePage(idx)}
-                            className="p-1 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-950/60 dark:text-red-400 dark:hover:bg-red-950 rounded-md transition-colors cursor-pointer"
+                            className="p-1 bg-red-600 hover:bg-red-700 text-white rounded-md shadow-xs transition-colors cursor-pointer"
                             title={lang === "vi" ? "Xoá trang" : "Delete Page"}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -443,61 +494,6 @@ export default function PdfMerge() {
           )}
 
         </div>
-
-        {/* Right Side: Options & Actions Panel */}
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-5">
-            <h3 className="text-sm font-bold tracking-wider text-slate-400 dark:text-slate-500 uppercase pb-2 border-b border-slate-100 dark:border-slate-800">
-              {lang === "vi" ? "Cài Đặt Xuất File" : "Export Settings"}
-            </h3>
-
-            {/* Output File Name */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                {lang === "vi" ? "Tên tệp xuất ra (.pdf)" : "Output file name (.pdf)"}
-              </label>
-              <input
-                type="text"
-                value={mergeOutputName}
-                onChange={(e) => setMergeOutputName(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B0F1A] text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 text-slate-800 dark:text-slate-200"
-                placeholder="Merged_Document"
-              />
-            </div>
-
-            {/* Summary Statistics */}
-            <div className="bg-slate-50 dark:bg-[#0B0F1A] border border-slate-100 dark:border-slate-800/80 rounded-xl p-4 space-y-2.5 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">{lang === "vi" ? "Tổng số trang ghép:" : "Total pages to merge:"}</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">{pages.length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">{lang === "vi" ? "Định dạng đầu ra:" : "Output format:"}</span>
-                <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold uppercase">PDF</span>
-              </div>
-            </div>
-
-            {/* Export Trigger Button */}
-            <button
-              onClick={handleMerge}
-              disabled={pages.length === 0 || isMerging}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-rose-600/10 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-            >
-              {isMerging ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>{lang === "vi" ? "Đang ghép tệp PDF..." : "Merging PDFs..."}</span>
-                </>
-              ) : (
-                <>
-                  <FileDown className="h-4 w-4" />
-                  <span>{lang === "vi" ? `Thực Hiện Ghép PDF (${pages.length} trang)` : `Proceed to Merge (${pages.length} pages)`}</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
       )}
       </div>
 
@@ -524,7 +520,7 @@ export default function PdfMerge() {
             {/* Main Image content */}
             <div className="flex flex-col items-center max-w-full max-h-[85vh]">
               <img
-                src={pages[fullscreenIdx].thumbnailUrl}
+                src={pages[fullscreenIdx]?.thumbnailUrl || null}
                 alt={`Page ${fullscreenIdx + 1}`}
                 referrerPolicy="no-referrer"
                 style={{ transform: `rotate(${pages[fullscreenIdx].rotation}deg)` }}

@@ -14,6 +14,7 @@ import { I18nProvider, useI18n } from "./utils/i18n";
 import { parseRoute } from "./utils/navigation";
 import { Menu, Sun, Moon, Sliders } from "lucide-react";
 import { ToastContainer } from "react-toastify";
+import { ScrollToTop } from "./components/ScrollToTop";
 import "react-toastify/dist/ReactToastify.css";
 
 const STORAGE_KEY = "vibe_code_aio_state";
@@ -197,7 +198,7 @@ function MainApp() {
             Vibe Code Workstation
           </span>
           <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded-md font-bold">
-            v2.8.0
+            v2.8.15
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -296,6 +297,7 @@ function MainApp() {
         )}
       </main>
       
+      <ScrollToTop />
       <ToastContainer 
         aria-label="Notifications"
         position="bottom-right" 

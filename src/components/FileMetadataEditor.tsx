@@ -349,51 +349,22 @@ export default function FileMetadataEditor({
   return (
     <div className="flex flex-col h-full overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 w-full">
       {/* Top Header */}
-      {(!hideInnerHeader || fileList.length > 0) && (
+      {!hideInnerHeader && (
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-5">
-          {!hideInnerHeader && (
-            <div>
-              <div className="flex items-center gap-2.5 mb-1">
-                <div className="flex-shrink-0 h-10 w-10 md:h-10 md:w-10 rounded-xl bg-amber-600 flex items-center justify-center text-white shadow-md shadow-amber-600/20">
-                  <FileClock className="h-5 w-5" />
-                </div>
-                <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <span>{lang === "vi" ? "Chỉnh Sửa File Metadata & Timestamp" : "File Metadata & Timestamp Editor"}</span>
-                </h2>
+          <div>
+            <div className="flex items-center gap-2.5 mb-1">
+              <div className="flex-shrink-0 h-10 w-10 md:h-10 md:w-10 rounded-xl bg-amber-600 flex items-center justify-center text-white shadow-md shadow-amber-600/20">
+                <FileClock className="h-5 w-5" />
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                {lang === "vi"
-                  ? "Tải lên mọi định dạng tệp, tùy chỉnh Tên, Ngày Tạo (Created Date) & Ngày Sửa (Last Modified Date). Xuất gói ZIP bảo toàn 100% nhãn thời gian tùy chỉnh."
-                  : "Upload any file format, customize Filename, Created Date & Last Modified Date. Export ZIP package preserving 100% custom timestamps."}
-              </p>
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <span>{lang === "vi" ? "Chỉnh Sửa File Metadata & Timestamp" : "File Metadata & Timestamp Editor"}</span>
+              </h2>
             </div>
-          )}
-
-          {/* Action Buttons Toolbar */}
-          <div className="flex flex-wrap items-center gap-3">
-            {fileList.length > 0 && (
-              <>
-                {/* Reset to Original Timestamps Button - PROMINENT TOP LEVEL LOCATION */}
-                <button
-                  type="button"
-                  onClick={resetAllMetadata}
-                  className="px-3.5 py-2 rounded-xl border border-amber-300 dark:border-amber-800/80 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-200 text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-xs"
-                  title={lang === "vi" ? "Khôi phục ngày giờ và tên gốc cho toàn bộ danh sách" : "Reset timestamps and original names for all files"}
-                >
-                  <RefreshCw className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                  <span>{lang === "vi" ? "Khôi Phục Thời Gian Gốc" : "Reset to Original Timestamps"}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={clearAll}
-                  className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-xs"
-                >
-                  <Trash2 className="h-4 w-4 text-rose-500" />
-                  <span>{t("common.clear")} ({fileList.length})</span>
-                </button>
-              </>
-            )}
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              {lang === "vi"
+                ? "Tải lên mọi định dạng tệp, tùy chỉnh Tên, Ngày Tạo (Created Date) & Ngày Sửa (Last Modified Date). Xuất gói ZIP bảo toàn 100% nhãn thời gian tùy chỉnh."
+                : "Upload any file format, customize Filename, Created Date & Last Modified Date. Export ZIP package preserving 100% custom timestamps."}
+            </p>
           </div>
         </div>
       )}
@@ -465,15 +436,6 @@ export default function FileMetadataEditor({
             {/* ACCORDION CONTENT 1: QUICK BATCH PRESETS (Expanded when editMode === "quick") */}
             {editMode === "quick" && (
               <div className="space-y-4 pt-1 animate-fadeIn">
-                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 shrink-0 text-amber-500" />
-                  <span>
-                    {lang === "vi"
-                      ? "Thay đổi Ngày Tạo / Ngày Sửa sẽ được tự động đồng bộ ngay lập tức tới tất cả các tệp. Bạn cũng có thể đổi tên mẫu hàng loạt có đánh số thứ tự tự động."
-                      : "Changes to Created / Modified Date will be automatically applied to all files in real-time. You can also batch rename files with custom numbering."}
-                  </span>
-                </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
                   {/* 1. Batch Timestamp Inputs (INSTANT REAL-TIME APPLICATION, NO APPLY BUTTONS) */}
                   <div className="space-y-2.5 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800">
@@ -641,7 +603,7 @@ export default function FileMetadataEditor({
                     <button
                       type="button"
                       onClick={applyNameTransformations}
-                      className="w-full py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
+                      className="w-full py-2 px-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition-all cursor-pointer shadow-md shadow-amber-600/20 flex items-center justify-center gap-1.5"
                     >
                       <Tag className="h-3.5 w-3.5" />
                       <span>{lang === "vi" ? "Áp Dụng Đổi Tên Hàng Loạt" : "Apply Batch Renaming"}</span>
@@ -786,17 +748,34 @@ export default function FileMetadataEditor({
 
           {/* REAL-TIME SYNCHRONIZED PREVIEW TABLE & SUMMARY */}
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-3">
               <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                 <Eye className="h-4.5 w-4.5 text-emerald-500" />
                 <span>
-                  {lang === "vi" ? "Bảng Xem Trước & Đồng Bộ Metadata Real-Time" : "Real-time Synchronized Preview Table"} ({fileList.length})
+                  Output files preview ({fileList.length})
                 </span>
               </h3>
-              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-1 font-semibold">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                <span>{lang === "vi" ? "Đồng bộ tức thì" : "Instant Sync"}</span>
-              </span>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={resetAllMetadata}
+                  className="px-3.5 py-1.5 rounded-xl border border-amber-300 dark:border-amber-800/80 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-200 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                  title={lang === "vi" ? "Khôi phục ngày giờ và tên gốc cho toàn bộ danh sách" : "Reset timestamps and original names for all files"}
+                >
+                  <RefreshCw className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>{lang === "vi" ? "Reset Original" : "Reset Original"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  className="px-3.5 py-1.5 rounded-xl border border-rose-500/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>{lang === "vi" ? "Clear All" : "Clear All"}</span>
+                </button>
+              </div>
             </div>
 
             {/* Table View of Metadata Changes */}
@@ -812,35 +791,64 @@ export default function FileMetadataEditor({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                  {fileList.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40 transition-colors">
-                      <td className="p-3 font-semibold text-slate-900 dark:text-slate-100 max-w-[240px] truncate" title={item.newName}>
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-amber-500 shrink-0" />
-                          <span className="truncate">{item.newName}</span>
-                        </div>
-                      </td>
-                      <td className="p-3 text-indigo-600 dark:text-indigo-400 font-medium">
-                        {formatDisplayDate(item.createdDate)}
-                      </td>
-                      <td className="p-3 text-emerald-600 dark:text-emerald-400 font-medium">
-                        {formatDisplayDate(item.modifiedDate)}
-                      </td>
-                      <td className="p-3 text-slate-500 dark:text-slate-400">
-                        {formatFileSize(item.size)}
-                      </td>
-                      <td className="p-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => removeItem(item.id)}
-                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/60 transition-colors cursor-pointer"
-                          title={t("common.clear")}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {fileList.map((item) => {
+                    const lastDot = item.newName.lastIndexOf(".");
+                    const baseName = lastDot > 0 ? item.newName.substring(0, lastDot) : item.newName;
+                    const ext = lastDot > 0 ? item.newName.substring(lastDot + 1) : "";
+
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40 transition-colors">
+                        <td className="p-3 font-semibold text-slate-900 dark:text-slate-100 max-w-[280px]">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-amber-500 shrink-0" />
+                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                              <input
+                                type="text"
+                                value={baseName}
+                                onChange={(e) => {
+                                  const newBase = e.target.value;
+                                  const updatedFullName = ext ? `${newBase}.${ext}` : newBase;
+                                  setFileList((prev) =>
+                                    prev.map((f) => (f.id === item.id ? { ...f, newName: updatedFullName } : f))
+                                  );
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-xs font-semibold font-mono focus:outline-none focus:border-amber-500 w-full max-w-[180px] sm:max-w-[220px] shadow-2xs"
+                                placeholder={lang === "vi" ? "Đổi tên tệp..." : "Rename..."}
+                                title={lang === "vi" ? "Sửa tên tệp trực tiếp (khóa đuôi)" : "Edit filename directly (extension locked)"}
+                              />
+                              {ext && (
+                                <span
+                                  className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800/60 shrink-0 select-none"
+                                  title={lang === "vi" ? "Đuôi tệp được khóa an toàn" : "Extension locked"}
+                                >
+                                  .{ext}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 text-indigo-600 dark:text-indigo-400 font-medium">
+                          {formatDisplayDate(item.createdDate)}
+                        </td>
+                        <td className="p-3 text-emerald-600 dark:text-emerald-400 font-medium">
+                          {formatDisplayDate(item.modifiedDate)}
+                        </td>
+                        <td className="p-3 text-slate-500 dark:text-slate-400">
+                          {formatFileSize(item.size)}
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => removeItem(item.id)}
+                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/60 transition-colors cursor-pointer"
+                            title={t("common.clear")}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

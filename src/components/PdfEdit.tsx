@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 import { jsPDF } from "jspdf";
 import { useI18n } from "../utils/i18n";
+import { pdfSessionStore } from "../utils/sessionHelper";
 import { 
   Upload, 
   Trash2, 
@@ -47,17 +48,67 @@ interface EditPageItem {
   thumbnailUrl: string; // generated from processedCanvas
 }
 
+export function getPageDataUrl(page: any, quality = 0.8): string {
+  if (!page) return "";
+  if (page.thumbnailUrl && typeof page.thumbnailUrl === "string") return page.thumbnailUrl;
+  if (page.processedCanvas && typeof page.processedCanvas.toDataURL === "function") {
+    try {
+      return page.processedCanvas.toDataURL("image/jpeg", quality);
+    } catch (e) {}
+  }
+  if (page.warpedCanvas && typeof page.warpedCanvas.toDataURL === "function") {
+    try {
+      return page.warpedCanvas.toDataURL("image/jpeg", quality);
+    } catch (e) {}
+  }
+  if (page.originalCanvas && typeof page.originalCanvas.toDataURL === "function") {
+    try {
+      return page.originalCanvas.toDataURL("image/jpeg", quality);
+    } catch (e) {}
+  }
+  return "";
+}
+
+export function getOriginalPageDataUrl(page: any): string {
+  if (!page) return "";
+  if (page.originalCanvas && typeof page.originalCanvas.toDataURL === "function") {
+    try {
+      return page.originalCanvas.toDataURL("image/jpeg", 0.9);
+    } catch (e) {}
+  }
+  return getPageDataUrl(page);
+}
+
 export default function PdfEdit() {
   const { lang, t } = useI18n();
-  const [pages, setPages] = useState<EditPageItem[]>([]);
+  const [pages, setPages] = useState<EditPageItem[]>(() => {
+    return pdfSessionStore.getEdit()?.pages || [];
+  });
   const [loading, setLoading] = useState(false);
-  const [exportName, setExportName] = useState("Tai_Lieu_Chinh_Sua");
+  const [exportName, setExportName] = useState(() => {
+    return pdfSessionStore.getEdit()?.exportName || "Tai_Lieu_Chinh_Sua";
+  });
   const [isExporting, setIsExporting] = useState(false);
 
   // PDF Export settings
-  const [paperSize, setPaperSize] = useState<"a4" | "letter" | "legal">("a4");
-  const [pdfOrientation, setPdfOrientation] = useState<"portrait" | "landscape">("portrait");
-  const [pdfMargin, setPdfMargin] = useState(0); // in mm
+  const [paperSize, setPaperSize] = useState<"a4" | "letter" | "legal">(
+    () => pdfSessionStore.getEdit()?.paperSize || "a4"
+  );
+  const [pdfOrientation, setPdfOrientation] = useState<"portrait" | "landscape">(
+    () => pdfSessionStore.getEdit()?.pdfOrientation || "portrait"
+  );
+  const [pdfMargin, setPdfMargin] = useState(() => pdfSessionStore.getEdit()?.pdfMargin || 0); // in mm
+
+  // Sync state to pdfSessionStore
+  useEffect(() => {
+    pdfSessionStore.setEdit({
+      pages,
+      exportName,
+      paperSize,
+      pdfOrientation,
+      pdfMargin,
+    });
+  }, [pages, exportName, paperSize, pdfOrientation, pdfMargin]);
 
   // Crop Modal state
   const [cropIdx, setCropIdx] = useState<number | null>(null);
@@ -442,17 +493,12 @@ export default function PdfEdit() {
       {/* Upper Action Bar / Header */}
       <div className="bg-white dark:bg-[#111827] border-b border-slate-200 dark:border-slate-800/80 px-[25px] py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0">
         <div className="flex items-start gap-3.5">
-          <div className="h-11 w-11 rounded-xl bg-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-600/20 flex-shrink-0 mt-0.5">
+          <div className="h-11 w-11 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-600/20 flex-shrink-0 mt-0.5">
             <Sliders className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
-              <span>{lang === "vi" ? "Chỉnh Sửa PDF Nâng Cao" : "Advanced PDF Editor"}</span>
-              {pages.length > 0 && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400 font-bold border border-rose-100 dark:border-rose-900/40">
-                  {pages.length} {lang === "vi" ? "Trang" : "Pages"}
-                </span>
-              )}
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              {lang === "vi" ? "Chỉnh Sửa PDF Nâng Cao" : "Advanced PDF Editor"}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               {lang === "vi" 
@@ -461,27 +507,13 @@ export default function PdfEdit() {
             </p>
           </div>
         </div>
-
-        {pages.length > 0 && (
-          <div className="flex items-center gap-2 self-stretch md:self-auto">
-            <button
-              onClick={() => {
-                setPages([]);
-              }}
-              className="px-4 py-2 text-xs font-semibold rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span>{lang === "vi" ? "Xoá tất cả" : "Reset pages"}</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Main Body Content Scrollable Area */}
       <div className="flex-1 overflow-y-auto p-6">
         {loading && pages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#111827] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs w-full">
-            <Loader2 className="h-10 w-10 text-rose-500 animate-spin" />
+            <Loader2 className="h-10 w-10 text-purple-500 animate-spin" />
             <span className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-3">
               {lang === "vi" ? "Đang giải mã và trích xuất tài nguyên trang..." : "Importing and converting pages..."}
             </span>
@@ -503,8 +535,8 @@ export default function PdfEdit() {
               }}
               className={`relative border-2 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center min-h-[320px] transition-all cursor-pointer ${
                 zoneDragOver 
-                  ? "border-rose-500 bg-rose-50/20 dark:bg-rose-950/10 scale-[0.99]" 
-                  : "border-rose-300 dark:border-rose-800/60 bg-rose-50/10 dark:bg-rose-950/5 hover:border-rose-500"
+                  ? "border-purple-500 bg-purple-50/20 dark:bg-purple-950/10 scale-[0.99]" 
+                  : "border-purple-300 dark:border-purple-800/60 bg-purple-50/10 dark:bg-purple-950/5 hover:border-purple-500"
               }`}
             >
               <input
@@ -514,7 +546,7 @@ export default function PdfEdit() {
                 onChange={handleFileUpload}
                 className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
               />
-              <div className="p-4 rounded-2xl bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 mb-4">
+              <div className="p-4 rounded-2xl bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 mb-4">
                 <Upload className="h-8 w-8" />
               </div>
               <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
@@ -528,9 +560,139 @@ export default function PdfEdit() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left Side: Drag zone and preview grid */}
-            <div className="lg:col-span-8 space-y-6">
+          <div className="space-y-6 max-w-6xl mx-auto w-full">
+            {/* Unified Top Card: Publishing Configs & Global Export Settings */}
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <h3 className="text-xs font-bold tracking-wider text-purple-600 dark:text-purple-400 uppercase flex items-center gap-2">
+                  <Sliders className="h-4 w-4" />
+                  <span>{lang === "vi" ? "Cấu Hình Xuất Bản PDF" : "Publishing & Sheet Configs"}</span>
+                </h3>
+                <span className="text-xs font-bold font-mono text-slate-500 dark:text-slate-400">
+                  {lang === "vi" ? `${pages.length} trang đã tải` : `${pages.length} pages loaded`}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                {/* Document Name */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    {lang === "vi" ? "Tên tài liệu (.pdf)" : "Document name (.pdf)"}
+                  </label>
+                  <input
+                    type="text"
+                    value={exportName}
+                    onChange={(e) => setExportName(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B0F1A] text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-purple-500/20 text-slate-800 dark:text-slate-200"
+                    placeholder="Compiled_Document"
+                  />
+                </div>
+
+                {/* Paper Size selector */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    {lang === "vi" ? "Khổ giấy (Paper Sheet)" : "Paper Sheet Format"}
+                  </label>
+                  <select
+                    value={paperSize}
+                    onChange={(e) => setPaperSize(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B0F1A] text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden"
+                  >
+                    <option value="a4">A4 (210 x 297 mm)</option>
+                    <option value="letter">Letter (8.5 x 11 in)</option>
+                    <option value="legal">Legal (8.5 x 14 in)</option>
+                  </select>
+                </div>
+
+                {/* Orientation */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    {lang === "vi" ? "Hướng trang (Orientation)" : "Orientation"}
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPdfOrientation("portrait")}
+                      className={`py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                        pdfOrientation === "portrait"
+                          ? "border-purple-500 bg-purple-600 text-white shadow-xs"
+                          : "border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
+                      }`}
+                    >
+                      {lang === "vi" ? "Chiều dọc" : "Portrait"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPdfOrientation("landscape")}
+                      className={`py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                        pdfOrientation === "landscape"
+                          ? "border-purple-500 bg-purple-600 text-white shadow-xs"
+                          : "border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
+                      }`}
+                    >
+                      {lang === "vi" ? "Chiều ngang" : "Landscape"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Margin Slider */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <span>{lang === "vi" ? "Lề trang (Margin)" : "Sheet Margins"}</span>
+                    <span className="text-purple-600 dark:text-purple-400">{pdfMargin} mm</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="25"
+                    step="5"
+                    value={pdfMargin}
+                    onChange={(e) => setPdfMargin(Number(e.target.value))}
+                    className="w-full accent-purple-600 cursor-pointer my-1"
+                  />
+                </div>
+              </div>
+
+              {/* Build & Download PDF CTA Button */}
+              <div className="pt-2">
+                <button
+                  onClick={exportEditedPdf}
+                  disabled={pages.length === 0 || isExporting}
+                  className="w-full py-3.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-purple-600/20 disabled:opacity-50 transition-all"
+                >
+                  {isExporting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>{lang === "vi" ? "Đang xử lý xuất PDF..." : "Exporting document..."}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4" />
+                      <span>{lang === "vi" ? `Lưu & Xuất Bản PDF (${pages.length} trang)` : `Build and Download PDF (${pages.length} pages)`}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Operational Action Bar & Add Dropzone */}
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {lang === "vi" ? `Danh sách trang biên tập (${pages.length} trang)` : `Page Editor Grid (${pages.length} pages)`}
+                </span>
+                <button
+                  onClick={() => {
+                    setPages([]);
+                    pdfSessionStore.clearEdit();
+                  }}
+                  className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-rose-500/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>{lang === "vi" ? "Xoá tất cả trang" : "Clear All Pages"}</span>
+                </button>
+              </div>
+
               <div
                 onDragOver={(e) => {
                   e.preventDefault();
@@ -544,10 +706,10 @@ export default function PdfEdit() {
                     await processUploadedFiles(Array.from(e.dataTransfer.files));
                   }
                 }}
-                className={`relative border-2 border-dashed rounded-2xl p-6 text-center flex flex-col items-center justify-center transition-all ${
+                className={`relative border-2 border-dashed rounded-2xl p-4 text-center flex flex-col items-center justify-center transition-all ${
                   zoneDragOver 
-                    ? "border-rose-500 bg-rose-50/20 dark:bg-rose-950/10 scale-[0.99]" 
-                    : "border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#111827] hover:border-rose-400"
+                    ? "border-purple-500 bg-purple-50/20 dark:bg-purple-950/10 scale-[0.99]" 
+                    : "border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#111827] hover:border-purple-400"
                 }`}
               >
                 <input
@@ -557,63 +719,71 @@ export default function PdfEdit() {
                   onChange={handleFileUpload}
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
                 />
-                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-500 mb-2">
-                  <Plus className="h-5 w-5" />
+                <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
+                  <Plus className="h-4 w-4" />
+                  <span className="text-xs font-bold">
+                    {lang === "vi" ? "Tải lên thêm ảnh hoặc tệp PDF khác" : "Upload more images or PDF documents"}
+                  </span>
                 </div>
-                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  {lang === "vi" ? "Tải lên thêm ảnh hoặc tài liệu PDF khác" : "Upload more images or PDF documents"}
-                </h4>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  {lang === "vi" ? "Kéo thả vào đây hoặc nhấp chuột để chọn" : "Drag & drop here or click to browse"}
-                </p>
               </div>
 
               {/* Loader */}
               {loading && (
                 <div className="flex flex-col items-center justify-center py-10 space-y-3 bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800">
-                  <Loader2 className="h-8 w-8 text-rose-500 animate-spin" />
+                  <Loader2 className="h-8 w-8 text-purple-500 animate-spin" />
                   <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                     {lang === "vi" ? "Đang giải mã và trích xuất tài nguyên trang..." : "Importing and converting pages..."}
                   </span>
                 </div>
               )}
 
-              {/* Page Editor Grid */}
+              {/* Page Editor Grid with Live Sheet Size, Orientation & Margin Preview */}
               {!loading && pages.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                   {pages.map((item, idx) => (
                     <div
                       key={item.id}
-                      className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-2.5 flex flex-col group relative transition-all"
+                      className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-2.5 flex flex-col group relative transition-all shadow-xs hover:border-purple-400"
                     >
-                      {/* Thumbnail */}
-                      <div className="relative aspect-[3/4] bg-slate-50 dark:bg-[#0B0F1A] rounded-xl overflow-hidden flex items-center justify-center border border-slate-100 dark:border-slate-800">
-                        <img
-                          src={item.thumbnailUrl}
-                          alt={`Page ${idx + 1}`}
-                          className="max-h-full max-w-full object-contain pointer-events-none"
-                          referrerPolicy="no-referrer"
-                        />
+                      {/* LIVE SHEET LAYOUT PREVIEW CONTAINER */}
+                      <div className={`relative w-full ${pdfOrientation === "landscape" ? "aspect-[1.414/1]" : "aspect-[1/1.414]"} bg-slate-200/70 dark:bg-[#070A12] rounded-xl overflow-hidden flex items-center justify-center border border-slate-300 dark:border-slate-700/80 transition-all p-2`}>
+                        {/* Paper Sheet Representation */}
+                        <div 
+                          className="relative w-full h-full bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-center overflow-hidden transition-all"
+                          style={{ padding: `${Math.min(20, Math.max(2, pdfMargin * 0.6))}px` }}
+                        >
+                          {/* Inner Margin Guideline Border */}
+                          {pdfMargin > 0 && (
+                            <div className="absolute inset-0 pointer-events-none border border-dashed border-purple-400/60 dark:border-purple-500/40 z-0 m-1 rounded-xs" />
+                          )}
+
+                          <img
+                            src={item.thumbnailUrl || null}
+                            alt={`Page ${idx + 1}`}
+                            className="max-h-full max-w-full object-contain pointer-events-none relative z-1"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
 
                         {/* Hover controls overlay */}
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 z-10">
                           <button
                             onClick={() => openCropModal(idx)}
-                            className="p-1.5 bg-white text-slate-800 hover:bg-slate-100 rounded-lg transition-transform hover:scale-105 cursor-pointer"
+                            className="p-1.5 bg-white text-slate-800 hover:bg-purple-600 hover:text-white rounded-lg transition-transform hover:scale-105 cursor-pointer shadow-md"
                             title={lang === "vi" ? "Cắt nắn góc 4 điểm" : "4-Point Crop"}
                           >
                             <Crop className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => openFilterModal(idx)}
-                            className="p-1.5 bg-white text-slate-800 hover:bg-slate-100 rounded-lg transition-transform hover:scale-105 cursor-pointer"
+                            className="p-1.5 bg-white text-slate-800 hover:bg-purple-600 hover:text-white rounded-lg transition-transform hover:scale-105 cursor-pointer shadow-md"
                             title={lang === "vi" ? "Bộ lọc CamScanner" : "Color Filters"}
                           >
                             <Sliders className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => setFullscreenIdx(idx)}
-                            className="p-1.5 bg-white text-slate-800 hover:bg-slate-100 rounded-lg transition-transform hover:scale-105 cursor-pointer"
+                            className="p-1.5 bg-white text-slate-800 hover:bg-purple-600 hover:text-white rounded-lg transition-transform hover:scale-105 cursor-pointer shadow-md"
                             title={lang === "vi" ? "Xem Toàn Màn Hình" : "Fullscreen View"}
                           >
                             <Maximize2 className="h-4 w-4" />
@@ -621,14 +791,15 @@ export default function PdfEdit() {
                         </div>
 
                         {/* Page badge */}
-                        <span className="absolute bottom-1.5 left-1.5 px-2 py-0.5 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-mono font-bold rounded-md z-10">
+                        <span className="absolute bottom-1.5 left-1.5 px-2 py-0.5 bg-slate-900/85 backdrop-blur-xs text-white text-[10px] font-mono font-bold rounded-md z-10">
                           #{idx + 1}
                         </span>
 
-                        {/* Delete item */}
+                        {/* Delete item button */}
                         <button
                           onClick={() => deletePage(idx)}
-                          className="absolute top-1.5 right-1.5 p-1 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-950/60 dark:text-red-400 rounded-md transition-colors z-20 cursor-pointer"
+                          className="absolute top-1.5 right-1.5 p-1 bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 border border-rose-500/60 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-md shadow-xs transition-colors z-20 cursor-pointer"
+                          title={lang === "vi" ? "Xoá trang này" : "Delete page"}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -683,112 +854,6 @@ export default function PdfEdit() {
                 </div>
               )}
             </div>
-
-            {/* Right Side: Global compile config panel */}
-            <div className="lg:col-span-4 space-y-6">
-              <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-5">
-                <h3 className="text-sm font-bold tracking-wider text-slate-400 dark:text-slate-500 uppercase pb-2 border-b border-slate-100 dark:border-slate-800">
-                  {lang === "vi" ? "Thông Số Xuất PDF" : "Publishing Configs"}
-                </h3>
-
-                {/* Document Name */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {lang === "vi" ? "Tên tài liệu (.pdf)" : "Document name (.pdf)"}
-                  </label>
-                  <input
-                    type="text"
-                    value={exportName}
-                    onChange={(e) => setExportName(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B0F1A] text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 text-slate-800 dark:text-slate-200"
-                    placeholder="Compiled_Document"
-                  />
-                </div>
-
-                {/* Paper Size selector */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {lang === "vi" ? "Kích thước khổ giấy" : "Paper Sheet Format"}
-                  </label>
-                  <select
-                    value={paperSize}
-                    onChange={(e) => setPaperSize(e.target.value as any)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B0F1A] text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden"
-                  >
-                    <option value="a4">A4 (210 x 297 mm)</option>
-                    <option value="letter">Letter (8.5 x 11 in)</option>
-                    <option value="legal">Legal (8.5 x 14 in)</option>
-                  </select>
-                </div>
-
-                {/* Orientation */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {lang === "vi" ? "Hướng trang" : "Orientation"}
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPdfOrientation("portrait")}
-                      className={`py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
-                        pdfOrientation === "portrait"
-                          ? "border-rose-500 bg-rose-50/25 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400"
-                          : "border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
-                      }`}
-                    >
-                      {lang === "vi" ? "Chiều dọc" : "Portrait"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPdfOrientation("landscape")}
-                      className={`py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
-                        pdfOrientation === "landscape"
-                          ? "border-rose-500 bg-rose-50/25 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400"
-                          : "border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
-                      }`}
-                    >
-                      {lang === "vi" ? "Chiều ngang" : "Landscape"}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Margin Slider */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
-                    <span>{lang === "vi" ? "Lề trang giấy (Margin)" : "Sheet Margins"}</span>
-                    <span className="text-rose-600 dark:text-rose-400">{pdfMargin} mm</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="25"
-                    step="5"
-                    value={pdfMargin}
-                    onChange={(e) => setPdfMargin(Number(e.target.value))}
-                    className="w-full accent-rose-500"
-                  />
-                </div>
-
-                {/* Export and download action */}
-                <button
-                  onClick={exportEditedPdf}
-                  disabled={pages.length === 0 || isExporting}
-                  className="w-full py-3 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-rose-600/10 disabled:opacity-50"
-                >
-                  {isExporting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>{lang === "vi" ? "Đang xử lý xuất PDF..." : "Exporting document..."}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4" />
-                      <span>{lang === "vi" ? `Lưu & Xuất Bản PDF (${pages.length} trang)` : `Build and Download PDF (${pages.length} pages)`}</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
           </div>
         )}
       </div>
@@ -818,7 +883,7 @@ export default function PdfEdit() {
                   {/* Invisible loader/measurer of dimensions */}
                   <img
                     ref={cropImageRef}
-                    src={pages[cropIdx].originalCanvas.toDataURL()}
+                    src={getOriginalPageDataUrl(pages[cropIdx]) || null}
                     alt="Original cropping workspace"
                     onLoad={(e) => {
                       const img = e.currentTarget;
@@ -922,7 +987,16 @@ export default function PdfEdit() {
                   <div className="relative max-h-full max-w-full">
                     {/* Rendered temporary filter canvas helper */}
                     <img
-                      src={applyImageFilters(pages[filterIdx].warpedCanvas || pages[filterIdx].originalCanvas, tempFilters).toDataURL("image/jpeg", 0.8)}
+                      src={(() => {
+                        const p = pages[filterIdx];
+                        const srcCanvas = p?.warpedCanvas || p?.originalCanvas;
+                        if (srcCanvas && typeof srcCanvas.toDataURL === "function") {
+                          try {
+                            return applyImageFilters(srcCanvas, tempFilters).toDataURL("image/jpeg", 0.8);
+                          } catch (e) {}
+                        }
+                        return getPageDataUrl(p, 0.8) || null;
+                      })()}
                       alt="Filter live rendering"
                       className="max-h-full max-w-full object-contain block rounded-md shadow-lg pointer-events-none"
                       referrerPolicy="no-referrer"
@@ -1048,23 +1122,49 @@ export default function PdfEdit() {
               <ArrowLeft className="h-6 w-6" />
             </button>
 
-            {/* Central content */}
-            <div className="flex flex-col items-center max-w-full max-h-[85vh]">
-              <img
-                src={pages[fullscreenIdx].thumbnailUrl}
-                alt={`Page ${fullscreenIdx + 1}`}
-                referrerPolicy="no-referrer"
-                className="max-h-[75vh] max-w-[90vw] object-contain rounded-lg shadow-2xl border border-slate-800"
-              />
-              <div className="mt-4 text-center">
-                <p className="text-white font-bold text-sm">
-                  {lang === "vi" ? `Xem Biên Tập Trang ${fullscreenIdx + 1} / ${pages.length}` : `Editing Page ${fullscreenIdx + 1} of ${pages.length}`}
-                </p>
-                <p className="text-xs text-slate-400 mt-1 font-mono">
-                  {pages[fullscreenIdx].sourceName}
-                </p>
-              </div>
-            </div>
+            {/* Central content with Paper Sheet Layout Sync */}
+            {(() => {
+              const activePg = pages[fullscreenIdx];
+              const isLandscape = pdfOrientation === "landscape";
+              const marginPx = Math.max(0, pdfMargin);
+
+              return (
+                <div className="flex flex-col items-center max-w-full max-h-[88vh]">
+                  {/* Paper Sheet Representation Frame */}
+                  <div className={`bg-slate-200 dark:bg-slate-950 p-2.5 rounded-2xl border border-slate-700 shadow-2xl relative flex items-center justify-center transition-all ${
+                    isLandscape ? "aspect-[1.414/1] w-[82vw] max-h-[72vh]" : "aspect-[1/1.414] h-[75vh] max-w-[85vw]"
+                  }`}>
+                    <div 
+                      className="relative w-full h-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-center overflow-hidden transition-all"
+                      style={{ padding: `${Math.min(32, Math.max(4, marginPx * 1.2))}px` }}
+                    >
+                      {/* Inner Margin Guideline Border */}
+                      {marginPx > 0 && (
+                        <div className="absolute inset-0 pointer-events-none border border-dashed border-purple-400/60 dark:border-purple-500/40 z-0 m-2 rounded-xs" />
+                      )}
+
+                      <img
+                        src={activePg?.thumbnailUrl || null}
+                        alt={`Page ${fullscreenIdx + 1}`}
+                        referrerPolicy="no-referrer"
+                        className="max-h-full max-w-full object-contain relative z-1 pointer-events-none shadow-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-3.5 text-center">
+                    <p className="text-white font-bold text-sm">
+                      {lang === "vi" 
+                        ? `Xem Trang ${fullscreenIdx + 1} / ${pages.length} (${isLandscape ? "Chiều ngang" : "Chiều dọc"})` 
+                        : `Viewing Page ${fullscreenIdx + 1} of ${pages.length} (${isLandscape ? "Landscape" : "Portrait"})`}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1 font-mono truncate max-w-md">
+                      {activePg?.sourceName}
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Right page navigation */}
             <button

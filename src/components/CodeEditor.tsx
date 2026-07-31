@@ -238,20 +238,8 @@ export default function CodeEditor({
           ))}
         </div>
 
-        {/* Text Area + Highlight Overlay */}
-        <div className="flex-1 relative overflow-hidden">
-          {/* Syntax Highlight Layer */}
-          <pre
-            ref={preRef}
-            className="absolute inset-0 p-3 m-0 pointer-events-none overflow-hidden font-mono text-xs leading-[1.6rem] whitespace-pre tab-size-2"
-            aria-hidden="true"
-          >
-            <code
-              className={`language-${language}`}
-              dangerouslySetInnerHTML={{ __html: highlightedCode + "\n" }}
-            />
-          </pre>
-
+        {/* Text Area */}
+        <div className="flex-1 relative overflow-hidden flex">
           {/* Real Input Textarea */}
           <textarea
             ref={textareaRef}
@@ -261,7 +249,7 @@ export default function CodeEditor({
             onScroll={handleScroll}
             placeholder={placeholder}
             spellCheck={false}
-            className="absolute inset-0 w-full h-full p-3 m-0 bg-transparent text-transparent caret-slate-800 dark:caret-indigo-400 font-mono text-xs leading-[1.6rem] whitespace-pre tab-size-2 resize-none focus:outline-none overflow-auto"
+            className="w-full h-full p-3 m-0 bg-transparent text-slate-900 dark:text-slate-100 caret-slate-800 dark:caret-indigo-400 font-mono text-xs leading-[1.6rem] whitespace-pre tab-size-2 resize-none focus:outline-none overflow-auto"
           />
         </div>
       </div>

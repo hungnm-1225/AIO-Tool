@@ -1,6 +1,6 @@
 # AIO Tool — Hệ Thống Công Cụ Tổng Hợp (AIO Web Tools)
 
-> **Phiên bản hiện tại:** `v2.8.0`  
+> **Phiên bản hiện tại:** `v2.8.15`  
 > **Kiến trúc:** Client-Side Single Page Application (SPA) / React 19 + Vite 6 + TypeScript 5 + Tailwind CSS 4  
 > **Chế độ hoạt động:** 100% Offline-First (Xử lý trực tiếp trên Sandbox Browser của người dùng, không truyền dữ liệu lên máy chủ)
 
@@ -13,7 +13,7 @@ Hệ thống tuân thủ nghiêm ngặt quy chuẩn ngữ nghĩa **Semantic Vers
 - **Minor (`vX.Y.0`)**: Thêm tính năng mới hoặc nâng cấp quy trình cho các mô-đun chính (Feature Addition / Module Revamp).
 - **Patch (`vX.Y.Z`)**: Sửa lỗi kỹ thuật, tinh chỉnh giao diện, tối ưu hiệu năng hoặc sửa bug phát sinh.
 
-*Phiên bản `v2.8.0` mang đến đợt cải tiến trải nghiệm người dùng (UX) chuyên sâu cho Phân hệ Excel & Quản lý Tệp tin. Chức năng "Batch File Renamer" được nâng cấp khung tải lên, loại bỏ các nút thừa để thao tác click/drag-and-drop liền mạch. Hai phân hệ "Account Information Extraction" và "Account Creation Validation" được làm mới giao diện với màu nền viền đồng bộ, trang bị nút "Thử dữ liệu mẫu" màu xanh lá nổi bật và đính kèm Badge "★ Exclusively designed for Pythaverse.space" với hiệu ứng nhịp tim (heartbeat) sinh động. Phân hệ "Directory Data Aggregator" được vá lỗi mã hóa tiếng Việt bằng cấu trúc BOM UTF-8 giúp nạp và trích xuất dữ liệu không bị lỗi phông.*
+*Phiên bản `v2.8.15` mang đến loạt cải tiến quan trọng về giao diện và trải nghiệm người dùng: tái cấu trúc Advanced PDF Editor khi gộp bảng cấu hình xuất bản PDF & đánh số trang trực tiếp lên trên danh sách trang, hỗ trợ đồng bộ theo thời gian thực (Live Sync) kích thước khổ giấy, hướng xoay, lề trang và vị trí số trang lên tất cả thẻ trang và trình xem toàn màn hình; cải tiến thanh Sidebar ở chế độ thu gọn khi nhấp vào menu chính sẽ mở menu con dạng popover xổ ra bên cạnh ở vị trí tương ứng; đồng thời bổ sung nút cuộn nhanh lên đầu trang (Scroll To Top) giúp nâng cao trải nghiệm thao tác trên tài liệu dài.*
 
 ---
 
@@ -259,4 +259,4 @@ npm run build
 
 ---
 
-*Cảm ơn bạn đã đồng hành và phát triển hệ thống AIO Tool v2.8.0! Hãy tiếp tục giữ vững tôn chỉ: Code sạch, kiểu dữ liệu an toàn, xử lý 100% Client-Side bảo mật.*
+*Cảm ơn bạn đã đồng hành và phát triển hệ thống AIO Tool v2.8.6! Hãy tiếp tục giữ vững tôn chỉ: Code sạch, kiểu dữ liệu an toàn, xử lý 100% Client-Side bảo mật.*

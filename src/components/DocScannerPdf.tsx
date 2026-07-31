@@ -4,6 +4,7 @@ import { PDFDocument } from "pdf-lib";
 import JSZip from "jszip";
 import { MAIN_MENU_ITEMS } from "../utils/navigation";
 import { useI18n } from "../utils/i18n";
+import { pdfSessionStore } from "../utils/sessionHelper";
 import { 
   Point, 
   FilterSettings, 
@@ -68,6 +69,41 @@ export interface ScannedPage {
   warpedCanvas: HTMLCanvasElement | null;
   filters: FilterSettings;
   processedCanvas: HTMLCanvasElement;
+  thumbnailUrl?: string;
+  originalUrl?: string;
+}
+
+export function getPageDataUrl(page: ScannedPage | undefined | null, quality = 0.85): string {
+  if (!page) return "";
+  if (page.thumbnailUrl && typeof page.thumbnailUrl === "string") return page.thumbnailUrl;
+  if (page.processedCanvas && typeof page.processedCanvas.toDataURL === "function") {
+    try {
+      return page.processedCanvas.toDataURL("image/jpeg", quality);
+    } catch (e) {}
+  }
+  if (page.warpedCanvas && typeof page.warpedCanvas.toDataURL === "function") {
+    try {
+      return page.warpedCanvas.toDataURL("image/jpeg", quality);
+    } catch (e) {}
+  }
+  if (page.originalCanvas && typeof page.originalCanvas.toDataURL === "function") {
+    try {
+      return page.originalCanvas.toDataURL("image/jpeg", quality);
+    } catch (e) {}
+  }
+  if (page.originalUrl && typeof page.originalUrl === "string") return page.originalUrl;
+  return "";
+}
+
+export function getOriginalPageDataUrl(page: ScannedPage | undefined | null): string {
+  if (!page) return "";
+  if (page.originalUrl && typeof page.originalUrl === "string") return page.originalUrl;
+  if (page.originalCanvas && typeof page.originalCanvas.toDataURL === "function") {
+    try {
+      return page.originalCanvas.toDataURL("image/jpeg", 0.9);
+    } catch (e) {}
+  }
+  return getPageDataUrl(page);
 }
 
 interface DocScannerPdfProps {
@@ -77,8 +113,15 @@ interface DocScannerPdfProps {
 export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
   const { t, lang } = useI18n();
 
-  const [pages, setPages] = useState<ScannedPage[]>([]);
+  const [pages, setPages] = useState<ScannedPage[]>(() => {
+    return pdfSessionStore.getScanner()?.pages || [];
+  });
   const [activePageIndex, setActivePageIndex] = useState<number>(0);
+
+  // Sync state to pdfSessionStore
+  useEffect(() => {
+    pdfSessionStore.setScanner({ pages });
+  }, [pages]);
 
   // View Layout Mode ("grid" | "column" | "book")
   const [viewLayout, setViewLayout] = useState<"grid" | "column" | "book">(
@@ -331,6 +374,8 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
             warpedCanvas: null,
             filters: { ...DEFAULT_FILTERS },
             processedCanvas: initProcessed,
+            thumbnailUrl: initProcessed.toDataURL("image/jpeg", 0.85),
+            originalUrl: origCanvas.toDataURL("image/jpeg", 0.9),
           };
 
           newPages.push(page);
@@ -390,6 +435,8 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
           cropPoints: newPoints,
           warpedCanvas: warped,
           processedCanvas: processed,
+          thumbnailUrl: processed.toDataURL("image/jpeg", 0.85),
+          originalUrl: dst.toDataURL("image/jpeg", 0.9),
         };
       });
     });
@@ -512,6 +559,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
   const clearAllPages = () => {
     setPages([]);
     setFullscreenModalOpen(false);
+    pdfSessionStore.clearScanner();
     toast.info(t("docScanner.clearAll"));
   };
 
@@ -529,7 +577,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
     if (page) {
       setTempPoints([...page.cropPoints]);
       // Cache data URL once on modal open to prevent expensive toDataURL re-encoding on every mouse move
-      setCropModalImgUrl(page.originalCanvas.toDataURL("image/jpeg", 0.9));
+      setCropModalImgUrl(getOriginalPageDataUrl(page));
       setCropModalOpen(true);
     }
   };
@@ -540,6 +588,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
     if (!page) return;
 
     setIsApplyingCrop(true);
+
     setTimeout(() => {
       try {
         const warped = warpPerspective(page.originalCanvas, tempPoints);
@@ -553,6 +602,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
             isCropped: true,
             warpedCanvas: warped,
             processedCanvas: processed,
+            thumbnailUrl: processed.toDataURL("image/jpeg", 0.85),
           };
           return next;
         });
@@ -592,12 +642,12 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
             ...p,
             filters: { ...tempFilters },
             processedCanvas: newProcessed,
+            thumbnailUrl: newProcessed.toDataURL("image/jpeg", 0.85),
           };
         }
         return p;
       });
     });
-
     setFilterModalOpen(false);
     toast.success(t("docScanner.filterUpdated"));
   };
@@ -727,11 +777,11 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
           const sheetW = doc.internal.pageSize.getWidth();
           const sheetH = doc.internal.pageSize.getHeight();
 
-          const canvas = page.processedCanvas;
-          const imgDataUrl = canvas.toDataURL("image/jpeg", 0.92);
+          const canvas = page.processedCanvas && typeof page.processedCanvas.toDataURL === "function" ? page.processedCanvas : null;
+          const imgDataUrl = getPageDataUrl(page, 0.92);
 
-          const imgWidth = canvas.width;
-          const imgHeight = canvas.height;
+          const imgWidth = canvas ? canvas.width : 800;
+          const imgHeight = canvas ? canvas.height : 1131;
           const ratio = imgWidth / imgHeight;
 
           const pageNum1Based = idx + 1;
@@ -825,8 +875,8 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
           : "w-full my-2 h-4"
       }`}
     >
-      <div className="w-full h-1 bg-gradient-to-r from-rose-500 via-amber-500 to-rose-500 rounded-full shadow-lg animate-pulse" />
-      <span className="absolute px-3 py-0.5 bg-rose-600 text-white font-mono text-[10px] font-bold rounded-full shadow-md tracking-wider uppercase border border-white/20">
+      <div className="w-full h-1 bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-500 rounded-full shadow-lg animate-pulse" />
+      <span className="absolute px-3 py-0.5 bg-purple-600 text-white font-mono text-[10px] font-bold rounded-full shadow-md tracking-wider uppercase border border-white/20">
         {lang === "vi" ? "Vị trí chen giữa" : "Drop Here"}
       </span>
     </div>
@@ -847,7 +897,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
       {/* Top Header */}
       <div className="bg-white dark:bg-[#111827] border-b border-slate-200 dark:border-slate-800/80 px-[25px] py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 flex-shrink-0">
         <div className="flex items-start gap-3.5">
-          <div className="h-11 w-11 rounded-xl bg-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-600/20 flex-shrink-0 mt-0.5">
+          <div className="h-11 w-11 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-600/20 flex-shrink-0 mt-0.5">
             <SubIcon className="h-5 w-5" />
           </div>
           <div>
@@ -858,43 +908,6 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
               {subDesc}
             </p>
           </div>
-        </div>
-
-        {/* Export & Actions Toolbar */}
-        <div className="flex flex-wrap items-center gap-3">
-          {!isMergeSplitMode && pages.length > 0 && (
-            <>
-              <label className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-xs">
-                <Upload className="h-4 w-4 text-rose-500" />
-                <span>{lang === "vi" ? "Tải thêm ảnh" : "Upload more"}</span>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={(e) => handleFileUpload(e.target.files)}
-                  className="hidden"
-                />
-              </label>
-
-              <button
-                type="button"
-                onClick={clearAllPages}
-                className="px-3.5 py-2 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-xs"
-              >
-                <Trash2 className="h-4 w-4" />
-                <span>{lang === "vi" ? "Xóa tất cả" : "Clear all"}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPreviewPdfModalOpen(true)}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-rose-600/20"
-              >
-                <FileDown className="h-4 w-4" />
-                <span>{t("docScanner.exportPdf")} ({pages.length})</span>
-              </button>
-            </>
-          )}
         </div>
       </div>
 
@@ -907,7 +920,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
             {/* MERGE SECTION */}
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
               <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
-                <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400">
+                <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400">
                   <Upload className="h-5 w-5" />
                 </div>
                 <div>
@@ -921,7 +934,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
               </div>
 
               {/* Upload Dropzone for Merge */}
-              <div className="relative border-2 border-dashed border-rose-200 dark:border-rose-800/60 rounded-xl p-6 bg-rose-50/20 dark:bg-rose-950/10 text-center flex flex-col items-center justify-center cursor-pointer hover:border-rose-400 transition-colors">
+              <div className="relative border-2 border-dashed border-purple-200 dark:border-purple-800/60 rounded-xl p-6 bg-purple-50/20 dark:bg-purple-950/10 text-center flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 transition-colors">
                 <input
                   type="file"
                   multiple
@@ -934,7 +947,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                   }}
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                 />
-                <Upload className="h-8 w-8 text-rose-500 mb-2" />
+                <Upload className="h-8 w-8 text-purple-500 mb-2" />
                 <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                   {lang === "vi" ? "Nhấp hoặc kéo thả các file PDF vào đây" : "Click or drag & drop PDF files here"}
                 </span>
@@ -947,7 +960,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                     <span>{lang === "vi" ? "Danh sách file đã chọn" : "Selected files"} ({mergeFiles.length})</span>
                     <button
                       onClick={() => setMergeFiles([])}
-                      className="text-rose-500 hover:underline font-medium cursor-pointer"
+                      className="text-purple-500 hover:underline font-medium cursor-pointer"
                     >
                       {lang === "vi" ? "Xóa tất cả" : "Clear all"}
                     </button>
@@ -960,7 +973,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                           <span className="text-[10px] text-slate-400">{(f.size / 1024 / 1024).toFixed(2)} MB</span>
                           <button
                             onClick={() => setMergeFiles((prev) => prev.filter((_, i) => i !== idx))}
-                            className="text-slate-400 hover:text-rose-500 p-1 cursor-pointer"
+                            className="text-slate-400 hover:text-purple-500 p-1 cursor-pointer"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -977,14 +990,14 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                       type="text"
                       value={mergeOutputName}
                       onChange={(e) => setMergeOutputName(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B0F1A] text-xs font-mono text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B0F1A] text-xs font-mono text-slate-800 dark:text-slate-200 focus:outline-none focus:border-purple-500"
                     />
                   </div>
 
                   <button
                     onClick={handleMergePdfs}
                     disabled={isMerging || mergeFiles.length < 2}
-                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer mt-3"
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-purple-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer mt-3"
                   >
                     <FileDown className="h-4 w-4" />
                     <span>{isMerging ? (lang === "vi" ? "Đang ghép..." : "Merging...") : (lang === "vi" ? "Ghép PDF Ngay" : "Merge PDFs Now")}</span>
@@ -996,7 +1009,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
             {/* SPLIT SECTION */}
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
               <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
-                <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400">
+                <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400">
                   <Crop className="h-5 w-5" />
                 </div>
                 <div>
@@ -1011,7 +1024,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
 
               {/* Upload Dropzone for Split */}
               {!splitFile ? (
-                <div className="relative border-2 border-dashed border-rose-200 dark:border-rose-800/60 rounded-xl p-6 bg-rose-50/20 dark:bg-rose-950/10 text-center flex flex-col items-center justify-center cursor-pointer hover:border-rose-400 transition-colors">
+                <div className="relative border-2 border-dashed border-purple-200 dark:border-purple-800/60 rounded-xl p-6 bg-purple-50/20 dark:bg-purple-950/10 text-center flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 transition-colors">
                   <input
                     type="file"
                     accept="application/pdf"
@@ -1022,7 +1035,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                     }}
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                   />
-                  <Upload className="h-8 w-8 text-rose-500 mb-2" />
+                  <Upload className="h-8 w-8 text-purple-500 mb-2" />
                   <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                     {lang === "vi" ? "Chọn 1 file PDF cần chia nhỏ" : "Select 1 PDF file to split"}
                   </span>
@@ -1039,7 +1052,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                         setSplitFile(null);
                         setSplitPageCount(0);
                       }}
-                      className="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 p-1.5 rounded-lg text-xs font-semibold cursor-pointer"
+                      className="text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950/30 p-1.5 rounded-lg text-xs font-semibold cursor-pointer"
                     >
                       {lang === "vi" ? "Đổi file" : "Change"}
                     </button>
@@ -1051,7 +1064,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                       onClick={() => setSplitMode("range")}
                       className={`flex-1 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
                         splitMode === "range"
-                          ? "bg-rose-600 text-white shadow-xs"
+                          ? "bg-purple-600 text-white shadow-xs"
                           : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                       }`}
                     >
@@ -1061,7 +1074,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                       onClick={() => setSplitMode("all")}
                       className={`flex-1 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
                         splitMode === "all"
-                          ? "bg-rose-600 text-white shadow-xs"
+                          ? "bg-purple-600 text-white shadow-xs"
                           : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                       }`}
                     >
@@ -1080,7 +1093,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                         value={splitRange}
                         onChange={(e) => setSplitRange(e.target.value)}
                         placeholder="1-3, 5"
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B0F1A] text-xs font-mono text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B0F1A] text-xs font-mono text-slate-800 dark:text-slate-200 focus:outline-none focus:border-purple-500"
                       />
                     </div>
                   )}
@@ -1088,7 +1101,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                   <button
                     onClick={handleSplitPdf}
                     disabled={isSplitting}
-                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer mt-3"
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-purple-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer mt-3"
                   >
                     <FileDown className="h-4 w-4" />
                     <span>{isSplitting ? (lang === "vi" ? "Đang xử lý..." : "Processing...") : (lang === "vi" ? "Tải File Đã Chia" : "Download Split PDF")}</span>
@@ -1103,7 +1116,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
 
       {/* Bulk Dropzone Area */}
       {pages.length === 0 && (
-        <div className="relative border-2 border-dashed border-rose-300 dark:border-rose-700/60 rounded-2xl p-8 bg-rose-50/30 dark:bg-rose-950/10 hover:bg-rose-50/60 dark:hover:bg-rose-950/20 transition-all text-center flex flex-col items-center justify-center cursor-pointer group min-h-[280px]">
+        <div className="relative border-2 border-dashed border-purple-300 dark:border-purple-700/60 rounded-2xl p-8 bg-purple-50/30 dark:bg-purple-950/10 hover:bg-purple-50/60 dark:hover:bg-purple-950/20 transition-all text-center flex flex-col items-center justify-center cursor-pointer group min-h-[280px]">
           <input
             type="file"
             multiple
@@ -1111,7 +1124,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
             onChange={(e) => handleFileUpload(e.target.files)}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
           />
-          <div className="h-14 w-14 rounded-2xl bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+          <div className="h-14 w-14 rounded-2xl bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
             <Upload className="h-7 w-7" />
           </div>
           <h3 className="text-sm md:text-base font-bold text-slate-800 dark:text-slate-200">
@@ -1126,15 +1139,313 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
       {/* Pages Toolbar & Layout Mode Selector */}
       {pages.length > 0 && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+          {/* Operational Action Bar below header */}
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
             <div className="flex items-center gap-3">
               <span className="text-xs font-semibold font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                {t("docScanner.pageCount")}: <span className="text-emerald-600 font-bold">{pages.length}</span>
+                {t("docScanner.pageCount")}: <span className="text-purple-600 font-bold">{pages.length}</span>
               </span>
               <span className="hidden sm:inline-block text-xs text-slate-400">
                 • {lang === "vi" ? "Kéo thả toàn bộ thẻ để sắp xếp thứ tự trang" : "Drag entire card to reorder pages"}
               </span>
             </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-xs">
+                <Upload className="h-4 w-4 text-purple-500" />
+                <span>{lang === "vi" ? "Tải thêm ảnh" : "Upload more"}</span>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => handleFileUpload(e.target.files)}
+                  className="hidden"
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={clearAllPages}
+                className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>{lang === "vi" ? "Xóa tất cả" : "Clear all"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPreviewPdfModalOpen(true)}
+                className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-purple-600/20"
+              >
+                <FileDown className="h-4 w-4" />
+                <span>{t("docScanner.exportPdf")} ({pages.length})</span>
+              </button>
+            </div>
+          </div>
+
+          {/* PUBLISHING CONFIGURATIONS & PAGE NUMBERING PANEL (MERGED DIRECTLY ABOVE PAGE LIST) */}
+          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 md:p-5 shadow-xs space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                  <Sliders className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm md:text-base font-bold text-slate-900 dark:text-white">
+                    {lang === "vi" ? "Cấu hình xuất bản PDF & Đánh số trang" : "Publishing Configs & Page Numbering"}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {lang === "vi"
+                      ? "Tự động đồng bộ khổ giấy, hướng xoay, lề trang và vị trí số trang lên tất cả xem trước bên dưới"
+                      : "Live syncs paper size, orientation, margin, and page numbers to all previews below"}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleExportPdf}
+                disabled={isExportingPdf}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold flex items-center gap-2 shadow-md shadow-purple-600/20 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isExportingPdf ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <span>{t("docScanner.processing")}</span>
+                  </>
+                ) : (
+                  <>
+                    <FileDown className="h-4 w-4" />
+                    <span>{t("docScanner.downloadPdf")}</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Grid Controls */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+              {/* File Name */}
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 mb-1 block">
+                  {t("docScanner.filename")}
+                </label>
+                <input
+                  type="text"
+                  value={pdfFileName}
+                  onChange={(e) => setPdfFileName(e.target.value)}
+                  placeholder="Scanned_Document"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-200 text-xs focus:outline-none focus:border-purple-500 shadow-2xs"
+                />
+              </div>
+
+              {/* Paper Size */}
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 mb-1 block">
+                  {t("docScanner.paperSize")}
+                </label>
+                <select
+                  value={paperSize}
+                  onChange={(e) => setPaperSize(e.target.value as PaperSize)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-200 text-xs focus:outline-none focus:border-purple-500 font-mono font-semibold cursor-pointer shadow-2xs"
+                >
+                  <option value="a4">A4 (210 × 297 mm)</option>
+                  <option value="a3">A3 (297 × 420 mm)</option>
+                  <option value="a5">A5 (148 × 210 mm)</option>
+                  <option value="letter">Letter (215.9 × 279.4 mm)</option>
+                  <option value="legal">Legal (215.9 × 355.6 mm)</option>
+                </select>
+              </div>
+
+              {/* Orientation */}
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 mb-1 block">
+                  {t("docScanner.orientation")}
+                </label>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setPdfOrientation("portrait")}
+                    className={`flex-1 py-2 px-2.5 rounded-xl font-semibold border transition-all cursor-pointer ${
+                      pdfOrientation === "portrait"
+                        ? "bg-purple-600 text-white border-purple-500 shadow-2xs"
+                        : "bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    {t("docScanner.portrait")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPdfOrientation("landscape")}
+                    className={`flex-1 py-2 px-2.5 rounded-xl font-semibold border transition-all cursor-pointer ${
+                      pdfOrientation === "landscape"
+                        ? "bg-purple-600 text-white border-purple-500 shadow-2xs"
+                        : "bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    {t("docScanner.landscape")}
+                  </button>
+                </div>
+              </div>
+
+              {/* Margin Size */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">
+                    {t("docScanner.marginSize")}
+                  </label>
+                  <span className="font-mono text-purple-600 dark:text-purple-400 font-bold">
+                    {pdfMarginMm} mm
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="0"
+                    max="30"
+                    step="1"
+                    value={pdfMarginMm}
+                    onChange={(e) => setPdfMarginMm(Number(e.target.value))}
+                    className="w-full accent-purple-500 cursor-pointer"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    value={pdfMarginMm}
+                    onChange={(e) => setPdfMarginMm(Math.max(0, Number(e.target.value) || 0))}
+                    className="w-14 px-2 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-200 text-xs font-mono text-center focus:outline-none focus:border-purple-500 shadow-2xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Page Numbering Options */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80">
+              <div className="flex items-center justify-between mb-2">
+                <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer">
+                  <Hash className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  <span>{t("docScanner.enablePageNumbers")}</span>
+                </label>
+                <input
+                  type="checkbox"
+                  checked={enablePageNumbers}
+                  onChange={(e) => setEnablePageNumbers(e.target.checked)}
+                  className="accent-purple-500 rounded cursor-pointer h-4 w-4"
+                />
+              </div>
+
+              {enablePageNumbers && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/60">
+                  <div>
+                    <label className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold block mb-1">
+                      {lang === "vi" ? "Vị trí in số trang:" : "Placement Option:"}
+                    </label>
+                    <div className="grid grid-cols-2 gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setPageNumberPlacement("footer_margin")}
+                        className={`py-1.5 px-2 rounded-lg border text-[10px] font-semibold text-center transition-all cursor-pointer ${
+                          pageNumberPlacement === "footer_margin"
+                            ? "bg-purple-600 text-white border-purple-500 shadow-2xs"
+                            : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100"
+                        }`}
+                      >
+                        {lang === "vi" ? "Lề dưới Footer" : "Footer Margin"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPageNumberPlacement("burn_in")}
+                        className={`py-1.5 px-2 rounded-lg border text-[10px] font-semibold text-center transition-all cursor-pointer ${
+                          pageNumberPlacement === "burn_in"
+                            ? "bg-purple-600 text-white border-purple-500 shadow-2xs"
+                            : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100"
+                        }`}
+                      >
+                        {lang === "vi" ? "In lên ảnh" : "Burn-in"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold block mb-1">
+                      {lang === "vi" ? "Căn lề số trang:" : "Text Alignment:"}
+                    </label>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setPageNumberPos("left")}
+                        className={`flex-1 py-1.5 rounded-lg border text-[10px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                          pageNumberPos === "left"
+                            ? "bg-purple-600 text-white border-purple-500 shadow-2xs"
+                            : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
+                        }`}
+                      >
+                        <AlignLeft className="h-3 w-3" />
+                        <span>{t("docScanner.posLeft")}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPageNumberPos("center")}
+                        className={`flex-1 py-1.5 rounded-lg border text-[10px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                          pageNumberPos === "center"
+                            ? "bg-purple-600 text-white border-purple-500 shadow-2xs"
+                            : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
+                        }`}
+                      >
+                        <AlignCenter className="h-3 w-3" />
+                        <span>{t("docScanner.posCenter")}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPageNumberPos("right")}
+                        className={`flex-1 py-1.5 rounded-lg border text-[10px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                          pageNumberPos === "right"
+                            ? "bg-purple-600 text-white border-purple-500 shadow-2xs"
+                            : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
+                        }`}
+                      >
+                        <AlignRight className="h-3 w-3" />
+                        <span>{t("docScanner.posRight")}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold block mb-0.5">
+                        {t("docScanner.pageNumberStartPage")}
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={Math.max(1, pages.length)}
+                        value={pageNumberStartPage}
+                        onChange={(e) => setPageNumberStartPage(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-full px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-200 text-xs font-mono focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold block mb-0.5">
+                        {t("docScanner.pageNumberStartVal")}
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={pageNumberStartVal}
+                        onChange={(e) => setPageNumberStartVal(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-full px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-200 text-xs font-mono focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+              {lang === "vi" ? "Chế độ hiển thị danh sách trang:" : "Display mode:"}
+            </span>
 
             {/* View Layout Switcher */}
             <div className="flex items-center gap-1 bg-white/80 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
@@ -1143,7 +1454,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                 onClick={() => setViewLayout("grid")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                   viewLayout === "grid"
-                    ? "bg-emerald-600 text-white shadow-xs"
+                    ? "bg-purple-600 text-white shadow-xs"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
                 }`}
                 title={t("docScanner.gridView")}
@@ -1157,7 +1468,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                 onClick={() => setViewLayout("column")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                   viewLayout === "column"
-                    ? "bg-emerald-600 text-white shadow-xs"
+                    ? "bg-purple-600 text-white shadow-xs"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
                 }`}
                 title={t("docScanner.columnView")}
@@ -1171,7 +1482,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                 onClick={() => setViewLayout("book")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                   viewLayout === "book"
-                    ? "bg-emerald-600 text-white shadow-xs"
+                    ? "bg-purple-600 text-white shadow-xs"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
                 }`}
                 title={lang === "vi" ? "Chế độ xem dạng sách (2 trang)" : "Book View (2 pages)"}
@@ -1186,7 +1497,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
           {viewLayout === "grid" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {pages.map((page, index) => {
-                const previewUrl = page.processedCanvas.toDataURL("image/jpeg", 0.85);
+                const previewUrl = getPageDataUrl(page, 0.85);
                 const isDraggingThis = draggedPageIndex === index;
                 const isDropTarget = dropTargetIndex === index;
 
@@ -1203,21 +1514,21 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                       onDragEnd={handleDragEnd}
                       className={`group relative rounded-2xl border transition-all duration-200 flex flex-col justify-between overflow-hidden cursor-grab active:cursor-grabbing ${
                         isDraggingThis
-                          ? "opacity-40 scale-95 border-dashed border-amber-500 bg-amber-50/20 dark:bg-amber-950/20 shadow-none"
-                          : "border-slate-200 dark:border-white/10 bg-white/70 dark:bg-[#111827]/80 backdrop-blur-md shadow-xs hover:shadow-lg hover:border-emerald-400/50"
+                          ? "opacity-40 scale-95 border-dashed border-purple-500 bg-purple-50/20 dark:bg-purple-950/20 shadow-none"
+                          : "border-slate-200 dark:border-white/10 bg-white/70 dark:bg-[#111827]/80 backdrop-blur-md shadow-xs hover:shadow-lg hover:border-purple-400/60"
                       }`}
                     >
                       {/* Top Header Badge & Order with Grip Handle */}
                       <div className="p-2.5 bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs select-none">
                         <div className="flex items-center gap-1.5">
-                          <GripVertical className="h-4 w-4 text-slate-400 group-hover:text-emerald-500 transition-colors" />
+                          <GripVertical className="h-4 w-4 text-slate-400 group-hover:text-purple-500 transition-colors" />
                           <span className="font-mono font-bold text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-md">
                             {t("docScanner.page")} {index + 1}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
                           {page.isCropped && (
-                            <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                            <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
                               {lang === "vi" ? "Đã cắt" : "Cropped"}
                             </span>
                           )}
@@ -1229,52 +1540,105 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                         </div>
                       </div>
 
-                      {/* Image Preview Canvas Thumbnail */}
-                      <div
-                        onClick={() => openFullscreenViewer(index)}
-                        className="relative aspect-[3/4] bg-slate-950 flex items-center justify-center p-2 overflow-hidden cursor-pointer group/img select-none"
-                        title={t("docScanner.clickToViewFull")}
-                      >
-                        <img
-                          src={previewUrl}
-                          alt={`Page ${index + 1}`}
-                          className="max-h-full max-w-full object-contain rounded shadow-sm group-hover/img:scale-102 transition-transform pointer-events-none"
-                        />
+                      {/* Image Preview Canvas Thumbnail - Styled Paper Sheet with Margin & Page Numbers Live Sync */}
+                      {(() => {
+                        const pageNum1Based = index + 1;
+                        const shouldRenderPageNum = enablePageNumbers && (pageNum1Based >= pageNumberStartPage);
+                        const isFooterMargin = shouldRenderPageNum && pageNumberPlacement === "footer_margin";
+                        const pageNumVal = pageNumberStartVal + (index - (pageNumberStartPage - 1));
+                        const pageNumStr = pageNumberFormat
+                          .replace("{page}", String(pageNumVal))
+                          .replace("{total}", String(pages.length - pageNumberStartPage + pageNumberStartVal));
 
-                        {/* Fullscreen Overlay Hint */}
-                        <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white">
-                          <div className="p-2.5 rounded-full bg-slate-900/80 backdrop-blur-xs border border-white/20 flex items-center gap-2 text-xs font-semibold">
-                            <Maximize2 className="h-4 w-4 text-emerald-400" />
-                            <span>Fullscreen</span>
+                        const isPortrait = pdfOrientation === "portrait";
+                        const marginPx = Math.max(0, pdfMarginMm);
+
+                        return (
+                          <div
+                            onClick={() => openFullscreenViewer(index)}
+                            className={`relative ${isPortrait ? "aspect-[3/4]" : "aspect-[4/3]"} bg-slate-900/90 dark:bg-slate-950 flex items-center justify-center p-2.5 overflow-hidden cursor-pointer group/img select-none`}
+                            title={t("docScanner.clickToViewFull")}
+                          >
+                            {/* Paper Sheet Preview Container */}
+                            <div
+                              className="bg-white shadow-md relative flex flex-col overflow-hidden text-slate-800 transition-all duration-200 w-full h-full rounded-md border border-slate-200"
+                              style={{
+                                padding: `${marginPx * 0.4}px`,
+                              }}
+                            >
+                              <div className={`relative w-full flex-1 flex items-center justify-center overflow-hidden ${isFooterMargin ? "pb-3" : ""}`}>
+                                <img
+                                  src={previewUrl || null}
+                                  alt={`Page ${index + 1}`}
+                                  className="max-h-full max-w-full object-contain pointer-events-none"
+                                />
+                                {shouldRenderPageNum && pageNumberPlacement === "burn_in" && (
+                                  <div
+                                    className={`absolute bottom-0.5 px-1.5 py-0.2 bg-slate-950/90 text-white font-mono text-[8px] font-bold rounded ${
+                                      pageNumberPos === "left"
+                                        ? "left-0.5"
+                                        : pageNumberPos === "right"
+                                        ? "right-0.5"
+                                        : "left-1/2 -translate-x-1/2"
+                                    }`}
+                                  >
+                                    {pageNumStr}
+                                  </div>
+                                )}
+                              </div>
+
+                              {isFooterMargin && (
+                                <div className="w-full h-3.5 px-1 flex items-center justify-center bg-white shrink-0 border-t border-slate-100">
+                                  <div
+                                    className={`w-full text-[8px] font-mono text-slate-500 font-medium ${
+                                      pageNumberPos === "left"
+                                        ? "text-left"
+                                        : pageNumberPos === "right"
+                                        ? "text-right"
+                                        : "text-center"
+                                    }`}
+                                  >
+                                    {pageNumStr}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Fullscreen Overlay Hint */}
+                            <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white">
+                              <div className="p-2.5 rounded-full bg-slate-900/80 backdrop-blur-xs border border-white/20 flex items-center justify-center shadow-md">
+                                <Maximize2 className="h-5 w-5 text-purple-400" />
+                              </div>
+                            </div>
+
+                            {/* Quick Up/Down Move Buttons */}
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              className="absolute top-2 right-2 flex flex-col gap-1 opacity-90 group-hover:opacity-100 transition-opacity z-10"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => movePage(index, "up")}
+                                disabled={index === 0}
+                                className="p-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-900 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                                title={t("docScanner.moveLeft")}
+                              >
+                                <MoveLeft className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => movePage(index, "down")}
+                                disabled={index === pages.length - 1}
+                                className="p-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-900 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                                title={t("docScanner.moveRight")}
+                              >
+                                <MoveRight className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </div>
-                        </div>
-
-                        {/* Quick Up/Down Move Buttons */}
-                        <div
-                          onClick={(e) => e.stopPropagation()}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          className="absolute top-2 right-2 flex flex-col gap-1 opacity-90 group-hover:opacity-100 transition-opacity z-10"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => movePage(index, "up")}
-                            disabled={index === 0}
-                            className="p-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-900 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
-                            title={t("docScanner.moveLeft")}
-                          >
-                            <MoveLeft className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => movePage(index, "down")}
-                            disabled={index === pages.length - 1}
-                            className="p-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-900 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
-                            title={t("docScanner.moveRight")}
-                          >
-                            <MoveRight className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
+                        );
+                      })()}
 
                       {/* Card Bottom Actions Bar */}
                       <div 
@@ -1284,7 +1648,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                         <button
                           type="button"
                           onClick={() => openCropModal(index)}
-                          className="flex-1 py-1.5 px-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer border border-transparent hover:border-emerald-300 dark:hover:border-emerald-800"
+                          className="flex-1 py-1.5 px-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-950/60 text-slate-700 dark:text-slate-200 hover:text-purple-600 dark:hover:text-purple-400 text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer border border-transparent hover:border-purple-300 dark:hover:border-purple-800"
                           title={t("docScanner.cropAlign")}
                         >
                           <Crop className="h-3.5 w-3.5" />
@@ -1294,7 +1658,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                         <button
                           type="button"
                           onClick={() => openFilterModal(index)}
-                          className="flex-1 py-1.5 px-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer border border-transparent hover:border-indigo-300 dark:hover:border-indigo-800"
+                          className="flex-1 py-1.5 px-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-950/60 text-slate-700 dark:text-slate-200 hover:text-purple-600 dark:hover:text-purple-400 text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer border border-transparent hover:border-purple-300 dark:hover:border-purple-800"
                           title={t("docScanner.filters")}
                         >
                           <Sliders className="h-3.5 w-3.5" />
@@ -1304,7 +1668,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                         <button
                           type="button"
                           onClick={() => deletePage(index)}
-                          className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/60 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer shadow-xs"
                           title={t("docScanner.deletePage")}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -1324,17 +1688,17 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
           {viewLayout === "column" && (
             <div className="space-y-6 max-w-3xl mx-auto">
               {pages.map((page, index) => {
-                const previewUrl = page.processedCanvas.toDataURL("image/jpeg", 0.9);
+                const previewUrl = getPageDataUrl(page, 0.9);
 
                 return (
                   <div
                     key={page.id}
-                    className="rounded-3xl border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-[#111827]/90 hover:border-emerald-400/50 backdrop-blur-md shadow-md overflow-hidden flex flex-col items-center"
+                    className="rounded-3xl border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-[#111827]/90 hover:border-purple-400/50 backdrop-blur-md shadow-md overflow-hidden flex flex-col items-center"
                   >
                     {/* Header bar with explicit page order controls */}
                     <div className="w-full p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 select-none">
                       <div className="flex items-center gap-3">
-                        <span className="font-mono font-bold text-sm text-slate-800 dark:text-slate-100 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-200 px-3 py-1 rounded-lg border border-emerald-300 dark:border-emerald-800">
+                        <span className="font-mono font-bold text-sm text-slate-800 dark:text-slate-100 bg-purple-100 dark:bg-purple-950/80 text-purple-800 dark:text-purple-200 px-3 py-1 rounded-lg border border-purple-300 dark:border-purple-800">
                           {t("docScanner.page")} {index + 1} / {pages.length}
                         </span>
 
@@ -1344,7 +1708,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                             type="button"
                             onClick={() => movePage(index, "up")}
                             disabled={index === 0}
-                            className="p-1 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:text-emerald-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-2xs"
+                            className="p-1 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-950/50 hover:text-purple-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-2xs"
                             title={lang === "vi" ? "Lên trên" : "Move Up"}
                           >
                             <MoveUp className="h-3.5 w-3.5" />
@@ -1353,7 +1717,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                             type="button"
                             onClick={() => movePage(index, "down")}
                             disabled={index === pages.length - 1}
-                            className="p-1 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:text-emerald-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-2xs"
+                            className="p-1 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-950/50 hover:text-purple-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-2xs"
                             title={lang === "vi" ? "Xuống dưới" : "Move Down"}
                           >
                             <MoveDown className="h-3.5 w-3.5" />
@@ -1368,7 +1732,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                           <select
                             value={index}
                             onChange={(e) => movePageToPosition(index, Number(e.target.value))}
-                            className="px-2 py-1 rounded-lg bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 text-xs font-mono font-bold border border-slate-300 dark:border-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-2xs"
+                            className="px-2 py-1 rounded-lg bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 text-xs font-mono font-bold border border-slate-300 dark:border-slate-700 focus:outline-none focus:border-purple-500 cursor-pointer shadow-2xs"
                           >
                             {pages.map((_, pIdx) => (
                               <option key={pIdx} value={pIdx}>
@@ -1379,7 +1743,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                         </div>
 
                         {page.isCropped && (
-                          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
                             {lang === "vi" ? "Đã cắt góc" : "Cropped"}
                           </span>
                         )}
@@ -1389,7 +1753,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                         <button
                           type="button"
                           onClick={() => openCropModal(index)}
-                          className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                          className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-950/60 text-slate-700 dark:text-slate-200 hover:text-purple-600 dark:hover:text-purple-400 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                         >
                           <Crop className="h-4 w-4" />
                           <span>{t("docScanner.cropTitle")}</span>
@@ -1398,7 +1762,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                         <button
                           type="button"
                           onClick={() => openFilterModal(index)}
-                          className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                          className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-950/60 text-slate-700 dark:text-slate-200 hover:text-purple-600 dark:hover:text-purple-400 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                         >
                           <Sliders className="h-4 w-4" />
                           <span>{t("docScanner.filters")}</span>
@@ -1425,7 +1789,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                         <button
                           type="button"
                           onClick={() => deletePage(index)}
-                          className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/60 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer shadow-xs"
                           title={t("docScanner.deletePage")}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -1439,7 +1803,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                       className="w-full p-6 bg-slate-950 flex items-center justify-center cursor-pointer group/colimg select-none"
                     >
                       <img
-                        src={previewUrl}
+                        src={previewUrl || null}
                         alt={`Page ${index + 1}`}
                         className="max-h-[650px] w-auto object-contain rounded-lg shadow-xl group-hover/colimg:scale-101 transition-transform pointer-events-none"
                       />
@@ -1456,7 +1820,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
               {/* Option Bar for Book Mode */}
               <div className="p-4 rounded-2xl bg-white/80 dark:bg-[#111827]/80 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
-                  <BookOpen className="h-4.5 w-4.5 text-emerald-500" />
+                  <BookOpen className="h-4.5 w-4.5 text-purple-500" />
                   <span>{lang === "vi" ? "Chế Độ Xem Giống Sách (2 Trang Song Song)" : "Book View (Two-Page Spread)"}</span>
                 </div>
 
@@ -1516,7 +1880,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                       type="checkbox"
                       checked={isPage1Cover}
                       onChange={(e) => setIsPage1Cover(e.target.checked)}
-                      className="rounded text-emerald-600 focus:ring-emerald-500"
+                      className="rounded text-purple-600 focus:ring-purple-500"
                     />
                     <span>{lang === "vi" ? "Trang 1 là Trang Bìa" : "Page 1 is Cover Page"}</span>
                   </label>
@@ -1609,24 +1973,24 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
 
                 const cropBtnClass =
                   bookTheme === "light"
-                    ? "flex-1 py-1 px-2 rounded bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-600 border border-slate-200 text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
+                    ? "flex-1 py-1 px-2 rounded bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-600 border border-slate-200 text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
                     : bookTheme === "sepia"
-                    ? "flex-1 py-1 px-2 rounded bg-[#fcf8ed] hover:bg-[#e8ddc5] text-[#5c4a30] hover:text-amber-800 border border-[#e2d5ba] text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
-                    : "flex-1 py-1 px-2 rounded bg-slate-800 hover:bg-emerald-950 text-slate-200 hover:text-emerald-400 border border-slate-700 text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer shadow-2xs";
+                    ? "flex-1 py-1 px-2 rounded bg-[#fcf8ed] hover:bg-[#e8ddc5] text-[#5c4a30] hover:text-purple-800 border border-[#e2d5ba] text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
+                    : "flex-1 py-1 px-2 rounded bg-slate-800 hover:bg-purple-950 text-slate-200 hover:text-purple-400 border border-slate-700 text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer shadow-2xs";
 
                 const filterBtnClass =
                   bookTheme === "light"
-                    ? "flex-1 py-1 px-2 rounded bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-600 border border-slate-200 text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
+                    ? "flex-1 py-1 px-2 rounded bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-600 border border-slate-200 text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
                     : bookTheme === "sepia"
-                    ? "flex-1 py-1 px-2 rounded bg-[#fcf8ed] hover:bg-[#e8ddc5] text-[#5c4a30] hover:text-indigo-800 border border-[#e2d5ba] text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
-                    : "flex-1 py-1 px-2 rounded bg-slate-800 hover:bg-indigo-950 text-slate-200 hover:text-indigo-400 border border-slate-700 text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer shadow-2xs";
+                    ? "flex-1 py-1 px-2 rounded bg-[#fcf8ed] hover:bg-[#e8ddc5] text-[#5c4a30] hover:text-purple-800 border border-[#e2d5ba] text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
+                    : "flex-1 py-1 px-2 rounded bg-slate-800 hover:bg-purple-950 text-slate-200 hover:text-purple-400 border border-slate-700 text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer shadow-2xs";
 
                 const deleteBtnClass =
                   bookTheme === "light"
-                    ? "p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
+                    ? "p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 cursor-pointer shadow-xs"
                     : bookTheme === "sepia"
-                    ? "p-1 rounded text-[#8c7653] hover:text-rose-600 hover:bg-[#e8ddc5] cursor-pointer"
-                    : "p-1 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-950/60 cursor-pointer";
+                    ? "p-1.5 rounded-xl border border-[#e2d5ba] bg-[#fcf8ed] hover:bg-rose-50 text-[#5c4a30] hover:text-rose-600 cursor-pointer shadow-xs"
+                    : "p-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-rose-950/60 text-slate-300 hover:text-rose-400 cursor-pointer shadow-xs";
 
                 const emptySlotClass =
                   bookTheme === "light"
@@ -1646,7 +2010,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                           <span className="font-mono font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                             {lang === "vi" ? `Tờ Sách #${spread.spreadNum}` : `Spread #${spread.spreadNum}`}
                           </span>
-                          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold font-mono">
+                          <span className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold font-mono">
                             {spread.left && spread.right
                               ? `${t("docScanner.page")} ${spread.left.idx + 1} & ${spread.right.idx + 1}`
                               : spread.right
@@ -1663,7 +2027,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                           {spread.left ? (
                             <div className={pageCardClass}>
                               <div className={pageHeaderClass}>
-                                <span className="font-mono font-bold bg-emerald-600 text-white px-2 py-0.5 rounded text-[11px]">
+                                <span className="font-mono font-bold bg-purple-600 text-white px-2 py-0.5 rounded text-[11px]">
                                   {t("docScanner.page")} {spread.left.idx + 1}
                                 </span>
                                 <div className="flex items-center gap-1">
@@ -1690,12 +2054,12 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                                 className={pageImageClass}
                               >
                                 <img
-                                  src={spread.left.page.processedCanvas.toDataURL("image/jpeg", 0.85)}
+                                  src={getPageDataUrl(spread.left.page, 0.85) || null}
                                   alt={`Page ${spread.left.idx + 1}`}
                                   className="max-h-full max-w-full object-contain rounded shadow-xs group-hover/bimg:scale-102 transition-transform"
                                 />
                                 <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover/bimg:opacity-100 transition-opacity flex items-center justify-center text-white">
-                                  <Maximize2 className="h-5 w-5 text-emerald-400" />
+                                  <Maximize2 className="h-5 w-5 text-purple-400" />
                                 </div>
                               </div>
                               <div className={pageToolbarClass}>
@@ -1735,7 +2099,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                           {spread.right ? (
                             <div className={pageCardClass}>
                               <div className={pageHeaderClass}>
-                                <span className="font-mono font-bold bg-emerald-600 text-white px-2 py-0.5 rounded text-[11px]">
+                                <span className="font-mono font-bold bg-purple-600 text-white px-2 py-0.5 rounded text-[11px]">
                                   {t("docScanner.page")} {spread.right.idx + 1}
                                 </span>
                                 <div className="flex items-center gap-1">
@@ -1762,12 +2126,12 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                                 className={pageImageClass}
                               >
                                 <img
-                                  src={spread.right.page.processedCanvas.toDataURL("image/jpeg", 0.85)}
+                                  src={getPageDataUrl(spread.right.page, 0.85) || null}
                                   alt={`Page ${spread.right.idx + 1}`}
                                   className="max-h-full max-w-full object-contain rounded shadow-xs group-hover/bimg:scale-102 transition-transform"
                                 />
                                 <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover/bimg:opacity-100 transition-opacity flex items-center justify-center text-white">
-                                  <Maximize2 className="h-5 w-5 text-emerald-400" />
+                                  <Maximize2 className="h-5 w-5 text-purple-400" />
                                 </div>
                               </div>
                               <div className={pageToolbarClass}>
@@ -1819,7 +2183,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
           {/* Top Bar */}
           <div className="p-4 bg-white/90 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between z-10 shadow-xs">
             <div className="flex items-center gap-3">
-              <span className="font-mono font-bold text-sm text-white bg-emerald-600 px-3 py-1 rounded-xl shadow-xs">
+              <span className="font-mono font-bold text-sm text-white bg-purple-600 px-3 py-1 rounded-xl shadow-xs">
                 {t("docScanner.page")} {fullscreenPageIndex + 1} / {pages.length}
               </span>
               <span className="text-xs text-slate-500 dark:text-slate-400 hidden sm:inline-block">
@@ -1832,7 +2196,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
               <button
                 type="button"
                 onClick={() => openCropModal(fullscreenPageIndex)}
-                className="px-3.5 py-2 rounded-xl bg-emerald-100 dark:bg-emerald-600/20 hover:bg-emerald-200 dark:hover:bg-emerald-600/40 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center gap-1.5 border border-emerald-300 dark:border-emerald-500/30 transition-all cursor-pointer"
+                className="px-3.5 py-2 rounded-xl bg-purple-100 dark:bg-purple-600/20 hover:bg-purple-200 dark:hover:bg-purple-600/40 text-purple-800 dark:text-purple-300 text-xs font-semibold flex items-center gap-1.5 border border-purple-300 dark:border-purple-500/30 transition-all cursor-pointer"
               >
                 <Crop className="h-4 w-4" />
                 <span>{t("docScanner.cropTitle")}</span>
@@ -1876,8 +2240,8 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
             </div>
           </div>
 
-          {/* Center Image Display */}
-          <div className="relative flex-1 flex items-center justify-center p-4 overflow-hidden bg-slate-200/50 dark:bg-slate-950">
+          {/* Center Image Display - Synchronized with Paper Sheet, Orientation, Margin & Page Numbers */}
+          <div className="relative flex-1 flex items-center justify-center p-4 md:p-8 overflow-hidden bg-slate-200/50 dark:bg-slate-950">
             <button
               type="button"
               onClick={() => setFullscreenPageIndex((prev) => Math.max(0, prev - 1))}
@@ -1887,11 +2251,68 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
               <ChevronLeft className="h-6 w-6" />
             </button>
 
-            <img
-              src={pages[fullscreenPageIndex].processedCanvas.toDataURL("image/jpeg", 0.95)}
-              alt={`Fullscreen Page ${fullscreenPageIndex + 1}`}
-              className="max-h-[82vh] max-w-[90vw] object-contain rounded-lg shadow-2xl border border-slate-300 dark:border-slate-800"
-            />
+            {(() => {
+              const fsIndex = fullscreenPageIndex;
+              const fsPageNum1Based = fsIndex + 1;
+              const fsShouldRenderPageNum = enablePageNumbers && (fsPageNum1Based >= pageNumberStartPage);
+              const fsIsFooterMargin = fsShouldRenderPageNum && pageNumberPlacement === "footer_margin";
+              const fsPageNumVal = pageNumberStartVal + (fsIndex - (pageNumberStartPage - 1));
+              const fsPageNumStr = pageNumberFormat
+                .replace("{page}", String(fsPageNumVal))
+                .replace("{total}", String(pages.length - pageNumberStartPage + pageNumberStartVal));
+
+              const isPortrait = pdfOrientation === "portrait";
+              const marginPx = Math.max(0, pdfMarginMm);
+
+              return (
+                <div
+                  className={`bg-white shadow-2xl relative flex flex-col overflow-hidden text-slate-800 transition-all duration-300 rounded-xl border border-slate-300 dark:border-slate-800 ${
+                    isPortrait ? "aspect-[3/4] h-[78vh] max-w-[85vw]" : "aspect-[4/3] w-[80vw] max-h-[75vh]"
+                  }`}
+                  style={{
+                    padding: `${marginPx * 1.2}px`,
+                  }}
+                >
+                  <div className={`relative w-full flex-1 flex items-center justify-center overflow-hidden ${fsIsFooterMargin ? "pb-5" : ""}`}>
+                    <img
+                      src={getPageDataUrl(pages[fullscreenPageIndex], 0.95) || null}
+                      alt={`Fullscreen Page ${fullscreenPageIndex + 1}`}
+                      className="max-h-full max-w-full object-contain pointer-events-none shadow-2xs"
+                    />
+
+                    {fsShouldRenderPageNum && pageNumberPlacement === "burn_in" && (
+                      <div
+                        className={`absolute bottom-2 px-2.5 py-0.5 rounded-md bg-slate-950/90 text-white font-mono text-[11px] font-bold shadow-md ${
+                          pageNumberPos === "left"
+                            ? "left-2"
+                            : pageNumberPos === "right"
+                            ? "right-2"
+                            : "left-1/2 -translate-x-1/2"
+                        }`}
+                      >
+                        {fsPageNumStr}
+                      </div>
+                    )}
+                  </div>
+
+                  {fsIsFooterMargin && (
+                    <div className="w-full h-7 px-2 flex items-center justify-center bg-white shrink-0 border-t border-slate-100">
+                      <div
+                        className={`w-full text-[11px] font-mono text-slate-500 font-medium ${
+                          pageNumberPos === "left"
+                            ? "text-left"
+                            : pageNumberPos === "right"
+                            ? "text-right"
+                            : "text-center"
+                        }`}
+                      >
+                        {fsPageNumStr}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             <button
               type="button"
@@ -1912,12 +2333,12 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                 onClick={() => setFullscreenPageIndex(idx)}
                 className={`relative h-14 w-11 rounded-lg overflow-hidden border-2 transition-all cursor-pointer flex-shrink-0 ${
                   idx === fullscreenPageIndex
-                    ? "border-emerald-500 scale-105 shadow-lg shadow-emerald-500/20"
+                    ? "border-purple-500 scale-105 shadow-lg shadow-purple-500/20"
                     : "border-slate-700 opacity-60 hover:opacity-100"
                 }`}
               >
                 <img
-                  src={p.processedCanvas.toDataURL("image/jpeg", 0.5)}
+                  src={getPageDataUrl(p, 0.5) || null}
                   alt={`Thumb ${idx + 1}`}
                   className="w-full h-full object-cover"
                 />
@@ -1934,7 +2355,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
             {/* Modal Header */}
             <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/90">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                <div className="p-2 rounded-xl bg-purple-500/20 text-purple-600 dark:text-purple-400">
                   <Crop className="h-5 w-5" />
                 </div>
                 <div>
@@ -1962,14 +2383,14 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
             >
               {(() => {
                 const activePage = pages[activePageIndex];
-                const origW = activePage.originalCanvas.width;
-                const origH = activePage.originalCanvas.height;
+                const origW = activePage?.originalCanvas?.width || 800;
+                const origH = activePage?.originalCanvas?.height || 1131;
 
                 return (
                   <div className="relative max-h-[60vh] max-w-full flex items-center justify-center aspect-auto">
                     {/* Cached Static Original Image Background - Zero dataURL recalculations on mouse move */}
                     <img
-                      src={cropModalImgUrl || activePage.originalCanvas.toDataURL()}
+                      src={cropModalImgUrl || getOriginalPageDataUrl(activePage) || null}
                       alt="Crop Original"
                       className="max-h-[60vh] max-w-full object-contain rounded-xl border border-slate-300 dark:border-slate-800 block pointer-events-none shadow-md"
                     />
@@ -2064,7 +2485,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
               {/* MAGNIFIER LOUPE OVERLAY */}
               {draggingPointIdx !== null && loupePos && cropContainerRef.current && (
                 <div
-                  className="fixed pointer-events-none z-50 w-36 h-36 rounded-full border-2 border-emerald-400 shadow-2xl overflow-hidden bg-slate-900"
+                  className="fixed pointer-events-none z-50 w-36 h-36 rounded-full border-2 border-purple-400 shadow-2xl overflow-hidden bg-slate-900"
                   style={{
                     left: `${loupePos.x - 72}px`,
                     top: `${loupePos.y - 150}px`,
@@ -2073,14 +2494,14 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                   <div
                     className="absolute"
                     style={{
-                      width: `${pages[activePageIndex].originalCanvas.width}px`,
-                      height: `${pages[activePageIndex].originalCanvas.height}px`,
+                      width: `${pages[activePageIndex]?.originalCanvas?.width || 800}px`,
+                      height: `${pages[activePageIndex]?.originalCanvas?.height || 1131}px`,
                       transformOrigin: `${tempPoints[draggingPointIdx].x}px ${tempPoints[draggingPointIdx].y}px`,
                       transform: `translate(${72 - tempPoints[draggingPointIdx].x}px, ${72 - tempPoints[draggingPointIdx].y}px) scale(2.8)`,
                     }}
                   >
                     <img
-                      src={cropModalImgUrl || pages[activePageIndex].originalCanvas.toDataURL()}
+                      src={cropModalImgUrl || getOriginalPageDataUrl(pages[activePageIndex]) || null}
                       alt="Loupe Zoom"
                       className="w-full h-full object-contain"
                     />
@@ -2088,9 +2509,9 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
 
                   {/* Precision Crosshair Lines */}
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-full h-[1px] bg-emerald-400/80" />
-                    <div className="h-full w-[1px] bg-emerald-400/80 absolute" />
-                    <div className="w-3.5 h-3.5 rounded-full border border-emerald-300 absolute" />
+                    <div className="w-full h-[1px] bg-purple-400/80" />
+                    <div className="h-full w-[1px] bg-purple-400/80 absolute" />
+                    <div className="w-3.5 h-3.5 rounded-full border border-purple-300 absolute" />
                   </div>
                 </div>
               )}
@@ -2101,8 +2522,9 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
               <button
                 type="button"
                 onClick={() => {
-                  const w = pages[activePageIndex].originalCanvas.width;
-                  const h = pages[activePageIndex].originalCanvas.height;
+                  const activePg = pages[activePageIndex];
+                  const w = activePg?.originalCanvas?.width || 800;
+                  const h = activePg?.originalCanvas?.height || 1131;
                   setTempPoints([
                     { x: 0, y: 0 },
                     { x: w, y: 0 },
@@ -2128,7 +2550,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                   type="button"
                   onClick={applyCropWarp}
                   disabled={isApplyingCrop}
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-600/30 transition-all cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-purple-600/30 transition-all cursor-pointer disabled:opacity-50"
                 >
                   {isApplyingCrop ? (
                     <>
@@ -2339,7 +2761,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
             {/* Modal Header */}
             <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/90">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                <div className="p-2 rounded-xl bg-purple-500/20 text-purple-600 dark:text-purple-400">
                   <FileDown className="h-5 w-5" />
                 </div>
                 <div>
@@ -2372,7 +2794,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                   value={pdfFileName}
                   onChange={(e) => setPdfFileName(e.target.value)}
                   placeholder="Scanned_Document"
-                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-200 text-xs focus:outline-none focus:border-emerald-500 shadow-xs"
+                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-200 text-xs focus:outline-none focus:border-purple-500 shadow-xs"
                 />
               </div>
 
@@ -2384,7 +2806,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                 <select
                   value={paperSize}
                   onChange={(e) => setPaperSize(e.target.value as PaperSize)}
-                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-200 text-xs focus:outline-none focus:border-emerald-500 font-mono font-semibold cursor-pointer shadow-xs"
+                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-200 text-xs focus:outline-none focus:border-purple-500 font-mono font-semibold cursor-pointer shadow-xs"
                 >
                   <option value="a4">A4 (210 × 297 mm)</option>
                   <option value="a3">A3 (297 × 420 mm)</option>
@@ -2400,7 +2822,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                   <label className="font-semibold text-slate-700 dark:text-slate-300">
                     {t("docScanner.marginSize")}
                   </label>
-                  <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                  <span className="font-mono text-purple-600 dark:text-purple-400 font-bold">
                     {pdfMarginMm} mm
                   </span>
                 </div>
@@ -2412,7 +2834,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                     step="1"
                     value={pdfMarginMm}
                     onChange={(e) => setPdfMarginMm(Number(e.target.value))}
-                    className="w-full accent-emerald-500 cursor-pointer"
+                    className="w-full accent-purple-500 cursor-pointer"
                   />
                   <input
                     type="number"
@@ -2420,7 +2842,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                     max="50"
                     value={pdfMarginMm}
                     onChange={(e) => setPdfMarginMm(Math.max(0, Number(e.target.value) || 0))}
-                    className="w-14 px-2 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-200 text-xs font-mono text-center focus:outline-none focus:border-emerald-500 shadow-xs"
+                    className="w-14 px-2 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-200 text-xs font-mono text-center focus:outline-none focus:border-purple-500 shadow-xs"
                   />
                 </div>
               </div>
@@ -2436,7 +2858,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                     onClick={() => setPdfOrientation("portrait")}
                     className={`flex-1 py-2 px-2.5 rounded-xl font-semibold border transition-all cursor-pointer ${
                       pdfOrientation === "portrait"
-                        ? "bg-emerald-600 text-white border-emerald-500 shadow-xs"
+                        ? "bg-purple-600 text-white border-purple-500 shadow-xs"
                         : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800"
                     }`}
                   >
@@ -2447,7 +2869,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                     onClick={() => setPdfOrientation("landscape")}
                     className={`flex-1 py-2 px-2.5 rounded-xl font-semibold border transition-all cursor-pointer ${
                       pdfOrientation === "landscape"
-                        ? "bg-emerald-600 text-white border-emerald-500 shadow-xs"
+                        ? "bg-purple-600 text-white border-purple-500 shadow-xs"
                         : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800"
                     }`}
                   >
@@ -2460,14 +2882,14 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
               <div className="md:col-span-2 lg:col-span-4 border-t border-slate-200 dark:border-slate-800/80 pt-3 mt-1">
                 <label className="font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
                   <span className="flex items-center gap-1">
-                    <Hash className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <Hash className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
                     <span>{t("docScanner.enablePageNumbers")}</span>
                   </span>
                   <input
                     type="checkbox"
                     checked={enablePageNumbers}
                     onChange={(e) => setEnablePageNumbers(e.target.checked)}
-                    className="accent-emerald-500 rounded cursor-pointer h-4 w-4"
+                    className="accent-purple-500 rounded cursor-pointer h-4 w-4"
                   />
                 </label>
 
@@ -2484,7 +2906,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                           onClick={() => setPageNumberPlacement("footer_margin")}
                           className={`py-1.5 px-2 rounded-xl border text-[10px] font-semibold text-center transition-all cursor-pointer ${
                             pageNumberPlacement === "footer_margin"
-                              ? "bg-emerald-600 text-white border-emerald-500 shadow-xs"
+                              ? "bg-purple-600 text-white border-purple-500 shadow-xs"
                               : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-400 border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800"
                           }`}
                         >
@@ -2496,7 +2918,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                           onClick={() => setPageNumberPlacement("burn_in")}
                           className={`py-1.5 px-2 rounded-xl border text-[10px] font-semibold text-center transition-all cursor-pointer ${
                             pageNumberPlacement === "burn_in"
-                              ? "bg-emerald-600 text-white border-emerald-500 shadow-xs"
+                              ? "bg-purple-600 text-white border-purple-500 shadow-xs"
                               : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-400 border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800"
                           }`}
                         >
@@ -2516,7 +2938,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                           onClick={() => setPageNumberPos("left")}
                           className={`flex-1 py-1.5 rounded-xl border text-[10px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-all ${
                             pageNumberPos === "left"
-                              ? "bg-emerald-600 text-white border-emerald-500 shadow-xs"
+                              ? "bg-purple-600 text-white border-purple-500 shadow-xs"
                               : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-400 border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800"
                           }`}
                         >
@@ -2528,7 +2950,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                           onClick={() => setPageNumberPos("center")}
                           className={`flex-1 py-1.5 rounded-xl border text-[10px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-all ${
                             pageNumberPos === "center"
-                              ? "bg-emerald-600 text-white border-emerald-500 shadow-xs"
+                              ? "bg-purple-600 text-white border-purple-500 shadow-xs"
                               : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-400 border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800"
                           }`}
                         >
@@ -2540,7 +2962,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                           onClick={() => setPageNumberPos("right")}
                           className={`flex-1 py-1.5 rounded-xl border text-[10px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-all ${
                             pageNumberPos === "right"
-                              ? "bg-emerald-600 text-white border-emerald-500 shadow-xs"
+                              ? "bg-purple-600 text-white border-purple-500 shadow-xs"
                               : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-400 border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800"
                           }`}
                         >
@@ -2562,7 +2984,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                           max={Math.max(1, pages.length)}
                           value={pageNumberStartPage}
                           onChange={(e) => setPageNumberStartPage(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-full px-2 py-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-200 text-xs font-mono focus:outline-none focus:border-emerald-500 shadow-xs"
+                          className="w-full px-2 py-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-200 text-xs font-mono focus:outline-none focus:border-purple-500 shadow-xs"
                         />
                       </div>
                       <div>
@@ -2574,7 +2996,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                           min={1}
                           value={pageNumberStartVal}
                           onChange={(e) => setPageNumberStartVal(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-full px-2 py-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-200 text-xs font-mono focus:outline-none focus:border-emerald-500 shadow-xs"
+                          className="w-full px-2 py-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-200 text-xs font-mono focus:outline-none focus:border-purple-500 shadow-xs"
                         />
                       </div>
                     </div>
@@ -2630,7 +3052,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                         }`}
                       >
                         <img
-                          src={page.processedCanvas.toDataURL("image/jpeg", 0.9)}
+                          src={getPageDataUrl(page, 0.9) || null}
                           alt={`Preview Page ${idx + 1}`}
                           className="max-h-full max-w-full object-contain shadow-xs"
                         />
@@ -2687,7 +3109,7 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
                 type="button"
                 onClick={handleExportPdf}
                 disabled={isExportingPdf}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-600/30 transition-all cursor-pointer disabled:opacity-50"
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-purple-600/30 transition-all cursor-pointer disabled:opacity-50"
               >
                 {isExportingPdf ? (
                   <>

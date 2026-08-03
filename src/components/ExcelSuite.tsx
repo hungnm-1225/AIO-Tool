@@ -3,7 +3,7 @@ import { ExcelSplitterState, ExcelMergerState, DirAggregatorState, ActiveModule 
 import { useI18n } from "../utils/i18n";
 import ExcelSplitterValidator from "./ExcelSplitterValidator";
 import ExcelMergerExtractor from "./ExcelMergerExtractor";
-import DirectoryAggregator from "./DirectoryAggregator";
+import MergeTable from "./MergeTable";
 import { MAIN_MENU_ITEMS } from "../utils/navigation";
 
 interface ExcelSuiteProps {
@@ -36,7 +36,7 @@ export default function ExcelSuite({
   const subDesc = lang === "vi" ? activeSub?.descriptionVi : activeSub?.descriptionEn;
 
   const isMerger = subSlug === "merge-and-extract-account" || subSlug === "gop-va-trich-xuat-account";
-  const isAggregator = subSlug === "directory-aggregator" || subSlug === "gop-thu-muc-xlsx-csv";
+  const isAggregator = subSlug === "merge-table" || subSlug === "directory-aggregator" || subSlug === "gop-thu-muc-xlsx-csv";
   const isSplitter = subSlug === "split-and-validate" || subSlug === "tach-va-kiem-tra-loi" || (!isMerger && !isAggregator);
 
   return (
@@ -76,7 +76,7 @@ export default function ExcelSuite({
           <ExcelMergerExtractor hideInnerHeader state={mergerState} onChange={onMergerChange} />
         )}
         {isAggregator && (
-          <DirectoryAggregator hideInnerHeader state={dirAggregatorState} onChange={onDirAggregatorChange} />
+          <MergeTable hideInnerHeader state={dirAggregatorState} onChange={onDirAggregatorChange} />
         )}
       </div>
     </div>

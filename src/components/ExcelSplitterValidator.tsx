@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useRef } from "react";
-import * as XLSX from "xlsx";
+import { XLSX } from "../utils/xlsxHelper";
 import JSZip from "jszip";
 import { ExcelSplitterState, ActiveModule } from "../types";
 import { useI18n } from "../utils/i18n";

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import * as XLSX from "xlsx";
+import { XLSX } from "../utils/xlsxHelper";
 import { ExcelMergerState, ActiveModule } from "../types";
 import { useI18n } from "../utils/i18n";
 import { navigateTo } from "../utils/navigation";

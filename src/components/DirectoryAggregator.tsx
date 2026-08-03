@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import * as XLSX from "xlsx";
+import { XLSX } from "../utils/xlsxHelper";
 import JSZip from "jszip";
 import { DirAggregatorState, ActiveModule } from "../types";
 import { useI18n } from "../utils/i18n";
@@ -354,7 +354,7 @@ export default function DirectoryAggregator({
             return;
           }
           const worksheet = workbook.Sheets[sheetName];
-          const rawRows = XLSX.utils.sheet_to_json<any>(worksheet, { defval: "" });
+          const rawRows = XLSX.utils.sheet_to_json(worksheet, { defval: "" }) as any[];
           resolve(rawRows);
         } catch (err) {
           reject(err);

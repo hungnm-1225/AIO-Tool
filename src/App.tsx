@@ -198,7 +198,7 @@ function MainApp() {
             Vibe Code Workstation
           </span>
           <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded-md font-bold">
-            v2.8.15
+            v2.9.0
           </span>
         </div>
         <div className="flex items-center gap-2">

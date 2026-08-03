@@ -1,6 +1,6 @@
 # AIO Tool — Hệ Thống Công Cụ Tổng Hợp (AIO Web Tools)
 
-> **Phiên bản hiện tại:** `v2.8.15`  
+> **Phiên bản hiện tại:** `v2.9.0`  
 > **Kiến trúc:** Client-Side Single Page Application (SPA) / React 19 + Vite 6 + TypeScript 5 + Tailwind CSS 4  
 > **Chế độ hoạt động:** 100% Offline-First (Xử lý trực tiếp trên Sandbox Browser của người dùng, không truyền dữ liệu lên máy chủ)
 

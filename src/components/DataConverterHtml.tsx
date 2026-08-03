@@ -11,7 +11,7 @@ import {
   beautifyJs, minifyJs,
   csvToJson, jsonToCsv 
 } from "../utils/formatters";
-import * as XLSX from "xlsx";
+import { XLSX } from "../utils/xlsxHelper";
 import { MAIN_MENU_ITEMS, navigateTo } from "../utils/navigation";
 import { 
   Code, 

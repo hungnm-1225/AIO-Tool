@@ -13,7 +13,7 @@ Hệ thống tuân thủ nghiêm ngặt quy chuẩn ngữ nghĩa **Semantic Vers
 - **Minor (`vX.Y.0`)**: Thêm tính năng mới hoặc nâng cấp quy trình cho các mô-đun chính (Feature Addition / Module Revamp).
 - **Patch (`vX.Y.Z`)**: Sửa lỗi kỹ thuật, tinh chỉnh giao diện, tối ưu hiệu năng hoặc sửa bug phát sinh.
 
-*Phiên bản `v2.8.15` mang đến loạt cải tiến quan trọng về giao diện và trải nghiệm người dùng: tái cấu trúc Advanced PDF Editor khi gộp bảng cấu hình xuất bản PDF & đánh số trang trực tiếp lên trên danh sách trang, hỗ trợ đồng bộ theo thời gian thực (Live Sync) kích thước khổ giấy, hướng xoay, lề trang và vị trí số trang lên tất cả thẻ trang và trình xem toàn màn hình; cải tiến thanh Sidebar ở chế độ thu gọn khi nhấp vào menu chính sẽ mở menu con dạng popover xổ ra bên cạnh ở vị trí tương ứng; đồng thời bổ sung nút cuộn nhanh lên đầu trang (Scroll To Top) giúp nâng cao trải nghiệm thao tác trên tài liệu dài.*
+*Phiên bản `v2.9.0` mang đến loạt cải tiến quan trọng về phân hệ Excel Suite và trải nghiệm người dùng: bổ sung tính năng **Tách File Theo Cột (Split by Column)** mạnh mẽ cho phép tự động phân nhóm và chia nhỏ dữ liệu Excel/CSV thành nhiều file độc lập dựa trên giá trị duy nhất của một cột được lựa chọn, hỗ trợ cấu hình kèm số lượng bản ghi vào tên file, tùy chỉnh tên tệp ZIP lưu trữ, tùy chọn định dạng xuất (.xlsx hoặc .csv), và giao diện xem trước dữ liệu nhóm (Grid Preview) trực quan; đồng thời kế thừa đầy đủ các nâng cấp trước đó từ dòng `v2.8.x`.*
 
 ---
 
@@ -78,13 +78,14 @@ src/
 │   ├── ExcelSplitterValidator.tsx    # Công cụ Chia nhỏ Excel & Phát hiện lỗi tài khoản
 │   ├── ExcelMergerExtractor.tsx      # Công cụ Gộp Excel & Trích xuất tài khoản tự động
 │   ├── DirectoryAggregator.tsx       # Công cụ Gộp dữ liệu Excel/CSV theo thư mục gốc
+│   ├── ExcelSplitByColumn.tsx        # Công cụ Tách file Excel/CSV theo giá trị của cột được chọn
 │   ├── DocumentScanner.tsx           # Công cụ chụp ảnh, nắn phẳng góc 4 điểm & xuất PDF
 │   ├── PdfMergerSplitter.tsx         # Công cụ Ghép & Chia nhỏ tệp tin PDF theo trang
 │   ├── FileRenamer.tsx               # Công cụ đổi tên tệp hàng loạt
 │   ├── FileMetadataEditor.tsx        # Trình chỉnh sửa thông tin thời gian (Timestamp) của file
 │   └── FileConverter.tsx             # Bộ công cụ Chuyển đổi Định dạng Tệp tin Đa năng (Amber theme)
 ├── utils/
-│   ├── i18n.ts                       # Bộ từ điển song ngữ Việt - Anh
+│   ├── i18n.tsx                      # Bộ từ điển song ngữ Việt - Anh
 │   └── navigation.ts                 # Trình phân tích & kiểm soát định tuyến URL
 ├── types.ts                          # Định nghĩa cấu trúc State và Enums hệ thống
 ├── App.tsx                           # Điểm điều phối kết xuất chính
@@ -124,6 +125,8 @@ src/
   - *Luồng hoạt động:* Tiếp nhận danh sách nhiều file Excel cùng lúc. Hợp nhất (Concatenate) tất cả các hàng dữ liệu từ các sheet đầu tiên của từng file. Tự động nhận diện cấu trúc cột thông minh để phân tích và chỉ trích xuất ra các cột liên quan đến tài khoản (Username, Password, Email), loại bỏ các cột thông tin dư thừa.
 - **Directory Aggregator (`directory-aggregator`)**:
   - *Luồng hoạt động:* Người dùng tải lên toàn bộ thư mục chứa hàng chục tệp Excel/CSV qua tính năng kéo thả. Ứng dụng tự động duyệt qua cây thư mục, chỉ lọc ra các tệp bảng tính hợp lệ, hợp nhất chúng thành một bảng dữ liệu hợp nhất khổng lồ ở RAM, hỗ trợ tìm kiếm và xuất kết quả tức thì.
+- **Split by Column (`split-by-column`)**:
+  - *Luồng hoạt động:* Người dùng tải lên tệp Excel/CSV và chọn một cột bất kỳ làm tiêu chí phân nhóm. Ứng dụng tự động nhóm toàn bộ các dòng dữ liệu theo các giá trị duy nhất trong cột đó, hiển thị bảng tổng hợp số lượng dòng & tỷ lệ phần trăm trực quan, hỗ trợ xem trước (Grid Preview) dữ liệu của từng nhóm, cấu hình mẫu tên file xuất và xuất hàng loạt thành tệp tin lưu trữ ZIP chứa các tệp con định dạng `.xlsx` hoặc `.csv`.
 
 ### 4. Phân Hệ Xử Lý Ảnh Tài Liệu & PDF (`pdf-suite`)
 - **Chuyển Ảnh Sang PDF (`create-pdf-from-images`)**:
@@ -208,10 +211,10 @@ Nếu bạn là một AI Coder mới nhận bàn giao dự án này và cần s�
      ```
 
 ### Bước 3: Cách Quản Lý Đa Ngôn Ngữ (Localization)
-Dự án hỗ trợ hoàn chỉnh song ngữ Việt - Anh thông qua tệp `src/utils/i18n.ts`.
-1. **Mở tệp `src/utils/i18n.ts`**: Tìm đối tượng dịch tương ứng với phân hệ hoặc thêm một nhánh key mới chứa nội dung dịch cho component của bạn:
+Dự án hỗ trợ hoàn chỉnh song ngữ Việt - Anh thông qua tệp `src/utils/i18n.tsx`.
+1. **Mở tệp `src/utils/i18n.tsx`**: Tìm đối tượng dịch tương ứng với phân hệ hoặc thêm một nhánh key mới chứa nội dung dịch cho component của bạn:
    ```typescript
-   // Trong i18n.ts
+   // Trong i18n.tsx
    vi: {
      newFeature: {
        title: "Tiêu đề tính năng mới",
@@ -259,4 +262,4 @@ npm run build
 
 ---
 
-*Cảm ơn bạn đã đồng hành và phát triển hệ thống AIO Tool v2.8.6! Hãy tiếp tục giữ vững tôn chỉ: Code sạch, kiểu dữ liệu an toàn, xử lý 100% Client-Side bảo mật.*
+*Cảm ơn bạn đã đồng hành và phát triển hệ thống AIO Tool v2.9.0! Hãy tiếp tục giữ vững tôn chỉ: Code sạch, kiểu dữ liệu an toàn, xử lý 100% Client-Side bảo mật.*

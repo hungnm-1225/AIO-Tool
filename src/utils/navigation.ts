@@ -187,6 +187,15 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
         icon: FolderOpen,
         componentKey: "merge-table",
       },
+      {
+        subSlug: "split-by-column",
+        labelVi: "Tách File Theo Cột",
+        labelEn: "Split by Column",
+        descriptionVi: "Tự động phân nhóm và chia nhỏ dữ liệu Excel/CSV thành nhiều file theo giá trị của 1 cột được chọn.",
+        descriptionEn: "Group and split Excel/CSV into multiple files based on unique values in a selected column.",
+        icon: Columns,
+        componentKey: "excel-split-by-column",
+      },
     ],
   },
   {
@@ -322,6 +331,9 @@ const LEGACY_HASH_MAP: Record<string, { mainSlug: string; subSlug: string }> = {
   "directory-aggregator": { mainSlug: "excel-suite", subSlug: "merge-table" },
   "excel-suite/directory-aggregator": { mainSlug: "excel-suite", subSlug: "merge-table" },
   "excel-suite/merge-table": { mainSlug: "excel-suite", subSlug: "merge-table" },
+  "tach-file-theo-cot": { mainSlug: "excel-suite", subSlug: "split-by-column" },
+  "split-by-column": { mainSlug: "excel-suite", subSlug: "split-by-column" },
+  "excel-suite/split-by-column": { mainSlug: "excel-suite", subSlug: "split-by-column" },
 
   // PDF suite
   "quet-tai-lieu": { mainSlug: "pdf-suite", subSlug: "create-pdf-from-images" },

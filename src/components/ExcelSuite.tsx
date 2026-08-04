@@ -4,6 +4,7 @@ import { useI18n } from "../utils/i18n";
 import ExcelSplitterValidator from "./ExcelSplitterValidator";
 import ExcelMergerExtractor from "./ExcelMergerExtractor";
 import MergeTable from "./MergeTable";
+import ExcelSplitByColumn from "./ExcelSplitByColumn";
 import { MAIN_MENU_ITEMS } from "../utils/navigation";
 
 interface ExcelSuiteProps {
@@ -37,7 +38,8 @@ export default function ExcelSuite({
 
   const isMerger = subSlug === "merge-and-extract-account" || subSlug === "gop-va-trich-xuat-account";
   const isAggregator = subSlug === "merge-table" || subSlug === "directory-aggregator" || subSlug === "gop-thu-muc-xlsx-csv";
-  const isSplitter = subSlug === "split-and-validate" || subSlug === "tach-va-kiem-tra-loi" || (!isMerger && !isAggregator);
+  const isSplitByColumn = subSlug === "split-by-column" || subSlug === "tach-file-theo-cot";
+  const isSplitter = subSlug === "split-and-validate" || subSlug === "tach-va-kiem-tra-loi" || (!isMerger && !isAggregator && !isSplitByColumn);
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 dark:bg-[#0B0F1A]">
@@ -77,6 +79,9 @@ export default function ExcelSuite({
         )}
         {isAggregator && (
           <MergeTable hideInnerHeader state={dirAggregatorState} onChange={onDirAggregatorChange} />
+        )}
+        {isSplitByColumn && (
+          <ExcelSplitByColumn hideInnerHeader />
         )}
       </div>
     </div>

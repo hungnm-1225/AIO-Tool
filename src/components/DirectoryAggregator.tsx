@@ -32,7 +32,9 @@ import {
   User,
   Scissors,
   Filter,
-  Plus
+  Plus,
+  Eye,
+  Star
 } from "lucide-react";
 import { toast } from "react-toastify";
 import * as pdfjsLib from "pdfjs-dist";
@@ -46,7 +48,7 @@ interface DirectoryAggregatorProps {
   hideInnerHeader?: boolean;
 }
 
-interface UploadedFileWrapper {
+export interface UploadedFileWrapper {
   id: string;
   file: File;
   name: string;
@@ -54,6 +56,8 @@ interface UploadedFileWrapper {
   extension: string;
   size: number;
   excluded: boolean;
+  headerRowIndex?: number; // 0-based index of row used as headers (default: 0)
+  rawAoa?: any[][]; // Raw 2D matrix of sheet rows
 }
 
 interface ProgressInfo {
@@ -83,6 +87,19 @@ export default function DirectoryAggregator({
   const [fileTypeFilter, setFileTypeFilter] = useState<string>("all");
   const [isProcessing, setIsProcessing] = useState(false);
   const [progressInfo, setProgressInfo] = useState<ProgressInfo | null>(null);
+
+  // Template File Selection & Preamble Preservation
+  const [templateFileId, setTemplateFileId] = useState<string | null>(null);
+  const [templatePreambleRows, setTemplatePreambleRows] = useState<any[][]>([]);
+  const [templateFileName, setTemplateFileName] = useState<string>("");
+  const [showPreamblePreview, setShowPreamblePreview] = useState<boolean>(false);
+
+  // File Preview Modal State
+  const [previewModalFile, setPreviewModalFile] = useState<UploadedFileWrapper | null>(null);
+  const [previewModalAoa, setPreviewModalAoa] = useState<any[][]>([]);
+  const [previewModalHeaderRow, setPreviewModalHeaderRow] = useState<number>(0);
+  const [previewModalIsTemplate, setPreviewModalIsTemplate] = useState<boolean>(false);
+  const [isLoadingPreview, setIsLoadingPreview] = useState<boolean>(false);
 
   // Merged Master Data State
   const [mergedHeaders, setMergedHeaders] = useState<string[]>([]);
@@ -300,14 +317,130 @@ export default function DirectoryAggregator({
     setFileList(updated);
   };
 
+  // Parse any file into raw 2D array (aoa)
+  const parseFileToRawAoa = async (file: File, extension: string): Promise<any[][]> => {
+    const ext = extension.toLowerCase();
+    if (ext === ".xlsx" || ext === ".xls" || ext === ".csv") {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = e.target?.result;
+            const workbook = XLSX.read(data, { type: "array" });
+            const sheetName = workbook.SheetNames[0];
+            if (!sheetName) return resolve([]);
+            const worksheet = workbook.Sheets[sheetName];
+            const rawAoa = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as any[][];
+            resolve(rawAoa);
+          } catch (err) {
+            reject(err);
+          }
+        };
+        reader.onerror = (err) => reject(err);
+        reader.readAsArrayBuffer(file);
+      });
+    } else if (ext === ".docx") {
+      try {
+        const mammoth = await import("mammoth");
+        const buffer = await file.arrayBuffer();
+        const result = await mammoth.convertToHtml({ arrayBuffer: buffer });
+        const container = document.createElement("div");
+        container.innerHTML = result.value;
+        const tables = container.querySelectorAll("table");
+        const gridRows: any[][] = [];
+        tables.forEach((table) => {
+          const trs = table.querySelectorAll("tr");
+          trs.forEach((tr) => {
+            const cells: string[] = [];
+            const tds = tr.querySelectorAll("td, th");
+            tds.forEach((td) => cells.push(td.textContent?.trim() || ""));
+            if (cells.length > 0) gridRows.push(cells);
+          });
+        });
+        return gridRows;
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  // Open File Preview Modal
+  const handleOpenFilePreview = async (item: UploadedFileWrapper) => {
+    setIsLoadingPreview(true);
+    try {
+      let aoa = item.rawAoa;
+      if (!aoa || aoa.length === 0) {
+        aoa = await parseFileToRawAoa(item.file, item.extension);
+        setFileList((prev) =>
+          prev.map((f) => (f.id === item.id ? { ...f, rawAoa: aoa } : f))
+        );
+      }
+      setPreviewModalFile(item);
+      setPreviewModalAoa(aoa || []);
+      setPreviewModalHeaderRow(item.headerRowIndex ?? 0);
+      setPreviewModalIsTemplate(templateFileId === item.id);
+    } catch (err: any) {
+      toast.error(lang === "vi" ? `Không thể đọc preview tệp: ${err.message}` : `Cannot preview file: ${err.message}`);
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  // Save Header Row Configuration from Preview Modal
+  const handleSaveHeaderConfig = () => {
+    if (!previewModalFile) return;
+    const fileId = previewModalFile.id;
+    const newHeaderRow = previewModalHeaderRow;
+
+    setFileList((prev) =>
+      prev.map((f) => {
+        if (f.id === fileId) {
+          return { ...f, headerRowIndex: newHeaderRow };
+        }
+        return f;
+      })
+    );
+
+    if (previewModalIsTemplate) {
+      setTemplateFileId(fileId);
+    } else if (templateFileId === fileId) {
+      // User unchecked template
+      setTemplateFileId(null);
+    }
+
+    toast.success(
+      lang === "vi"
+        ? `Đã cập nhật dòng header (Dòng ${newHeaderRow + 1}) cho tệp "${previewModalFile.name}"!`
+        : `Updated header row (Row ${newHeaderRow + 1}) for "${previewModalFile.name}"!`
+    );
+    setPreviewModalFile(null);
+  };
+
   // Demo Dataset Loader
   const loadDemoFolder = () => {
-    // Generate dummy files with fake schemas
-    const textData = `Mã Nhân Viên,Họ Tên,Chức Danh,Phòng Ban\nNV-001,Nguyễn Văn Linh,Kỹ Sư Hệ Thống,Phòng Kỹ Thuật\nNV-002,Lê Thị Thu Thảo,Phân Tích Viên,Phòng Kế Hoạch\nNV-001,Nguyễn Văn Linh,Trùng Lặp,Ngoại Lệ`;
-    const blob1 = new Blob(["\ufeff" + textData], { type: "text/csv;charset=utf-8" });
+    // Demo File 1: Has 2 preamble rows, header at row 3 (index 2)
+    const demo1Aoa = [
+      ["BÁO CÁO NHÂN SỰ VĂN PHÒNG HÀ NỘI - THÁNG 10/2026", "", "", ""],
+      ["Ghi chú: Dữ liệu trích xuất chính thức từ phòng Nhân sự", "", "", ""],
+      ["Mã Nhân Viên", "Họ Tên", "Chức Danh", "Phòng Ban"],
+      ["NV-001", "Nguyễn Văn Linh", "Kỹ Sư Hệ Thống", "Phòng Kỹ Thuật"],
+      ["NV-002", "Lê Thị Thu Thảo", "Phân Tích Viên", "Phòng Kế Hoạch"],
+      ["NV-001", "Nguyễn Văn Linh", "Trùng Lặp", "Ngoại Lệ"]
+    ];
+    const textData1 = demo1Aoa.map(r => r.join(",")).join("\n");
+    const blob1 = new Blob(["\ufeff" + textData1], { type: "text/csv;charset=utf-8" });
     const file1 = new File([blob1], "HaNoi_NhanVien_PL1.csv");
 
-    const textData2 = `Mã Nhân Viên,Họ Tên,Chức Danh,Phòng Ban\nNV-003,Trần Hữu Kiên,Trưởng Nhóm,Phòng Marketing\nNV-004,Đặng Minh Hoàng,Nhân Viên Lập Trình,Phòng phát triển phần mềm\nNV-003,Trần Hữu Kiên,Trùng Lặp,Ngoại lệ`;
+    // Demo File 2: Has 1 preamble row, header at row 2 (index 1)
+    const demo2Aoa = [
+      ["DANH SÁCH CHI NHÁNH TP. HỒ CHÍ MINH", "", "", ""],
+      ["Mã Nhân Viên", "Họ Tên", "Chức Danh", "Phòng Ban"],
+      ["NV-003", "Trần Hữu Kiên", "Trưởng Nhóm", "Phòng Marketing"],
+      ["NV-004", "Đặng Minh Hoàng", "Nhân Viên Lập Trình", "Phòng phát triển phần mềm"],
+      ["NV-003", "Trần Hữu Kiên", "Trùng Lặp", "Ngoại lệ"]
+    ];
+    const textData2 = demo2Aoa.map(r => r.join(",")).join("\n");
     const blob2 = new Blob(["\ufeff" + textData2], { type: "text/csv;charset=utf-8" });
     const file2 = new File([blob2], "HoChiMinh_NhanVien_PL2.csv");
 
@@ -320,6 +453,8 @@ export default function DirectoryAggregator({
         extension: ".csv",
         size: file1.size,
         excluded: false,
+        headerRowIndex: 2, // Header is Row 3
+        rawAoa: demo1Aoa,
       },
       {
         id: "demo_2",
@@ -329,14 +464,17 @@ export default function DirectoryAggregator({
         extension: ".csv",
         size: file2.size,
         excluded: false,
+        headerRowIndex: 1, // Header is Row 2
+        rawAoa: demo2Aoa,
       }
     ];
 
     setFileList(mockFiles);
+    setTemplateFileId("demo_1"); // Default template file
     toast.success(
       lang === "vi"
-        ? "Đã nạp bộ dữ liệu demo của 2 văn phòng (Hà Nội & Hồ Chí Minh) có kèm dòng trùng lặp!"
-        : "Loaded demo datasets with duplicate rows for Ha Noi & Ho Chi Minh!"
+        ? "Đã nạp bộ dữ liệu demo! File 1 header ở Dòng 3 (có 2 dòng tiêu đề đầu), File 2 header ở Dòng 2."
+        : "Loaded demo datasets! File 1 header at Row 3 (with 2 preamble rows), File 2 header at Row 2."
     );
   };
 
@@ -608,9 +746,13 @@ export default function DirectoryAggregator({
       progress: 0,
     });
 
-    const parsedTables: { fileName: string; relativePath: string; rows: any[] }[] = [];
+    const parsedTables: { fileName: string; relativePath: string; headers: string[]; rows: any[] }[] = [];
 
     try {
+      // Determine effective template file
+      const effectiveTemplateId = templateFileId || activeFiles[0]?.id;
+      let templateFile = activeFiles.find((f) => f.id === effectiveTemplateId) || activeFiles[0];
+
       for (let i = 0; i < activeFiles.length; i++) {
         const fileWrapper = activeFiles[i];
         const { file, name, relativePath, extension } = fileWrapper;
@@ -618,23 +760,42 @@ export default function DirectoryAggregator({
         setProgressInfo({
           fileName: name,
           phase: lang === "vi" ? `Đang giải mã cấu trúc tệp ${extension}...` : `Decoding ${extension} structure...`,
-          progress: Math.round((i / activeFiles.length) * 100),
+          progress: Math.round((i / activeFiles.length) * 80),
         });
 
-        let rows: any[] = [];
-        if (extension === ".xlsx" || extension === ".xls" || extension === ".csv") {
-          rows = await parseXlsxOrCsv(file);
-        } else if (extension === ".docx") {
-          rows = await parseDocxTable(file);
-        } else if (extension === ".pdf") {
-          rows = await parsePdfTable(file);
+        // Ensure rawAoa is loaded
+        let rawAoa = fileWrapper.rawAoa;
+        if (!rawAoa || rawAoa.length === 0) {
+          rawAoa = await parseFileToRawAoa(file, extension);
+          fileWrapper.rawAoa = rawAoa;
         }
 
-        if (rows && rows.length > 0) {
+        const hIdx = fileWrapper.headerRowIndex ?? 0;
+        const rawHeadersRow = rawAoa[hIdx] || [];
+        const fileHeaders = rawHeadersRow.map((h: any, idx: number) => {
+          const str = String(h !== undefined && h !== null ? h : "").trim();
+          return str || `Cột_${idx + 1}`;
+        });
+
+        const dataRowsAoa = rawAoa.slice(hIdx + 1);
+        const validDataRows = dataRowsAoa.filter(
+          (r) => r && r.some((c: any) => c !== undefined && c !== null && String(c).trim() !== "")
+        );
+
+        const mappedRows = validDataRows.map((r) => {
+          const obj: Record<string, string> = {};
+          fileHeaders.forEach((h: string, colIdx: number) => {
+            obj[h] = r[colIdx] !== undefined && r[colIdx] !== null ? String(r[colIdx]) : "";
+          });
+          return obj;
+        });
+
+        if (fileHeaders.length > 0 && mappedRows.length > 0) {
           parsedTables.push({
             fileName: name,
             relativePath,
-            rows,
+            headers: fileHeaders,
+            rows: mappedRows,
           });
         }
       }
@@ -650,31 +811,50 @@ export default function DirectoryAggregator({
         return;
       }
 
-      // Merge Columns Phase
+      // Extract template preamble from chosen template file
+      if (!templateFile.rawAoa || templateFile.rawAoa.length === 0) {
+        templateFile.rawAoa = await parseFileToRawAoa(templateFile.file, templateFile.extension);
+      }
+      const templateHIdx = templateFile.headerRowIndex ?? 0;
+      const preamble = templateFile.rawAoa ? templateFile.rawAoa.slice(0, templateHIdx) : [];
+      setTemplatePreambleRows(preamble);
+      setTemplateFileName(templateFile.name);
+
+      const templateHeaders = (templateFile.rawAoa?.[templateHIdx] || []).map((h: any, idx: number) => {
+        const str = String(h !== undefined && h !== null ? h : "").trim();
+        return str || `Cột_${idx + 1}`;
+      });
+
+      // Merge Columns Phase - Prioritize Template File Headers First!
       setProgressInfo({
         fileName: "",
         phase: lang === "vi" ? "Đang đồng bộ và căn chỉnh cột..." : "Aligning and merging headers...",
-        progress: 95,
+        progress: 90,
       });
 
-      // Align header names case-insensitive, ignoring spaces
       const normHeaderToOriginal = new Map<string, string>();
-      const masterHeadersSet = new Set<string>();
+      const masterHeadersList: string[] = [];
 
+      // 1. Seed with template file's headers first
+      templateHeaders.forEach((h: string) => {
+        const norm = h.toLowerCase().replace(/\s+/g, "");
+        if (!normHeaderToOriginal.has(norm)) {
+          normHeaderToOriginal.set(norm, h);
+          masterHeadersList.push(h);
+        }
+      });
+
+      // 2. Append any additional headers from other files
       parsedTables.forEach((table) => {
-        table.rows.forEach((row) => {
-          Object.keys(row).forEach((header) => {
-            const normalized = header.toLowerCase().replace(/\s+/g, "");
-            if (!normHeaderToOriginal.has(normalized)) {
-              normHeaderToOriginal.set(normalized, header);
-              masterHeadersSet.add(header);
-            }
-          });
+        table.headers.forEach((h: string) => {
+          const norm = h.toLowerCase().replace(/\s+/g, "");
+          if (!normHeaderToOriginal.has(norm)) {
+            normHeaderToOriginal.set(norm, h);
+            masterHeadersList.push(h);
+          }
         });
       });
 
-      const masterHeadersList = Array.from(masterHeadersSet);
-      
       let rowCounter = 0;
       const compiledRows = parsedTables.flatMap(({ fileName, relativePath, rows }) => {
         return rows.map((row) => {
@@ -685,7 +865,7 @@ export default function DirectoryAggregator({
             "__source_relative_path": relativePath,
           };
 
-          // Seed default values
+          // Seed default empty values
           masterHeadersList.forEach((h) => {
             matchedRow[h] = "";
           });
@@ -716,8 +896,8 @@ export default function DirectoryAggregator({
 
       toast.success(
         lang === "vi"
-          ? `Gộp thành công! Tạo ra bảng hợp nhất với ${compiledRows.length} bản ghi và ${masterHeadersList.length} cột.`
-          : `Merged successfully! Created grid with ${compiledRows.length} records and ${masterHeadersList.length} columns.`
+          ? `Gộp thành công! Tạo ra bảng hợp nhất với ${compiledRows.length} bản ghi và ${masterHeadersList.length} cột (Mẫu tiêu đề từ "${templateFile.name}").`
+          : `Merged successfully! Created grid with ${compiledRows.length} records and ${masterHeadersList.length} columns (Header template: "${templateFile.name}").`
       );
     } catch (err: any) {
       console.error(err);
@@ -993,24 +1173,41 @@ export default function DirectoryAggregator({
     if (mergedRows.length === 0) return;
 
     if (exportMode === "consolidated") {
-      // 1. Consolidated mode
-      const exportData = sortedAndFilteredGridRows.map((row) => {
-        const cleanRow: Record<string, string> = {};
-        
-        // Add metadata columns if enabled
-        if (includeMetadata) {
-          cleanRow[lang === "vi" ? "Tệp Nguồn" : "Source File"] = row["__source_file_name"] || "";
-          cleanRow[lang === "vi" ? "Đường Dẫn" : "Folder Path"] = row["__source_relative_path"] || "";
-        }
-        
-        // Add content columns
-        mergedHeaders.forEach((h) => {
-          cleanRow[h] = row[h] || "";
+      // 1. Consolidated mode with template preamble support
+      const exportAoa: any[][] = [];
+
+      // Prepend template preamble rows (from header row of template file upwards)
+      if (!excludeHeaders && templatePreambleRows.length > 0) {
+        templatePreambleRows.forEach((pRow) => {
+          exportAoa.push([...pRow]);
         });
-        return cleanRow;
+      }
+
+      // Add Header row
+      if (!excludeHeaders) {
+        const headerRow: string[] = [];
+        if (includeMetadata) {
+          headerRow.push(lang === "vi" ? "Tệp Nguồn" : "Source File");
+          headerRow.push(lang === "vi" ? "Đường Dẫn" : "Folder Path");
+        }
+        mergedHeaders.forEach((h) => headerRow.push(h));
+        exportAoa.push(headerRow);
+      }
+
+      // Add Data rows
+      sortedAndFilteredGridRows.forEach((row) => {
+        const dataRow: any[] = [];
+        if (includeMetadata) {
+          dataRow.push(row["__source_file_name"] || "");
+          dataRow.push(row["__source_relative_path"] || "");
+        }
+        mergedHeaders.forEach((h) => {
+          dataRow.push(row[h] || "");
+        });
+        exportAoa.push(dataRow);
       });
 
-      const worksheet = XLSX.utils.json_to_sheet(exportData, { skipHeader: excludeHeaders });
+      const worksheet = XLSX.utils.aoa_to_sheet(exportAoa);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Consolidated_Data");
 
@@ -1517,24 +1714,70 @@ export default function DirectoryAggregator({
                           </button>
 
                           <div className="min-w-0 flex-1">
-                            <div className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate flex items-center gap-1.5">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
                               <span className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-white/5 text-[9px] uppercase font-bold text-teal-600 dark:text-teal-400">
                                 {item.extension.replace(".", "")}
                               </span>
-                              <span className="truncate" title={item.name}>
+
+                              {/* Clickable file name */}
+                              <button
+                                onClick={() => handleOpenFilePreview(item)}
+                                className="text-xs font-semibold text-slate-800 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-left truncate max-w-[260px]"
+                                title={lang === "vi" ? "Bấm vào tên tệp để xem preview & hiệu chỉnh dòng Header" : "Click file name to preview & customize Header row"}
+                              >
                                 {item.name}
-                              </span>
+                              </button>
+
+                              {/* Header row badge */}
+                              <button
+                                onClick={() => handleOpenFilePreview(item)}
+                                className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100/70 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 border border-teal-300 dark:border-teal-700 cursor-pointer hover:bg-teal-200 transition-colors flex items-center gap-1"
+                                title={lang === "vi" ? "Dòng được chọn làm Header cột" : "Selected Header row"}
+                              >
+                                <span>Header: Dòng {(item.headerRowIndex ?? 0) + 1}</span>
+                              </button>
+
+                              {/* Template file badge / button */}
+                              {templateFileId === item.id ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-400 dark:border-amber-600 flex items-center gap-1 shadow-xs">
+                                  <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
+                                  <span>{lang === "vi" ? "File Mẫu Đầu Trang" : "Template Header"}</span>
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setTemplateFileId(item.id);
+                                    toast.success(
+                                      lang === "vi"
+                                        ? `Đã chọn "${item.name}" làm File Mẫu đầu trang!`
+                                        : `Selected "${item.name}" as Template file!`
+                                    );
+                                  }}
+                                  className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-slate-200 dark:border-slate-700 cursor-pointer transition-colors flex items-center gap-1"
+                                  title={lang === "vi" ? "Chọn tệp này để dùng phần đầu & header làm chuẩn xuất ra" : "Set as Master Template File"}
+                                >
+                                  <Star className="h-3 w-3" />
+                                  <span>{lang === "vi" ? "Đặt làm mẫu" : "Set template"}</span>
+                                </button>
+                              )}
                             </div>
                             
-                            {/* Folder path breadcrumb / tooltip */}
-                            <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 truncate font-mono" title={item.relativePath}>
+                            {/* Folder path breadcrumb */}
+                            <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate font-mono" title={item.relativePath}>
                               {item.relativePath.split("/").slice(0, -1).join(" ❯ ") || "Root"}
                             </div>
                           </div>
                         </div>
 
-                        {/* Controls to reorder and remove file */}
+                        {/* Controls to preview, reorder and remove file */}
                         <div className="flex items-center gap-1.5 ml-2">
+                          <button
+                            onClick={() => handleOpenFilePreview(item)}
+                            className="p-1.5 hover:bg-teal-50 dark:hover:bg-teal-950/40 text-slate-400 hover:text-teal-600 rounded-lg cursor-pointer transition-colors"
+                            title={lang === "vi" ? "Xem preview & chỉnh Header" : "Preview & Edit Header"}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
                           <button
                             onClick={() => moveFileOrder(idx, "up")}
                             disabled={idx === 0}
@@ -1769,6 +2012,59 @@ export default function DirectoryAggregator({
             </div>
           </div>
 
+          {/* Template Preamble Banner (If chosen template file has header preamble rows) */}
+          {templatePreambleRows.length > 0 && (
+            <div className="mb-5 p-4 rounded-xl bg-amber-50/90 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-700/40 text-xs shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 flex items-center justify-center text-amber-600 dark:text-amber-400 flex-shrink-0">
+                    <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-amber-900 dark:text-amber-200 block">
+                      {lang === "vi" 
+                        ? `Phần đầu file xuất (Lấy từ file mẫu "${templateFileName}"): gồm ${templatePreambleRows.length} dòng tiêu đề / thông tin đầu bảng.`
+                        : `Output preamble (From template "${templateFileName}"): includes ${templatePreambleRows.length} header/preamble row(s).`}
+                    </span>
+                    <span className="text-[11px] text-amber-700/80 dark:text-amber-300/80">
+                      {lang === "vi"
+                        ? "Khi tải xuống, các dòng này sẽ được đặt chính xác ở phần đầu tệp, tiếp theo là hàng Header và dữ liệu gộp."
+                        : "When exported, these rows are preserved at the very top, followed by the Header row and merged data."}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowPreamblePreview(!showPreamblePreview)}
+                  className="px-3 py-1.5 bg-amber-200/70 hover:bg-amber-200 dark:bg-amber-900/50 dark:hover:bg-amber-900/70 text-amber-900 dark:text-amber-100 font-bold rounded-lg cursor-pointer transition-colors self-start sm:self-auto text-xs flex items-center gap-1.5"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  <span>{showPreamblePreview ? (lang === "vi" ? "Ẩn xem trước" : "Hide") : (lang === "vi" ? "Xem trước phần đầu" : "Preview preamble")}</span>
+                </button>
+              </div>
+
+              {showPreamblePreview && (
+                <div className="mt-3 overflow-x-auto border border-amber-200 dark:border-amber-700/50 rounded-lg bg-white dark:bg-slate-900 p-2 max-h-48 overflow-y-auto">
+                  <table className="w-full text-[11px] font-mono border-collapse">
+                    <tbody>
+                      {templatePreambleRows.map((pRow, pIdx) => (
+                        <tr key={pIdx} className="border-b border-amber-100 dark:border-amber-900/30 last:border-none">
+                          <td className="p-1.5 font-bold text-amber-600 dark:text-amber-400 select-none w-20 whitespace-nowrap bg-amber-50/50 dark:bg-amber-950/20">
+                            Dòng {pIdx + 1}
+                          </td>
+                          {pRow.map((cell: any, cIdx: number) => (
+                            <td key={cIdx} className="p-1.5 text-slate-700 dark:text-slate-300 border-l border-amber-100 dark:border-amber-900/30">
+                              {String(cell !== undefined && cell !== null ? cell : "")}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Master Responsive Grid Table */}
           <div className="overflow-x-auto border border-slate-200 dark:border-white/10 rounded-xl bg-slate-50 dark:bg-slate-950/20">
             <table className="w-full text-left text-xs border-collapse">
@@ -1958,6 +2254,238 @@ export default function DirectoryAggregator({
                   className="p-1.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 disabled:opacity-20 rounded-lg cursor-pointer transition-all"
                 >
                   <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL: FILE PREVIEW & CUSTOM HEADER ROW SELECTION
+          ======================================================== */}
+      {previewModalFile && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-900/50">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-10 w-10 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-600 dark:text-teal-400 flex items-center justify-center flex-shrink-0">
+                  <FileSpreadsheet className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white truncate flex items-center gap-2">
+                    <span>{previewModalFile.name}</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300">
+                      {previewModalFile.extension.replace(".", "")}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-mono truncate">
+                    {previewModalFile.relativePath} • {(previewModalFile.size / 1024).toFixed(1)} KB • {previewModalAoa.length} dòng
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setPreviewModalFile(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                title={lang === "vi" ? "Đóng" : "Close"}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body / Toolbar */}
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                {/* Header row picker control */}
+                <div className="flex items-center gap-3">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                    {lang === "vi" ? "Dòng Header (Tiêu Đề Cột):" : "Header Row (Column Titles):"}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={previewModalHeaderRow}
+                      onChange={(e) => setPreviewModalHeaderRow(Number(e.target.value))}
+                      className="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-bold px-3 py-1.5 rounded-xl text-teal-600 dark:text-teal-400 focus:outline-none cursor-pointer"
+                    >
+                      {previewModalAoa.slice(0, 30).map((_, idx) => (
+                        <option key={idx} value={idx}>
+                          {lang === "vi" ? `Dòng ${idx + 1}` : `Row ${idx + 1}`}
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* Quick helper buttons for rows 1 to 5 */}
+                    <div className="hidden sm:flex items-center gap-1">
+                      {[0, 1, 2, 3, 4].map((rIdx) => (
+                        <button
+                          key={rIdx}
+                          type="button"
+                          onClick={() => setPreviewModalHeaderRow(rIdx)}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-all ${
+                            previewModalHeaderRow === rIdx
+                              ? "bg-teal-600 text-white shadow-xs"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                          }`}
+                        >
+                          D{rIdx + 1}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Master template file toggle */}
+                <label className="flex items-center gap-2.5 cursor-pointer p-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-700/40 hover:bg-amber-100/60 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={previewModalIsTemplate}
+                    onChange={(e) => setPreviewModalIsTemplate(e.target.checked)}
+                    className="rounded text-amber-600 focus:ring-amber-500 border-amber-300 cursor-pointer"
+                  />
+                  <div className="flex items-center gap-1.5">
+                    <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+                    <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                      {lang === "vi" 
+                        ? "Dùng file này làm Mẫu Đầu Trang & Header khi xuất" 
+                        : "Use this file as Master Template (Header & Preamble)"}
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              {/* Color legend & explanation */}
+              <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-full bg-amber-400 border border-amber-500" />
+                  <span className="text-slate-600 dark:text-slate-400">
+                    {previewModalHeaderRow === 0
+                      ? (lang === "vi" ? "Không có dòng tiêu đề đầu (Preamble)" : "No preamble rows")
+                      : (lang === "vi" ? `Dòng 1 đến Dòng ${previewModalHeaderRow}: Tiêu đề / Thông tin đầu tệp (Preamble)` : `Rows 1 to ${previewModalHeaderRow}: Preamble`)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-full bg-emerald-500 border border-emerald-600" />
+                  <span className="font-bold text-emerald-700 dark:text-emerald-300">
+                    {lang === "vi" ? `Dòng ${previewModalHeaderRow + 1}: Hàng Header (Tiêu Đề Cột)` : `Row ${previewModalHeaderRow + 1}: Header Row`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-full bg-sky-400 border border-sky-500" />
+                  <span className="text-slate-600 dark:text-slate-400">
+                    {lang === "vi" ? `Dòng ${previewModalHeaderRow + 2} trở đi: Dữ liệu ghép (Data Rows)` : `Rows ${previewModalHeaderRow + 2}+: Data rows`}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Sheet Preview Grid */}
+            <div className="flex-1 overflow-auto p-5 bg-slate-50 dark:bg-slate-950/40 custom-scrollbar">
+              {isLoadingPreview ? (
+                <div className="flex items-center justify-center py-20 text-slate-400">
+                  <RefreshCw className="h-6 w-6 animate-spin text-teal-500 mr-2" />
+                  <span>{lang === "vi" ? "Đang giải mã dữ liệu tệp..." : "Reading sheet data..."}</span>
+                </div>
+              ) : previewModalAoa.length === 0 ? (
+                <div className="text-center py-16 text-slate-400">
+                  <p>{lang === "vi" ? "Tệp không chứa dữ liệu hoặc không thể hiển thị bảng." : "File contains no tabular data."}</p>
+                </div>
+              ) : (
+                <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-[#111827] shadow-xs">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <tbody>
+                      {previewModalAoa.slice(0, 60).map((row, rIdx) => {
+                        const isHeader = rIdx === previewModalHeaderRow;
+                        const isPreamble = rIdx < previewModalHeaderRow;
+                        const isData = rIdx > previewModalHeaderRow;
+
+                        return (
+                          <tr
+                            key={rIdx}
+                            onClick={() => setPreviewModalHeaderRow(rIdx)}
+                            className={`border-b border-slate-200/80 dark:border-slate-800 transition-colors cursor-pointer select-none ${
+                              isHeader
+                                ? "bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/50"
+                                : isPreamble
+                                ? "bg-amber-50/60 dark:bg-amber-950/20 hover:bg-amber-100/40 text-amber-900 dark:text-amber-200"
+                                : "hover:bg-slate-50 dark:hover:bg-slate-900/60"
+                            }`}
+                          >
+                            {/* Row Selector & Badge */}
+                            <td className="p-2.5 font-mono font-bold text-center w-28 whitespace-nowrap border-r border-slate-200 dark:border-slate-800">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-slate-500 dark:text-slate-400">#{rIdx + 1}</span>
+                                {isHeader ? (
+                                  <span className="px-1.5 py-0.5 rounded bg-emerald-500 text-white font-extrabold text-[9px] uppercase shadow-xs">
+                                    Header
+                                  </span>
+                                ) : isPreamble ? (
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-200 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 font-bold text-[9px]">
+                                    Tiêu đề
+                                  </span>
+                                ) : (
+                                  <span className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 text-[9px]">
+                                    Dữ liệu
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Cells */}
+                            {Array.from({ length: Math.max(1, ...previewModalAoa.slice(0, 30).map(r => r.length)) }).map((_, cIdx) => {
+                              const cellVal = row[cIdx];
+                              return (
+                                <td
+                                  key={cIdx}
+                                  className={`p-2.5 border-r border-slate-200/60 dark:border-slate-800/60 max-w-[200px] truncate ${
+                                    isHeader
+                                      ? "font-extrabold text-emerald-950 dark:text-emerald-100"
+                                      : isPreamble
+                                      ? "italic text-amber-800 dark:text-amber-300 font-medium"
+                                      : "text-slate-700 dark:text-slate-300"
+                                  }`}
+                                  title={cellVal !== undefined && cellVal !== null ? String(cellVal) : ""}
+                                >
+                                  {cellVal !== undefined && cellVal !== null && String(cellVal).trim() !== "" ? (
+                                    String(cellVal)
+                                  ) : (
+                                    <span className="text-slate-300 dark:text-slate-700 select-none">-</span>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-900/50">
+              <span className="text-xs text-slate-500 dark:text-slate-400 italic">
+                {lang === "vi" 
+                  ? "💡 Bạn có thể nhấp trực tiếp vào bất kỳ dòng nào trong bảng trên để chọn dòng đó làm Header!" 
+                  : "💡 Click on any row in the table above to set it as the Header row!"}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPreviewModalFile(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  {lang === "vi" ? "Hủy" : "Cancel"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveHeaderConfig}
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white shadow-md shadow-teal-600/20 transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="h-4 w-4" />
+                  {lang === "vi" ? "Lưu Cấu Hình & Áp Dụng" : "Save & Apply"}
                 </button>
               </div>
             </div>

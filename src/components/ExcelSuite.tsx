@@ -1,30 +1,24 @@
 import React from "react";
-import { ExcelSplitterState, ExcelMergerState, DirAggregatorState, ActiveModule } from "../types";
+import { DirAggregatorState, ActiveModule } from "../types";
 import { useI18n } from "../utils/i18n";
-import ExcelSplitterValidator from "./ExcelSplitterValidator";
-import ExcelMergerExtractor from "./ExcelMergerExtractor";
 import MergeTable from "./MergeTable";
 import ExcelSplitByColumn from "./ExcelSplitByColumn";
 import { MAIN_MENU_ITEMS } from "../utils/navigation";
 
 interface ExcelSuiteProps {
-  splitterState: ExcelSplitterState;
-  onSplitterChange: (newState: Partial<ExcelSplitterState>) => void;
-  mergerState: ExcelMergerState;
-  onMergerChange: (newState: Partial<ExcelMergerState>) => void;
   dirAggregatorState?: DirAggregatorState;
   onDirAggregatorChange?: (newState: Partial<DirAggregatorState>) => void;
   subSlug?: string;
+  splitterState?: any;
+  onSplitterChange?: any;
+  mergerState?: any;
+  onMergerChange?: any;
 }
 
 export default function ExcelSuite({
-  splitterState,
-  onSplitterChange,
-  mergerState,
-  onMergerChange,
   dirAggregatorState,
   onDirAggregatorChange,
-  subSlug = "tach-va-kiem-tra-loi",
+  subSlug = "merge-table",
 }: ExcelSuiteProps) {
   const { lang } = useI18n();
 
@@ -36,10 +30,8 @@ export default function ExcelSuite({
   const subTitle = lang === "vi" ? activeSub?.labelVi : activeSub?.labelEn;
   const subDesc = lang === "vi" ? activeSub?.descriptionVi : activeSub?.descriptionEn;
 
-  const isMerger = subSlug === "merge-and-extract-account" || subSlug === "gop-va-trich-xuat-account";
-  const isAggregator = subSlug === "merge-table" || subSlug === "directory-aggregator" || subSlug === "gop-thu-muc-xlsx-csv";
   const isSplitByColumn = subSlug === "split-by-column" || subSlug === "tach-file-theo-cot";
-  const isSplitter = subSlug === "split-and-validate" || subSlug === "tach-va-kiem-tra-loi" || (!isMerger && !isAggregator && !isSplitByColumn);
+  const isAggregator = !isSplitByColumn;
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 dark:bg-[#0B0F1A]">
@@ -52,15 +44,6 @@ export default function ExcelSuite({
           <div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5 flex-wrap">
               <span>{subTitle}</span>
-              {(isSplitter || isMerger) && (
-                <span 
-                  onClick={() => window.open("https://pythaverse.space/", "_blank")}
-                  className="px-2.5 py-0.5 text-[10px] font-extrabold rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-dashed border-emerald-400 dark:border-emerald-600 shadow-sm cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors whitespace-nowrap"
-                  title="Visit Pythaverse.space"
-                >
-                  ★ Exclusively designed for Pythaverse.space
-                </span>
-              )}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {subDesc}
@@ -71,12 +54,6 @@ export default function ExcelSuite({
 
       {/* Active Component Container */}
       <div className="flex-1 overflow-auto">
-        {isSplitter && (
-          <ExcelSplitterValidator hideInnerHeader state={splitterState} onChange={onSplitterChange} />
-        )}
-        {isMerger && (
-          <ExcelMergerExtractor hideInnerHeader state={mergerState} onChange={onMergerChange} />
-        )}
         {isAggregator && (
           <MergeTable hideInnerHeader state={dirAggregatorState} onChange={onDirAggregatorChange} />
         )}

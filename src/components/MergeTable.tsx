@@ -19,7 +19,10 @@ import {
   Grid,
   Sparkles,
   FileSpreadsheet,
-  X
+  X,
+  Eye,
+  Star,
+  FileText
 } from "lucide-react";
 import { toast } from "react-toastify";
 import DirectoryAggregator from "./DirectoryAggregator";
@@ -38,6 +41,8 @@ interface KeyMergeFile {
   headers: string[];
   rows: any[];
   selectedKeyCol: string;
+  rawAoa?: any[][];
+  headerRowIndex?: number;
 }
 
 export default function MergeTable({
@@ -57,6 +62,18 @@ export default function MergeTable({
   const [unifiedKeyName, setUnifiedKeyName] = useState("Email");
   const [joinStrategy, setJoinStrategy] = useState<"inner" | "outer">("outer");
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Template file & preamble state for Key-based Merge
+  const [keyMergeTemplateFileId, setKeyMergeTemplateFileId] = useState<string | null>(null);
+  const [keyMergePreambleRows, setKeyMergePreambleRows] = useState<any[][]>([]);
+  const [keyMergeTemplateFileName, setKeyMergeTemplateFileName] = useState<string>("");
+  const [showKeyPreamblePreview, setShowKeyPreamblePreview] = useState<boolean>(false);
+
+  // Preview Modal state for Key-based Merge
+  const [keyPreviewModalFile, setKeyPreviewModalFile] = useState<KeyMergeFile | null>(null);
+  const [keyPreviewModalAoa, setKeyPreviewModalAoa] = useState<any[][]>([]);
+  const [keyPreviewModalHeaderRow, setKeyPreviewModalHeaderRow] = useState<number>(0);
+  const [keyPreviewModalIsTemplate, setKeyPreviewModalIsTemplate] = useState<boolean>(false);
 
   // Merged Output State
   const [mergedHeaders, setMergedHeaders] = useState<string[]>([]);
@@ -79,6 +96,27 @@ export default function MergeTable({
       if (found) return found;
     }
     return headers[0] || "";
+  };
+
+  // Helper to derive headers and rows from raw 2D array and header row index
+  const deriveKeyMergeData = (rawAoa: any[][], headerRowIndex: number) => {
+    const rawHeadersRow = rawAoa[headerRowIndex] || [];
+    const headers = rawHeadersRow.map((h: any, idx: number) => {
+      const str = String(h !== undefined && h !== null ? h : "").trim();
+      return str || `Cột_${idx + 1}`;
+    });
+    const dataRowsAoa = rawAoa.slice(headerRowIndex + 1);
+    const validRows = dataRowsAoa.filter(
+      (r) => r && r.some((c: any) => c !== undefined && c !== null && String(c).trim() !== "")
+    );
+    const rows = validRows.map((r) => {
+      const obj: Record<string, string> = {};
+      headers.forEach((h: string, colIdx: number) => {
+        obj[h] = r[colIdx] !== undefined && r[colIdx] !== null ? String(r[colIdx]) : "";
+      });
+      return obj;
+    });
+    return { headers, rows };
   };
 
   // Parse uploaded files into rows and headers
@@ -114,17 +152,10 @@ export default function MergeTable({
         if (!sheetName) continue;
 
         const worksheet = workbook.Sheets[sheetName];
-        const rawRows = XLSX.utils.sheet_to_json(worksheet, { defval: "" }) as any[];
+        const rawAoa = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as any[][];
 
-        const headers: string[] = [];
-        if (rawRows.length > 0) {
-          const keys = new Set<string>();
-          rawRows.forEach((r) => {
-            Object.keys(r).forEach((k) => keys.add(k));
-          });
-          headers.push(...Array.from(keys));
-        }
-
+        const hIdx = 0;
+        const { headers, rows } = deriveKeyMergeData(rawAoa, hIdx);
         const defaultKey = autoDetectKeyColumn(headers);
 
         loaded.push({
@@ -133,15 +164,19 @@ export default function MergeTable({
           size: file.size,
           file,
           headers,
-          rows: rawRows,
+          rows,
           selectedKeyCol: defaultKey,
+          rawAoa,
+          headerRowIndex: hIdx,
         });
       }
 
       if (loaded.length > 0) {
         setUploadedFiles((prev) => {
           const updated = [...prev, ...loaded];
-          // Proactively set unified key based on the first key col
+          if (!keyMergeTemplateFileId && updated[0]) {
+            setKeyMergeTemplateFileId(updated[0].id);
+          }
           if (updated[0]) {
             setUnifiedKeyName(updated[0].selectedKeyCol || "Email");
           }
@@ -160,6 +195,55 @@ export default function MergeTable({
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // Open Preview Modal for a KeyMergeFile
+  const handleOpenKeyPreview = (file: KeyMergeFile) => {
+    setKeyPreviewModalFile(file);
+    setKeyPreviewModalAoa(file.rawAoa || []);
+    setKeyPreviewModalHeaderRow(file.headerRowIndex ?? 0);
+    setKeyPreviewModalIsTemplate(keyMergeTemplateFileId === file.id);
+  };
+
+  // Save Header Row & Template Config for KeyMergeFile
+  const handleSaveKeyHeaderConfig = () => {
+    if (!keyPreviewModalFile) return;
+    const fileId = keyPreviewModalFile.id;
+    const newHeaderRow = keyPreviewModalHeaderRow;
+    const rawAoa = keyPreviewModalFile.rawAoa || [];
+
+    const { headers, rows } = deriveKeyMergeData(rawAoa, newHeaderRow);
+    const validKey = headers.includes(keyPreviewModalFile.selectedKeyCol)
+      ? keyPreviewModalFile.selectedKeyCol
+      : autoDetectKeyColumn(headers);
+
+    setUploadedFiles((prev) =>
+      prev.map((f) => {
+        if (f.id === fileId) {
+          return {
+            ...f,
+            headerRowIndex: newHeaderRow,
+            headers,
+            rows,
+            selectedKeyCol: validKey,
+          };
+        }
+        return f;
+      })
+    );
+
+    if (keyPreviewModalIsTemplate) {
+      setKeyMergeTemplateFileId(fileId);
+    } else if (keyMergeTemplateFileId === fileId) {
+      setKeyMergeTemplateFileId(null);
+    }
+
+    toast.success(
+      lang === "vi"
+        ? `Đã cập nhật dòng header (Dòng ${newHeaderRow + 1}) cho tệp "${keyPreviewModalFile.name}"!`
+        : `Updated header row (Row ${newHeaderRow + 1}) for "${keyPreviewModalFile.name}"!`
+    );
+    setKeyPreviewModalFile(null);
   };
 
   // Remove file from merge list
@@ -272,10 +356,31 @@ export default function MergeTable({
         return col;
       };
 
-      // 3. Form output headers
+      // 3. Form output headers - Prioritize Template File Headers First!
       const finalUnifiedKey = unifiedKeyName.trim() || "Email";
       const outputHeaders = [finalUnifiedKey];
+
+      const effectiveTemplateId = keyMergeTemplateFileId || uploadedFiles[0]?.id;
+      const templateFile = uploadedFiles.find((f) => f.id === effectiveTemplateId) || uploadedFiles[0];
+
+      // Extract template preamble rows
+      const templateHIdx = templateFile.headerRowIndex ?? 0;
+      const preamble = templateFile.rawAoa ? templateFile.rawAoa.slice(0, templateHIdx) : [];
+      setKeyMergePreambleRows(preamble);
+      setKeyMergeTemplateFileName(templateFile.name);
+
+      // Add templateFile non-key headers first
+      templateFile.headers.forEach((col) => {
+        if (col === templateFile.selectedKeyCol) return;
+        const targetCol = getColName(templateFile, col);
+        if (!outputHeaders.includes(targetCol)) {
+          outputHeaders.push(targetCol);
+        }
+      });
+
+      // Add other files non-key headers
       uploadedFiles.forEach((f) => {
+        if (f.id === templateFile.id) return;
         f.headers.forEach((col) => {
           if (col === f.selectedKeyCol) return;
           const targetCol = getColName(f, col);
@@ -328,16 +433,23 @@ export default function MergeTable({
 
   // Demo Dataset Loader for Key-Based Merge
   const loadKeyMergeDemo = () => {
-    const file1Rows = [
-      { "Mã Học Sinh": "HS-001", "Họ Và Tên": "Nguyễn Hoàng Nam", "Lớp": "10A1" },
-      { "Mã Học Sinh": "HS-002", "Họ Và Tên": "Trần Thị Lan", "Lớp": "10A2" },
-      { "Mã Học Sinh": "HS-003", "Họ Và Tên": "Phạm Văn Minh", "Lớp": "10A1" },
+    const demo1Aoa = [
+      ["BẢNG DANH SÁCH HỌC SINH KHỐI 10 - NĂM HỌC 2026", "", ""],
+      ["Mã Học Sinh", "Họ Và Tên", "Lớp"],
+      ["HS-001", "Nguyễn Hoàng Nam", "10A1"],
+      ["HS-002", "Trần Thị Lan", "10A2"],
+      ["HS-003", "Phạm Văn Minh", "10A1"],
     ];
-    const file2Rows = [
-      { "Student ID": "HS-001", "Điểm Toán": "8.5", "Điểm Lý": "7.0" },
-      { "Student ID": "HS-002", "Điểm Toán": "9.0", "Điểm Lý": "8.5" },
-      { "Student ID": "HS-004", "Điểm Toán": "7.5", "Điểm Lý": "8.0" }, // Different ID
+    const { headers: headers1, rows: rows1 } = deriveKeyMergeData(demo1Aoa, 1);
+
+    const demo2Aoa = [
+      ["BẢNG ĐIỂM KIỂM TRA HỌC KỲ I", "", ""],
+      ["Student ID", "Điểm Toán", "Điểm Lý"],
+      ["HS-001", "8.5", "7.0"],
+      ["HS-002", "9.0", "8.5"],
+      ["HS-004", "7.5", "8.0"],
     ];
+    const { headers: headers2, rows: rows2 } = deriveKeyMergeData(demo2Aoa, 1);
 
     const demoFiles: KeyMergeFile[] = [
       {
@@ -345,27 +457,32 @@ export default function MergeTable({
         name: "Danh_Sach_Hoc_Sinh.xlsx",
         size: 15300,
         file: new File([], "Danh_Sach_Hoc_Sinh.xlsx"),
-        headers: ["Mã Học Sinh", "Họ Và Tên", "Lớp"],
-        rows: file1Rows,
+        headers: headers1,
+        rows: rows1,
         selectedKeyCol: "Mã Học Sinh",
+        rawAoa: demo1Aoa,
+        headerRowIndex: 1,
       },
       {
         id: "demo_km_2",
         name: "Bang_Diem_Mon_Hoc.xlsx",
         size: 14200,
         file: new File([], "Bang_Diem_Mon_Hoc.xlsx"),
-        headers: ["Student ID", "Điểm Toán", "Điểm Lý"],
-        rows: file2Rows,
+        headers: headers2,
+        rows: rows2,
         selectedKeyCol: "Student ID",
+        rawAoa: demo2Aoa,
+        headerRowIndex: 1,
       },
     ];
 
     setUploadedFiles(demoFiles);
+    setKeyMergeTemplateFileId("demo_km_1");
     setUnifiedKeyName("Mã Học Sinh");
     toast.success(
       lang === "vi"
-        ? "Đã nạp 2 tệp học sinh & bảng điểm mẫu. Nhấp vào nút chạy để xem kết quả!"
-        : "Loaded student list & grade tables demo. Click Merge to view results!"
+        ? "Đã nạp 2 tệp học sinh & bảng điểm mẫu (Dòng header bắt đầu từ Dòng 2). Nhấp vào nút chạy để xem kết quả!"
+        : "Loaded student list & grade tables demo (Header starts at Row 2). Click Merge to view results!"
     );
   };
 
@@ -416,15 +533,25 @@ export default function MergeTable({
   const handleExportKeyMerged = (format: "xlsx" | "csv") => {
     if (mergedRows.length === 0) return;
 
-    const exportData = sortedAndFilteredGridRows.map((row) => {
-      const cleanRow: Record<string, string> = {};
-      mergedHeaders.forEach((h) => {
-        cleanRow[h] = row[h] || "";
+    const exportAoa: any[][] = [];
+
+    // Prepend template preamble rows (if any)
+    if (keyMergePreambleRows.length > 0) {
+      keyMergePreambleRows.forEach((pRow) => {
+        exportAoa.push([...pRow]);
       });
-      return cleanRow;
+    }
+
+    // Add header row
+    exportAoa.push(mergedHeaders);
+
+    // Add data rows
+    sortedAndFilteredGridRows.forEach((row) => {
+      const dataRow = mergedHeaders.map((h) => row[h] || "");
+      exportAoa.push(dataRow);
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const worksheet = XLSX.utils.aoa_to_sheet(exportAoa);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Merged_Data");
 
@@ -579,20 +706,70 @@ export default function MergeTable({
                       key={f.id}
                       className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 p-4 rounded-xl flex flex-col gap-3 relative"
                     >
-                      <button
-                        onClick={() => removeKeyMergeFile(f.id)}
-                        className="absolute right-3 top-3 p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                        title={lang === "vi" ? "Xóa tệp" : "Remove file"}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="absolute right-3 top-3 flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleOpenKeyPreview(f)}
+                          className="p-1 rounded-lg text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                          title={lang === "vi" ? "Xem preview & chỉnh dòng Header" : "Preview & select Header row"}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => removeKeyMergeFile(f.id)}
+                          className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                          title={lang === "vi" ? "Xóa tệp" : "Remove file"}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
 
-                      <div>
-                        <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200 block truncate max-w-[85%]">
-                          {f.name}
-                        </span>
+                      <div className="pr-16">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          {/* Clickable file name */}
+                          <button
+                            onClick={() => handleOpenKeyPreview(f)}
+                            className="text-xs font-extrabold text-slate-800 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-left truncate max-w-[200px]"
+                            title={lang === "vi" ? "Bấm vào tên tệp để xem preview & hiệu chỉnh dòng Header" : "Click file name to preview & customize Header row"}
+                          >
+                            {f.name}
+                          </button>
+
+                          {/* Header row badge */}
+                          <button
+                            onClick={() => handleOpenKeyPreview(f)}
+                            className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100/70 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 border border-teal-300 dark:border-teal-700 cursor-pointer hover:bg-teal-200 transition-colors flex items-center gap-1"
+                            title={lang === "vi" ? "Dòng được chọn làm Header cột" : "Selected Header row"}
+                          >
+                            <span>Header: Dòng {(f.headerRowIndex ?? 0) + 1}</span>
+                          </button>
+
+                          {/* Template file badge / button */}
+                          {keyMergeTemplateFileId === f.id ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-400 dark:border-amber-600 flex items-center gap-1 shadow-xs">
+                              <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
+                              <span>{lang === "vi" ? "Mẫu Đầu Trang" : "Template"}</span>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setKeyMergeTemplateFileId(f.id);
+                                toast.success(
+                                  lang === "vi"
+                                    ? `Đã chọn "${f.name}" làm File Mẫu đầu trang!`
+                                    : `Selected "${f.name}" as Template file!`
+                                );
+                              }}
+                              className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-slate-200 dark:border-slate-700 cursor-pointer transition-colors flex items-center gap-1"
+                              title={lang === "vi" ? "Chọn tệp này để dùng phần đầu & header làm chuẩn xuất ra" : "Set as Master Template File"}
+                            >
+                              <Star className="h-3 w-3" />
+                              <span>{lang === "vi" ? "Đặt làm mẫu" : "Set template"}</span>
+                            </button>
+                          )}
+                        </div>
+
                         <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                          {lang === "vi" ? `Dung lượng: ${(f.size / 1024).toFixed(1)} KB • Có ${f.rows.length} dòng` : `Size: ${(f.size / 1024).toFixed(1)} KB • ${f.rows.length} rows`}
+                          {lang === "vi" ? `Dung lượng: ${(f.size / 1024).toFixed(1)} KB • Có ${f.rows.length} dòng dữ liệu` : `Size: ${(f.size / 1024).toFixed(1)} KB • ${f.rows.length} data rows`}
                         </span>
                       </div>
 
@@ -744,6 +921,59 @@ export default function MergeTable({
                   )}
                 </div>
 
+                {/* Template Preamble Banner (If chosen template file has preamble rows) */}
+                {keyMergePreambleRows.length > 0 && (
+                  <div className="mb-4 p-4 rounded-xl bg-amber-50/90 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-700/40 text-xs shadow-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 flex items-center justify-center text-amber-600 dark:text-amber-400 flex-shrink-0">
+                          <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
+                        </div>
+                        <div>
+                          <span className="font-bold text-amber-900 dark:text-amber-200 block">
+                            {lang === "vi" 
+                              ? `Phần đầu file xuất (Lấy từ file mẫu "${keyMergeTemplateFileName}"): gồm ${keyMergePreambleRows.length} dòng tiêu đề / thông tin đầu bảng.`
+                              : `Output preamble (From template "${keyMergeTemplateFileName}"): includes ${keyMergePreambleRows.length} header/preamble row(s).`}
+                          </span>
+                          <span className="text-[11px] text-amber-700/80 dark:text-amber-300/80">
+                            {lang === "vi"
+                              ? "Khi tải xuống, các dòng này sẽ được đặt chính xác ở phần đầu tệp, tiếp theo là hàng Header và dữ liệu ghép cột."
+                              : "When exported, these rows are preserved at the top, followed by the Header and joined data."}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowKeyPreamblePreview(!showKeyPreamblePreview)}
+                        className="px-3 py-1.5 bg-amber-200/70 hover:bg-amber-200 dark:bg-amber-900/50 dark:hover:bg-amber-900/70 text-amber-900 dark:text-amber-100 font-bold rounded-lg cursor-pointer transition-colors self-start sm:self-auto text-xs flex items-center gap-1.5"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        <span>{showKeyPreamblePreview ? (lang === "vi" ? "Ẩn xem trước" : "Hide") : (lang === "vi" ? "Xem trước phần đầu" : "Preview preamble")}</span>
+                      </button>
+                    </div>
+
+                    {showKeyPreamblePreview && (
+                      <div className="mt-3 overflow-x-auto border border-amber-200 dark:border-amber-700/50 rounded-lg bg-white dark:bg-slate-900 p-2 max-h-48 overflow-y-auto">
+                        <table className="w-full text-[11px] font-mono border-collapse">
+                          <tbody>
+                            {keyMergePreambleRows.map((pRow, pIdx) => (
+                              <tr key={pIdx} className="border-b border-amber-100 dark:border-amber-900/30 last:border-none">
+                                <td className="p-1.5 font-bold text-amber-600 dark:text-amber-400 select-none w-20 whitespace-nowrap bg-amber-50/50 dark:bg-amber-950/20">
+                                  Dòng {pIdx + 1}
+                                </td>
+                                {pRow.map((cell: any, cIdx: number) => (
+                                  <td key={cIdx} className="p-1.5 text-slate-700 dark:text-slate-300 border-l border-amber-100 dark:border-amber-900/30">
+                                    {String(cell !== undefined && cell !== null ? cell : "")}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Table search filter */}
                 {mergedRows.length > 0 && (
                   <div className="mb-4 relative">
@@ -866,6 +1096,232 @@ export default function MergeTable({
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ========================================================
+          MODAL: KEY-BASED MERGE FILE PREVIEW & HEADER ROW SELECTION
+          ======================================================== */}
+      {keyPreviewModalFile && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-900/50">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-10 w-10 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-600 dark:text-teal-400 flex items-center justify-center flex-shrink-0">
+                  <FileSpreadsheet className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white truncate flex items-center gap-2">
+                    <span>{keyPreviewModalFile.name}</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300">
+                      Excel / CSV
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-mono truncate">
+                    {(keyPreviewModalFile.size / 1024).toFixed(1)} KB • {keyPreviewModalAoa.length} dòng
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setKeyPreviewModalFile(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                title={lang === "vi" ? "Đóng" : "Close"}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body / Toolbar */}
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                {/* Header row picker control */}
+                <div className="flex items-center gap-3">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                    {lang === "vi" ? "Dòng Header (Tiêu Đề Cột):" : "Header Row (Column Titles):"}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={keyPreviewModalHeaderRow}
+                      onChange={(e) => setKeyPreviewModalHeaderRow(Number(e.target.value))}
+                      className="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-bold px-3 py-1.5 rounded-xl text-teal-600 dark:text-teal-400 focus:outline-none cursor-pointer"
+                    >
+                      {keyPreviewModalAoa.slice(0, 30).map((_, idx) => (
+                        <option key={idx} value={idx}>
+                          {lang === "vi" ? `Dòng ${idx + 1}` : `Row ${idx + 1}`}
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* Quick helper buttons for rows 1 to 5 */}
+                    <div className="hidden sm:flex items-center gap-1">
+                      {[0, 1, 2, 3, 4].map((rIdx) => (
+                        <button
+                          key={rIdx}
+                          type="button"
+                          onClick={() => setKeyPreviewModalHeaderRow(rIdx)}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-all ${
+                            keyPreviewModalHeaderRow === rIdx
+                              ? "bg-teal-600 text-white shadow-xs"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                          }`}
+                        >
+                          D{rIdx + 1}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Master template file toggle */}
+                <label className="flex items-center gap-2.5 cursor-pointer p-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-700/40 hover:bg-amber-100/60 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={keyPreviewModalIsTemplate}
+                    onChange={(e) => setKeyPreviewModalIsTemplate(e.target.checked)}
+                    className="rounded text-amber-600 focus:ring-amber-500 border-amber-300 cursor-pointer"
+                  />
+                  <div className="flex items-center gap-1.5">
+                    <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+                    <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                      {lang === "vi" 
+                        ? "Dùng file này làm Mẫu Đầu Trang & Header khi xuất" 
+                        : "Use this file as Master Template (Header & Preamble)"}
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              {/* Color legend & explanation */}
+              <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-full bg-amber-400 border border-amber-500" />
+                  <span className="text-slate-600 dark:text-slate-400">
+                    {keyPreviewModalHeaderRow === 0
+                      ? (lang === "vi" ? "Không có dòng tiêu đề đầu (Preamble)" : "No preamble rows")
+                      : (lang === "vi" ? `Dòng 1 đến Dòng ${keyPreviewModalHeaderRow}: Tiêu đề / Thông tin đầu tệp (Preamble)` : `Rows 1 to ${keyPreviewModalHeaderRow}: Preamble`)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-full bg-emerald-500 border border-emerald-600" />
+                  <span className="font-bold text-emerald-700 dark:text-emerald-300">
+                    {lang === "vi" ? `Dòng ${keyPreviewModalHeaderRow + 1}: Hàng Header (Tiêu Đề Cột)` : `Row ${keyPreviewModalHeaderRow + 1}: Header Row`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-full bg-sky-400 border border-sky-500" />
+                  <span className="text-slate-600 dark:text-slate-400">
+                    {lang === "vi" ? `Dòng ${keyPreviewModalHeaderRow + 2} trở đi: Dữ liệu ghép (Data Rows)` : `Rows ${keyPreviewModalHeaderRow + 2}+: Data rows`}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Sheet Preview Grid */}
+            <div className="flex-1 overflow-auto p-5 bg-slate-50 dark:bg-slate-950/40 custom-scrollbar">
+              {keyPreviewModalAoa.length === 0 ? (
+                <div className="text-center py-16 text-slate-400">
+                  <p>{lang === "vi" ? "Tệp không chứa dữ liệu hoặc không thể hiển thị bảng." : "File contains no tabular data."}</p>
+                </div>
+              ) : (
+                <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-[#111827] shadow-xs">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <tbody>
+                      {keyPreviewModalAoa.slice(0, 60).map((row, rIdx) => {
+                        const isHeader = rIdx === keyPreviewModalHeaderRow;
+                        const isPreamble = rIdx < keyPreviewModalHeaderRow;
+                        const isData = rIdx > keyPreviewModalHeaderRow;
+
+                        return (
+                          <tr
+                            key={rIdx}
+                            onClick={() => setKeyPreviewModalHeaderRow(rIdx)}
+                            className={`border-b border-slate-200/80 dark:border-slate-800 transition-colors cursor-pointer select-none ${
+                              isHeader
+                                ? "bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/50"
+                                : isPreamble
+                                ? "bg-amber-50/60 dark:bg-amber-950/20 hover:bg-amber-100/40 text-amber-900 dark:text-amber-200"
+                                : "hover:bg-slate-50 dark:hover:bg-slate-900/60"
+                            }`}
+                          >
+                            {/* Row Selector & Badge */}
+                            <td className="p-2.5 font-mono font-bold text-center w-28 whitespace-nowrap border-r border-slate-200 dark:border-slate-800">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-slate-500 dark:text-slate-400">#{rIdx + 1}</span>
+                                {isHeader ? (
+                                  <span className="px-1.5 py-0.5 rounded bg-emerald-500 text-white font-extrabold text-[9px] uppercase shadow-xs">
+                                    Header
+                                  </span>
+                                ) : isPreamble ? (
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-200 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 font-bold text-[9px]">
+                                    Tiêu đề
+                                  </span>
+                                ) : (
+                                  <span className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 text-[9px]">
+                                    Dữ liệu
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Cells */}
+                            {Array.from({ length: Math.max(1, ...keyPreviewModalAoa.slice(0, 30).map(r => r.length)) }).map((_, cIdx) => {
+                              const cellVal = row[cIdx];
+                              return (
+                                <td
+                                  key={cIdx}
+                                  className={`p-2.5 border-r border-slate-200/60 dark:border-slate-800/60 max-w-[200px] truncate ${
+                                    isHeader
+                                      ? "font-extrabold text-emerald-950 dark:text-emerald-100"
+                                      : isPreamble
+                                      ? "italic text-amber-800 dark:text-amber-300 font-medium"
+                                      : "text-slate-700 dark:text-slate-300"
+                                  }`}
+                                  title={cellVal !== undefined && cellVal !== null ? String(cellVal) : ""}
+                                >
+                                  {cellVal !== undefined && cellVal !== null && String(cellVal).trim() !== "" ? (
+                                    String(cellVal)
+                                  ) : (
+                                    <span className="text-slate-300 dark:text-slate-700 select-none">-</span>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-900/50">
+              <span className="text-xs text-slate-500 dark:text-slate-400 italic">
+                {lang === "vi" 
+                  ? "💡 Bạn có thể nhấp trực tiếp vào bất kỳ dòng nào trong bảng trên để chọn dòng đó làm Header!" 
+                  : "💡 Click on any row in the table above to set it as the Header row!"}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setKeyPreviewModalFile(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  {lang === "vi" ? "Hủy" : "Cancel"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveKeyHeaderConfig}
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white shadow-md shadow-teal-600/20 transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="h-4 w-4" />
+                  {lang === "vi" ? "Lưu Cấu Hình & Áp Dụng" : "Save & Apply"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

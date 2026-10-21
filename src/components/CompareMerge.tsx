@@ -14,7 +14,8 @@ import {
   AlertTriangle,
   RotateCcw,
   Sparkles,
-  Trash2
+  Trash2,
+  ArrowLeftRight
 } from "lucide-react";
 
 interface CompareMergeProps {
@@ -130,42 +131,62 @@ export default function CompareMerge({ state, onChange, subSlug, hideInnerHeader
     );
   };
 
-  // --- SUB-FEATURE 2: COLUMN COMBINER ---
+  // --- SUB-FEATURE 2: COLUMN COMBINER (Cột A - B - C) ---
   const handleCombine = () => {
-    const col1 = state.combineCol1 || "";
-    const col2 = state.combineCol2 || "";
+    const colA = state.combineCol1 || "";
+    const colB = state.combineDelimiter !== undefined ? state.combineDelimiter : "";
+    const colC = state.combineCol2 || "";
 
-    if (!col1.trim() && !col2.trim()) {
-      showToast("Please enter data for both columns!", true);
+    if (!colA.trim() && !colB.trim() && !colC.trim()) {
+      showToast(lang === "vi" ? "Vui lòng nhập dữ liệu để ghép!" : "Please enter data to merge!", true);
       return;
     }
 
-    const lines1 = col1.split(/\r?\n/);
-    const lines2 = col2.split(/\r?\n/);
+    const linesA = colA ? colA.split(/\r?\n/) : [];
+    const linesB = colB !== "" ? colB.split(/\r?\n/) : [];
+    const linesC = colC ? colC.split(/\r?\n/) : [];
 
-    const len1 = col1.trim() === "" ? 0 : lines1.length;
-    const len2 = col2.trim() === "" ? 0 : lines2.length;
+    const lenA = colA.trim() === "" ? 0 : linesA.length;
+    const lenB = colB === "" ? 0 : linesB.length;
+    const lenC = colC.trim() === "" ? 0 : linesC.length;
 
-    if (len1 > 1 && len2 > 1 && len1 !== len2) {
-      showToast(
-        `Cannot merge columns! Line count mismatch: Column 1 has ${len1} lines, Column 2 has ${len2} lines. Please adjust or combine with a column containing exactly 1 line.`, 
-        true
-      );
+    const maxLines = Math.max(lenA, lenC, lenB > 1 ? lenB : 0);
+    if (maxLines === 0) {
+      showToast(lang === "vi" ? "Không có dữ liệu hợp lệ để ghép!" : "No valid data to merge!", true);
       return;
     }
 
-    const maxLines = Math.max(len1, len2);
     const merged: string[] = [];
 
     for (let idx = 0; idx < maxLines; idx++) {
-      const val1 = len1 === 1 ? lines1[0] : (lines1[idx] !== undefined ? lines1[idx] : "");
-      const val2 = len2 === 1 ? lines2[0] : (lines2[idx] !== undefined ? lines2[idx] : "");
+      const valA = lenA === 1 ? linesA[0] : (linesA[idx] !== undefined ? linesA[idx] : "");
       
-      merged.push(`${val1}${state.combineDelimiter}${val2}`);
+      // Delimiter: if only 1 line in Column B, use it for all rows; if multiple lines, map row by row
+      let valB = "";
+      if (lenB === 1) {
+        valB = linesB[0];
+      } else if (lenB > 1) {
+        valB = linesB[idx] !== undefined ? linesB[idx] : (linesB[lenB - 1] ?? "");
+      }
+
+      const valC = lenC === 1 ? linesC[0] : (linesC[idx] !== undefined ? linesC[idx] : "");
+      
+      merged.push(`${valA}${valB}${valC}`);
     }
 
     setCombineOutput(merged.join("\n"));
-    showToast("Columns merged successfully!");
+    showToast(
+      lang === "vi" 
+        ? `Đã ghép thành công ${merged.length} dòng dữ liệu (Cột A + B + C)!` 
+        : `Merged ${merged.length} lines successfully (Column A + B + C)!`
+    );
+  };
+
+  const handleSwapAC = () => {
+    const tempA = state.combineCol1 || "";
+    const tempC = state.combineCol2 || "";
+    onChange({ combineCol1: tempC, combineCol2: tempA });
+    showToast(lang === "vi" ? "Đã đổi vị trí Cột A ⇄ Cột C!" : "Swapped Column A ⇄ Column C!");
   };
 
   // --- SUB-FEATURE 3: AUTO-INCREMENT GENERATOR ---
@@ -495,78 +516,180 @@ export default function CompareMerge({ state, onChange, subSlug, hideInnerHeader
         </div>
       )}
 
-      {/* SUB-TAB 2: COLUMN COMBINER */}
+      {/* SUB-TAB 2: COLUMN COMBINER (Cột A - B - C) */}
       {activeSubTab === "combine" && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Column 1 Input */}
-            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[280px]">
-              <div className="p-3 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
-                <span className="text-xs font-mono font-bold uppercase text-slate-500 dark:text-slate-400">
-                  {t("compareMerge.mergeCol1")}
-                </span>
-                <span className="text-[10px] font-mono text-slate-400">
-                  {state.combineCol1 ? state.combineCol1.split(/\r?\n/).length : 0} lines
-                </span>
+          {/* 3 Columns Grid: Cột A - B - C */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Column A Input */}
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col h-[320px]">
+              <div className="p-3 px-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/70 dark:bg-[#0B0F1A]/70 rounded-t-2xl">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono font-bold uppercase px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                    {lang === "vi" ? "Cột A" : "Column A"}
+                  </span>
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    {lang === "vi" ? "Dữ liệu Cột A" : "Column A Data"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono text-slate-400">
+                    {state.combineCol1 ? state.combineCol1.split(/\r?\n/).length : 0} {lang === "vi" ? "dòng" : "lines"}
+                  </span>
+                  {state.combineCol1 && (
+                    <button
+                      onClick={() => onChange({ combineCol1: "" })}
+                      className="text-slate-400 hover:text-rose-500 transition-colors p-1"
+                      title={lang === "vi" ? "Xóa Cột A" : "Clear Column A"}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
               </div>
               <textarea
-                className="w-full flex-1 p-4 bg-transparent text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none"
-                placeholder="Enter Column 1 data (one item per line)..."
+                className="w-full flex-1 p-4 bg-transparent text-slate-800 dark:text-slate-200 font-mono text-xs leading-relaxed resize-none focus:outline-none"
+                placeholder={lang === "vi" ? "Nhập dữ liệu Cột A (mỗi mục một dòng)..." : "Enter Column A data (one item per line)..."}
                 value={state.combineCol1 ?? ""}
                 onChange={(e) => onChange({ combineCol1: e.target.value })}
               />
             </div>
 
-            {/* Column 2 Input */}
-            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[280px]">
-              <div className="p-3 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-t-2xl">
-                <span className="text-xs font-mono font-bold uppercase text-slate-500 dark:text-slate-400">
-                  {t("compareMerge.mergeCol2")}
-                </span>
-                <span className="text-[10px] font-mono text-slate-400">
-                  {state.combineCol2 ? state.combineCol2.split(/\r?\n/).length : 0} lines
-                </span>
+            {/* Column B (Delimiter) Input */}
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col h-[320px]">
+              <div className="p-3 px-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/70 dark:bg-[#0B0F1A]/70 rounded-t-2xl">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono font-bold uppercase px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                    {lang === "vi" ? "Cột B" : "Column B"}
+                  </span>
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    {lang === "vi" ? "Phân cách (Delimiter)" : "Delimiter"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono text-slate-400">
+                    {state.combineDelimiter ? state.combineDelimiter.split(/\r?\n/).length : 0} {lang === "vi" ? "dòng" : "lines"}
+                  </span>
+                  {state.combineDelimiter && (
+                    <button
+                      onClick={() => onChange({ combineDelimiter: "" })}
+                      className="text-slate-400 hover:text-rose-500 transition-colors p-1"
+                      title={lang === "vi" ? "Xóa Cột B" : "Clear Column B"}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
               </div>
               <textarea
-                className="w-full flex-1 p-4 bg-transparent text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none"
-                placeholder="Enter Column 2 data (one item per line)..."
+                className="w-full flex-1 p-4 bg-transparent text-slate-800 dark:text-slate-200 font-mono text-xs leading-relaxed resize-none focus:outline-none"
+                placeholder={lang === "vi" 
+                  ? "Nhập ký tự phân cách Cột B:\n• Nhập 1 dòng (ví dụ: | hoặc , hoặc -) để áp dụng cho tất cả hàng\n• Hoặc nhập nhiều dòng tương ứng từng hàng..." 
+                  : "Enter delimiter in Column B:\n• Enter 1 line (e.g. | or , or -) to apply to all rows\n• Or enter multiple lines for row-by-row mapping..."}
+                value={state.combineDelimiter ?? ""}
+                onChange={(e) => onChange({ combineDelimiter: e.target.value })}
+              />
+              {/* Quick Delimiter Presets */}
+              <div className="p-2 px-3 border-t border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-[#0B0F1A]/50 rounded-b-2xl flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span className="text-slate-400 font-medium text-[10px]">{lang === "vi" ? "Mẫu nhanh:" : "Presets:"}</span>
+                {[
+                  { label: "|", val: " | " },
+                  { label: ",", val: ", " },
+                  { label: "-", val: " - " },
+                  { label: "Tab", val: "\t" },
+                  { label: "Space", val: " " },
+                  { label: ":", val: ": " },
+                  { label: "→", val: " -> " },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => onChange({ combineDelimiter: preset.val })}
+                    className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:border-amber-300 text-slate-600 dark:text-slate-300 text-[10px] font-mono cursor-pointer transition-colors"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Column C Input */}
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col h-[320px]">
+              <div className="p-3 px-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between bg-slate-50/70 dark:bg-[#0B0F1A]/70 rounded-t-2xl">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono font-bold uppercase px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                    {lang === "vi" ? "Cột C" : "Column C"}
+                  </span>
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    {lang === "vi" ? "Dữ liệu Cột C" : "Column C Data"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono text-slate-400">
+                    {state.combineCol2 ? state.combineCol2.split(/\r?\n/).length : 0} {lang === "vi" ? "dòng" : "lines"}
+                  </span>
+                  {state.combineCol2 && (
+                    <button
+                      onClick={() => onChange({ combineCol2: "" })}
+                      className="text-slate-400 hover:text-rose-500 transition-colors p-1"
+                      title={lang === "vi" ? "Xóa Cột C" : "Clear Column C"}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <textarea
+                className="w-full flex-1 p-4 bg-transparent text-slate-800 dark:text-slate-200 font-mono text-xs leading-relaxed resize-none focus:outline-none"
+                placeholder={lang === "vi" ? "Nhập dữ liệu Cột C (mỗi mục một dòng)..." : "Enter Column C data (one item per line)..."}
                 value={state.combineCol2 ?? ""}
                 onChange={(e) => onChange({ combineCol2: e.target.value })}
               />
             </div>
           </div>
 
-          {/* Delimiter & Actions */}
-          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex-1 max-w-sm">
-              <label className="block text-xs font-bold uppercase text-slate-400 dark:text-slate-500 mb-2">
-                {t("compareMerge.delimiter")}
-              </label>
-              <input
-                type="text"
-                placeholder="Enter delimiter (e.g., |, comma, hyphen, space...)"
-                value={state.combineDelimiter ?? ""}
-                onChange={(e) => onChange({ combineDelimiter: e.target.value })}
-                className="w-full p-2.5 border border-slate-200 dark:border-slate-800 bg-transparent rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
-              />
+          {/* Action Toolbar */}
+          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 md:p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <Sparkles className="h-4 w-4 text-indigo-500" />
+              <span>
+                {lang === "vi" 
+                  ? "Công thức ghép: [Cột A] + [Cột B (Phân cách)] + [Cột C]" 
+                  : "Join Formula: [Column A] + [Column B (Delimiter)] + [Column C]"}
+              </span>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5 flex-wrap">
               <button
+                type="button"
+                onClick={handleSwapAC}
+                className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+                title="Swap Column A and Column C"
+              >
+                <ArrowLeftRight className="h-3.5 w-3.5" />
+                <span>{lang === "vi" ? "Đổi vị trí A ⇄ C" : "Swap A ⇄ C"}</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => {
                   onChange({ combineCol1: "", combineCol2: "", combineDelimiter: "" });
                   setCombineOutput("");
-                  showToast("Cleared merger data!");
+                  showToast(lang === "vi" ? "Đã xóa toàn bộ dữ liệu 3 cột!" : "Cleared all 3 columns data!");
                 }}
-                className="px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold text-sm transition-all flex items-center gap-2 cursor-pointer"
+                className="px-3.5 py-2 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
-                <RotateCcw className="h-4 w-4" /> {t("common.reset")}
+                <RotateCcw className="h-3.5 w-3.5" />
+                <span>{t("common.reset")}</span>
               </button>
+
               <button
+                type="button"
                 onClick={handleCombine}
-                className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-all shadow-md shadow-indigo-600/10 flex items-center gap-2 cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-md shadow-indigo-600/20 flex items-center gap-2 cursor-pointer"
               >
-                <Columns className="h-4 w-4" /> {t("compareMerge.joinBtn")}
+                <Columns className="h-4 w-4" />
+                <span>{lang === "vi" ? "Ghép Dữ Liệu (Cột A + B + C)" : "Join Columns (A + B + C)"}</span>
               </button>
             </div>
           </div>

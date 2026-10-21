@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import DirectoryAggregator from "./DirectoryAggregator";
+import { useFilePaste, useDropzone } from "../utils/filePasteHelper";
 
 interface MergeTableProps {
   state?: DirAggregatorState;
@@ -120,16 +121,16 @@ export default function MergeTable({
   };
 
   // Parse uploaded files into rows and headers
-  const handleKeyMergeFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const processKeyMergeFiles = async (files: FileList | File[] | null) => {
     if (!files || files.length === 0) return;
 
     setIsProcessing(true);
     const loaded: KeyMergeFile[] = [];
+    const filesArr = Array.from(files);
 
     try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      for (let i = 0; i < filesArr.length; i++) {
+        const file = filesArr[i];
         const lowerName = file.name.toLowerCase();
         if (!lowerName.endsWith(".xlsx") && !lowerName.endsWith(".xls") && !lowerName.endsWith(".csv")) {
           toast.error(
@@ -196,6 +197,30 @@ export default function MergeTable({
       setIsProcessing(false);
     }
   };
+
+  const handleKeyMergeFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    await processKeyMergeFiles(e.target.files);
+    e.target.value = "";
+  };
+
+  // Paste & Dropzone Integration for Key-based Merge
+  useFilePaste({
+    acceptedExtensions: [".xlsx", ".xls", ".csv"],
+    onFilesPasted: (files) => {
+      processKeyMergeFiles(files);
+    },
+    enabled: activeTab === "key_based",
+    lang,
+  });
+
+  const { isDragging: isDropzoneDragging, dropzoneProps } = useDropzone({
+    acceptedExtensions: [".xlsx", ".xls", ".csv"],
+    onFilesDropped: (files) => {
+      processKeyMergeFiles(files);
+    },
+    lang,
+    disabled: activeTab !== "key_based",
+  });
 
   // Open Preview Modal for a KeyMergeFile
   const handleOpenKeyPreview = (file: KeyMergeFile) => {
@@ -650,7 +675,14 @@ export default function MergeTable({
                 {lang === "vi" ? "1. Tải Lên Tệp Tin Ghép Cột" : "1. Relational Files Upload"}
               </h3>
 
-              <div className="border-2 border-dashed border-slate-200 dark:border-white/10 hover:border-teal-500/50 dark:hover:border-teal-500/40 rounded-xl p-8 text-center transition-all cursor-pointer relative bg-slate-100/50 dark:bg-slate-950/20 group">
+              <div
+                {...dropzoneProps}
+                className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer relative group shadow-xs ${
+                  isDropzoneDragging
+                    ? "border-teal-500 bg-teal-100/50 dark:bg-teal-950/40 scale-[0.99]"
+                    : "border-teal-300 dark:border-teal-800/80 bg-teal-50/30 dark:bg-teal-950/10 hover:border-teal-500 hover:bg-teal-50/60"
+                }`}
+              >
                 <input
                   type="file"
                   multiple
@@ -660,15 +692,18 @@ export default function MergeTable({
                   id="key-merge-uploader"
                 />
                 <div className="flex flex-col items-center">
-                  <div className="h-11 w-11 rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 mb-3 group-hover:scale-105 transition-transform">
-                    <FileSpreadsheet className="h-5.5 w-5.5 text-teal-500" />
+                  <div className="h-14 w-14 rounded-2xl bg-teal-100 dark:bg-teal-900/50 border border-teal-200 dark:border-teal-800/40 flex items-center justify-center text-teal-600 dark:text-teal-400 mb-3 group-hover:scale-110 transition-transform shadow-inner">
+                    <FileSpreadsheet className="h-7 w-7 text-teal-600 dark:text-teal-400" />
                   </div>
-                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 block mb-1">
-                    {lang === "vi" ? "Chọn Nhiều Tệp Excel / CSV" : "Choose Excel / CSV Files"}
+                  <span className="text-base md:text-lg font-bold text-slate-800 dark:text-slate-200 block mb-1">
+                    {lang === "vi" ? "Chọn Nhiều Tệp Excel / CSV Cần Ghép" : "Choose Excel / CSV Files to Join"}
                   </span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {lang === "vi" ? "Chọn từ 2 tệp để tiến hành liên kết" : "Select 2 or more files to join"}
+                  <span className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+                    {lang === "vi" ? "Chọn từ 2 tệp trở lên để tiến hành liên kết bảng tính qua khóa chung" : "Select 2 or more files to join tables by a common key"}
                   </span>
+                  <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-100/80 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 text-[11px] font-medium border border-teal-200 dark:border-teal-800/60">
+                    <span>📋 {lang === "vi" ? "Hỗ trợ Kéo thả & Dán file từ clipboard (Ctrl+V)" : "Drag & Drop or Paste file from clipboard (Ctrl+V) supported"}</span>
+                  </div>
                 </div>
               </div>
 

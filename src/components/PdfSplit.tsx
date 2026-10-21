@@ -27,6 +27,7 @@ import {
   FileCheck2
 } from "lucide-react";
 import { toast } from "react-toastify";
+import { useFilePaste, useDropzone } from "../utils/filePasteHelper";
 import { motion, AnimatePresence } from "motion/react";
 
 // Set pdfjs worker
@@ -151,9 +152,8 @@ export default function PdfSplit() {
   };
 
   // Process uploaded PDF file
-  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    const file = e.target.files[0];
+  const processPdfFile = async (file: File) => {
+    if (!file) return;
     if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
       toast.error(lang === "vi" ? "Vui lòng chọn tệp tin PDF hợp lệ!" : "Please select a valid PDF file!");
       return;
@@ -239,6 +239,32 @@ export default function PdfSplit() {
       setSplitProgress(null);
     }
   };
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    await processPdfFile(file);
+    e.target.value = "";
+  };
+
+  // Paste & Dropzone Integration
+  useFilePaste({
+    acceptedExtensions: [".pdf"],
+    onFilesPasted: (files) => {
+      if (files.length > 0) processPdfFile(files[0]);
+    },
+    enabled: !uploadedFile,
+    lang,
+  });
+
+  const { isDragging: isDropzoneDragging, dropzoneProps } = useDropzone({
+    acceptedExtensions: [".pdf"],
+    onFilesDropped: (files) => {
+      if (files.length > 0) processPdfFile(files[0]);
+    },
+    lang,
+    disabled: !!uploadedFile,
+  });
 
   // Range Split Handlers
   const handleUpdateRangeStr = (id: string, newStr: string) => {
@@ -497,16 +523,16 @@ export default function PdfSplit() {
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 dark:bg-[#0B0F1A]" id="pdf-split-container">
       {/* Upper Action Bar / Header */}
-      <div className="bg-white dark:bg-[#111827] border-b border-slate-200 dark:border-slate-800/80 px-6 py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0">
-        <div className="flex items-start gap-3.5">
-          <div className="h-11 w-11 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-600/20 flex-shrink-0 mt-0.5">
+      <div className="bg-white dark:bg-[#111827] border-b border-slate-200 dark:border-slate-800/80 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0 h-10 w-10 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-600/20">
             <Split className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-              {lang === "vi" ? "Chia Nhỏ PDF" : "Split PDF Document"}
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <span>{lang === "vi" ? "Chia Nhỏ PDF" : "Split PDF Document"}</span>
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {lang === "vi" 
                 ? "Chia tách tệp PDF theo dải trang hoặc cắt lẻ từng trang trực tiếp với các công cụ xem trước, xoay và xoá tiện lợi."
                 : "Split PDF documents by page ranges or manage individual pages with quick previews, rotation and delete features."}
@@ -543,7 +569,12 @@ export default function PdfSplit() {
               </div>
             ) : (
               <div
-                className="relative border-2 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center min-h-[340px] transition-all cursor-pointer border-purple-300 dark:border-purple-800/60 bg-purple-50/10 dark:bg-purple-950/5 hover:border-purple-500 dark:hover:border-purple-700/80"
+                {...dropzoneProps}
+                className={`relative border-2 border-dashed rounded-2xl p-8 md:p-12 text-center flex flex-col items-center justify-center min-h-[320px] transition-all cursor-pointer shadow-xs ${
+                  isDropzoneDragging
+                    ? "border-purple-500 bg-purple-100/50 dark:bg-purple-950/40 scale-[0.99]"
+                    : "border-purple-300 dark:border-purple-800/60 bg-purple-50/10 dark:bg-purple-950/5 hover:border-purple-500 dark:hover:border-purple-700/80"
+                }`}
               >
                 <input
                   type="file"
@@ -551,15 +582,18 @@ export default function PdfSplit() {
                   onChange={handlePdfUpload}
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
                 />
-                <div className="p-4 rounded-2xl bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 mb-4">
+                <div className="h-16 w-16 rounded-2xl bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-4 shadow-inner group-hover:scale-110 transition-transform">
                   <Upload className="h-8 w-8" />
                 </div>
-                <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
+                <h3 className="text-base md:text-lg font-bold text-slate-800 dark:text-slate-200 mb-1">
                   {lang === "vi" ? "Kéo & thả file PDF vào đây hoặc nhấp để tải lên" : "Drag & drop PDF file here or click to choose from computer"}
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md">
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
                   {lang === "vi" ? "Hỗ trợ chia tách theo dải trang hoặc cắt lẻ từng trang linh hoạt" : "Supports range splits or individual single page extractions"}
                 </p>
+                <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100/80 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 text-[11px] font-medium border border-purple-200 dark:border-purple-800/60">
+                  <span>📋 {lang === "vi" ? "Hỗ trợ Kéo thả & Dán file từ clipboard (Ctrl+V)" : "Drag & Drop or Paste file from clipboard (Ctrl+V) supported"}</span>
+                </div>
               </div>
             )}
           </div>

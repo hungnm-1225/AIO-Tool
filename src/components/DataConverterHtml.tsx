@@ -526,26 +526,27 @@ export default function DataConverterHtml({ state, onChange, subSlug = "dinh-dan
   const subDesc = lang === "vi" ? activeSub?.descriptionVi : activeSub?.descriptionEn;
 
   return (
-    <div className="flex-1 overflow-auto bg-slate-50 dark:bg-[#0B0F1A] p-6 space-y-6">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 dark:bg-[#0B0F1A]">
 
       {/* Sub Navigation Bar */}
-      <div className="bg-white dark:bg-[#111827] border-b border-slate-200 dark:border-slate-800/80 -m-6 mb-6 p-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex-shrink-0 h-10 w-10 md:h-10 md:w-10 rounded-xl bg-sky-600 flex items-center justify-center text-white shadow-md shadow-sky-600/20">
-              <SubIcon className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <span>{subTitle}</span>
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {subDesc}
-              </p>
-            </div>
+      <div className="bg-white dark:bg-[#111827] border-b border-slate-200 dark:border-slate-800/80 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0 h-10 w-10 rounded-xl bg-sky-600 flex items-center justify-center text-white shadow-md shadow-sky-600/20">
+            <SubIcon className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <span>{subTitle}</span>
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              {subDesc}
+            </p>
           </div>
         </div>
       </div>
+
+      {/* Scrollable Content Body */}
+      <div className="flex-1 overflow-auto p-6 space-y-6">
 
       {/* SUB-TAB 1: BEAUTIFIER / MINIFIER */}
       {activeSubTab === "format" && (
@@ -1577,6 +1578,7 @@ export default function DataConverterHtml({ state, onChange, subSlug = "dinh-dan
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

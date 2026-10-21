@@ -21,6 +21,7 @@ import {
   FileDown,
 } from "lucide-react";
 import { toast } from "react-toastify";
+import { useFilePaste, useDropzone } from "../utils/filePasteHelper";
 
 // Sample dataset for quick demo testing
 const SAMPLE_HEADERS = [
@@ -81,6 +82,25 @@ export default function ExcelSplitByColumn({ hideInnerHeader = false }: ExcelSpl
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Paste & Dropzone Integration
+  useFilePaste({
+    acceptedExtensions: [".xlsx", ".xls", ".csv"],
+    onFilesPasted: (files) => {
+      if (files.length > 0) handleFileUpload(files[0]);
+    },
+    enabled: dataRows.length === 0,
+    lang,
+  });
+
+  const { isDragging, dropzoneProps } = useDropzone({
+    acceptedExtensions: [".xlsx", ".xls", ".csv"],
+    onFilesDropped: (files) => {
+      if (files.length > 0) handleFileUpload(files[0]);
+    },
+    lang,
+    disabled: dataRows.length > 0,
+  });
 
   // Parse Excel/CSV File
   const handleFileUpload = (file: File) => {
@@ -382,10 +402,13 @@ export default function ExcelSplitByColumn({ hideInnerHeader = false }: ExcelSpl
       {dataRows.length === 0 ? (
         <div className="space-y-4">
           <div
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
+            {...dropzoneProps}
             onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-emerald-300 dark:border-emerald-800/80 hover:border-emerald-500 dark:hover:border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/20 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-2xl p-8 md:p-10 text-center transition-all cursor-pointer group shadow-xs"
+            className={`border-2 border-dashed rounded-2xl p-8 md:p-10 text-center transition-all cursor-pointer group shadow-xs ${
+              isDragging
+                ? "border-emerald-500 bg-emerald-100/50 dark:bg-emerald-950/40 scale-[0.99]"
+                : "border-emerald-300 dark:border-emerald-800/80 hover:border-emerald-500 dark:hover:border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/20 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+            }`}
           >
             <input
               type="file"
@@ -403,6 +426,9 @@ export default function ExcelSplitByColumn({ hideInnerHeader = false }: ExcelSpl
             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg mx-auto leading-relaxed">
               {t("excelSuite.dropzoneSubtitle")}
             </p>
+            <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100/80 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 text-[11px] font-medium border border-emerald-200 dark:border-emerald-800/60">
+              <span>📋 {lang === "vi" ? "Hỗ trợ Kéo thả & Dán file từ clipboard (Ctrl+V)" : "Drag & Drop or Paste file from clipboard (Ctrl+V) supported"}</span>
+            </div>
             {isLoading && (
               <div className="mt-4 flex items-center justify-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 font-medium">
                 <div className="w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />

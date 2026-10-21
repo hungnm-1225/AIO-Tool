@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import JSZip from "jszip";
 import { toast } from "react-toastify";
+import { useFilePaste, useDropzone } from "../utils/filePasteHelper";
 
 export interface FileItem {
   id: string;
@@ -112,6 +113,21 @@ export default function FileRenamer({ state, onChange, hideInnerHeader = false }
   const [isGeneratingZip, setIsGeneratingZip] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  // Paste & Dropzone Integration
+  useFilePaste({
+    onFilesPasted: (pastedFiles) => {
+      handleFileUpload(pastedFiles);
+    },
+    lang,
+  });
+
+  const { isDragging: isDropzoneDragging, dropzoneProps } = useDropzone({
+    onFilesDropped: (droppedFiles) => {
+      handleFileUpload(droppedFiles);
+    },
+    lang,
+  });
+
   const updateState = (updates: Partial<FileRenamerState>) => {
     if (onChange) {
       onChange(updates);
@@ -149,7 +165,7 @@ export default function FileRenamer({ state, onChange, hideInnerHeader = false }
   };
 
   // Process uploaded files
-  const handleFileUpload = (fileList: FileList | null) => {
+  const handleFileUpload = (fileList: FileList | File[] | null) => {
     if (!fileList || fileList.length === 0) return;
 
     const newItems: FileItem[] = Array.from(fileList).map((f) => {
@@ -591,16 +607,11 @@ export default function FileRenamer({ state, onChange, hideInnerHeader = false }
         <div className={`${files.length > 0 ? "lg:col-span-8" : "lg:col-span-12"} flex flex-col space-y-4`}>
           {/* Dropzone Area */}
           <div
+            {...dropzoneProps}
             onClick={() => document.getElementById("renamer-file-input")?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDragging(true);
-            }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={handleDrop}
-            className={`relative border-2 border-dashed rounded-2xl p-8 transition-all text-center flex flex-col items-center justify-center cursor-pointer group ${
-              isDragging
-                ? "border-amber-500 bg-amber-50/50 dark:bg-amber-950/20 scale-[0.99]"
+            className={`relative border-2 border-dashed rounded-2xl p-8 md:p-10 transition-all text-center flex flex-col items-center justify-center cursor-pointer group shadow-xs ${
+              isDropzoneDragging
+                ? "border-amber-500 bg-amber-100/50 dark:bg-amber-950/40 scale-[0.99]"
                 : "border-amber-300 dark:border-amber-700/60 bg-amber-50/30 dark:bg-amber-950/10 hover:bg-amber-50/60 dark:hover:bg-amber-950/20"
             }`}
           >
@@ -611,10 +622,10 @@ export default function FileRenamer({ state, onChange, hideInnerHeader = false }
               onChange={(e) => handleFileUpload(e.target.files)}
               className="hidden"
             />
-            <div className="h-12 w-12 rounded-xl bg-amber-100 dark:bg-amber-900/50 border border-amber-200 dark:border-amber-800/40 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-2 shadow-inner group-hover:scale-105 transition-transform">
-              <Upload className="h-6 w-6" />
+            <div className="h-14 w-14 rounded-2xl bg-amber-100 dark:bg-amber-900/50 border border-amber-200 dark:border-amber-800/40 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-3 shadow-inner group-hover:scale-110 transition-transform">
+              <Upload className="h-7 w-7" />
             </div>
-            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">
+            <h3 className="text-base md:text-lg font-bold text-slate-800 dark:text-slate-100 mb-1">
               {lang === "vi" ? "Kéo & Thả hoặc Bấm Để Chọn Tệp Cần Đổi Tên" : "Drag & Drop or Click to Select Files to Rename"}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md leading-relaxed">
@@ -622,6 +633,9 @@ export default function FileRenamer({ state, onChange, hideInnerHeader = false }
                 ? "Hỗ trợ tải lên mọi định dạng tệp (PDF, Excel, hình ảnh, văn bản...)"
                 : "Supports uploading any file format (PDF, Excel, images, texts...)"}
             </p>
+            <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/80 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 text-[11px] font-medium border border-amber-200 dark:border-amber-800/60">
+              <span>📋 {lang === "vi" ? "Hỗ trợ Kéo thả & Dán file từ clipboard (Ctrl+V)" : "Drag & Drop or Paste file from clipboard (Ctrl+V) supported"}</span>
+            </div>
           </div>
 
           {/* Table Container */}

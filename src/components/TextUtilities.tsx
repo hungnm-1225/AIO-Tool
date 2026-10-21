@@ -14,7 +14,9 @@ import {
   Type,
   Scissors,
   HelpCircle,
-  Info
+  Info,
+  Sliders,
+  Sparkles
 } from "lucide-react";
 
 interface TextUtilitiesProps {
@@ -55,6 +57,7 @@ export default function TextUtilities({ state, onChange, subSlug, hideInnerHeade
   const [slicerIsRegex, setSlicerIsRegex] = useState(false);
   const [slicerMatchCase, setSlicerMatchCase] = useState(false);
   const [slicerCopied, setSlicerCopied] = useState(false);
+  const [enableSlicerSearchReplace, setEnableSlicerSearchReplace] = useState(false);
 
   // Existing Text Utilities output & state
   const [outputText, setOutputText] = useState("");
@@ -64,6 +67,13 @@ export default function TextUtilities({ state, onChange, subSlug, hideInnerHeade
   const [activeFilter, setActiveFilter] = useState<"none" | "remove" | "frequency" | "uniques" | "duplicates">("none");
   const [freqFilterMode, setFreqFilterMode] = useState<"all" | "unique" | "duplicates">("all");
   const [activeSort, setActiveSort] = useState<"none" | "original" | "ascending" | "descending" | "shuffle">("original");
+
+  // Pipeline options for Duplicate Filter
+  const [primaryFilterMode, setPrimaryFilterMode] = useState<"remove" | "uniques" | "duplicates" | "frequency">("remove");
+  const [enableSort, setEnableSort] = useState<boolean>(false);
+  const [sortType, setSortType] = useState<"ascending" | "descending" | "shuffle">("ascending");
+  const [enableSearchReplace, setEnableSearchReplace] = useState<boolean>(false);
+  const [enableRemoveEmpty, setEnableRemoveEmpty] = useState<boolean>(false);
 
   // Keep a backup of original order lines
   useEffect(() => {
@@ -193,18 +203,129 @@ export default function TextUtilities({ state, onChange, subSlug, hideInnerHeade
     showToast(`Converted to ${format}!`);
   };
 
-  // 3. Slicer / Cutter Handlers
-  const handleSliceText = () => {
+  // Unified Pipeline Executor for Duplicate Filter with Options (Sort, Search & Replace, Remove Empty)
+  const handleExecuteFilterPipeline = (overrideFilter?: "remove" | "uniques" | "duplicates" | "frequency") => {
+    const text = state.inputText || "";
+    if (!text.trim()) {
+      showToast(lang === "vi" ? "Vui lòng nhập văn bản cần xử lý!" : "Please enter text to process!", "warning");
+      return;
+    }
+
+    const currentFilter = overrideFilter || primaryFilterMode;
+    let workingText = text;
+
+    // Step 1: Search & Replace if enabled as an option
+    if (enableSearchReplace && state.findQuery) {
+      const find = state.findQuery;
+      const replace = state.replaceQuery || "";
+      try {
+        if (state.isRegex) {
+          const flags = "g" + (state.matchCase ? "" : "i");
+          const regex = new RegExp(find, flags);
+          workingText = workingText.replace(regex, replace);
+        } else {
+          if (state.matchCase) {
+            workingText = workingText.split(find).join(replace);
+          } else {
+            const escaped = find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(escaped, "gi");
+            workingText = workingText.replace(regex, replace);
+          }
+        }
+      } catch (err: any) {
+        showToast(`Regex Error: ${err.message}`, "error");
+        return;
+      }
+    }
+
+    // Step 2: Split into lines & handle empty lines option
+    let lines = workingText.split(/\r?\n/);
+    if (enableRemoveEmpty) {
+      lines = lines.filter((l) => l.trim() !== "");
+    }
+
+    // Step 3: Apply Primary Filter Mode
+    let processedLines: string[] = [];
+    const freqMap: Record<string, number> = {};
+    for (const line of lines) {
+      freqMap[line] = (freqMap[line] || 0) + 1;
+    }
+
+    if (currentFilter === "remove") {
+      const seen = new Set<string>();
+      for (const line of lines) {
+        if (!seen.has(line)) {
+          seen.add(line);
+          processedLines.push(line);
+        }
+      }
+    } else if (currentFilter === "uniques") {
+      processedLines = lines.filter((line) => freqMap[line] === 1);
+    } else if (currentFilter === "duplicates") {
+      const seen = new Set<string>();
+      for (const line of lines) {
+        if (freqMap[line] > 1 && !seen.has(line)) {
+          seen.add(line);
+          processedLines.push(line);
+        }
+      }
+    } else if (currentFilter === "frequency") {
+      const order: string[] = [];
+      const seen = new Set<string>();
+      for (const line of lines) {
+        if (!seen.has(line)) {
+          seen.add(line);
+          if (freqFilterMode === "unique" && freqMap[line] === 1) order.push(line);
+          else if (freqFilterMode === "duplicates" && freqMap[line] > 1) order.push(line);
+          else if (freqFilterMode === "all") order.push(line);
+        }
+      }
+      processedLines = order.map((line) => `[x${freqMap[line]}] ${line}`);
+    } else {
+      processedLines = lines;
+    }
+
+    // Step 4: Apply Sorting if enabled as an option
+    if (enableSort) {
+      if (sortType === "ascending") {
+        processedLines = [...processedLines].sort((a, b) => a.localeCompare(b));
+      } else if (sortType === "descending") {
+        processedLines = [...processedLines].sort((a, b) => b.localeCompare(a));
+      } else if (sortType === "shuffle") {
+        for (let i = processedLines.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [processedLines[i], processedLines[j]] = [processedLines[j], processedLines[i]];
+        }
+      }
+    }
+
+    const finalResult = processedLines.join("\n");
+    setOutputText(finalResult);
+    setLastUnsortedText(finalResult);
+    setActiveFilter(currentFilter);
+    setPrimaryFilterMode(currentFilter);
+
+    showToast(
+      lang === "vi" 
+        ? `Đã xử lý xong: ${processedLines.length} dòng kết quả!` 
+        : `Processed successfully: ${processedLines.length} lines!`,
+      "success"
+    );
+  };
+
+  // Unified Pipeline Executor for String Cutter with Search & Replace Option
+  const handleExecuteSlicePipeline = () => {
     const text = slicerInputText || "";
-    if (!text) {
-      showToast("Please enter text first!");
+    if (!text.trim()) {
+      showToast(lang === "vi" ? "Vui lòng nhập văn bản cần cắt!" : "Please enter text to cut!", "warning");
       return;
     }
 
     const lines = text.split(/\r?\n/);
     const len = Number(sliceLength) || 0;
 
-    const resultLines = lines.map(line => {
+    // Step 1: Slice characters
+    const slicedLines = lines.map((line) => {
       if (slicePosition === "start") {
         return line.slice(0, len);
       } else {
@@ -213,8 +334,37 @@ export default function TextUtilities({ state, onChange, subSlug, hideInnerHeade
       }
     });
 
-    setSlicerOutputText(resultLines.join("\n"));
-    showToast(`Sliced lines to ${len} characters from ${slicePosition}!`);
+    let resultText = slicedLines.join("\n");
+
+    // Step 2: Apply Search & Replace if enabled
+    if (enableSlicerSearchReplace && slicerFindQuery) {
+      try {
+        if (slicerIsRegex) {
+          const flags = "g" + (slicerMatchCase ? "" : "i");
+          const regex = new RegExp(slicerFindQuery, flags);
+          resultText = resultText.replace(regex, slicerReplaceQuery || "");
+        } else {
+          if (slicerMatchCase) {
+            resultText = resultText.split(slicerFindQuery).join(slicerReplaceQuery || "");
+          } else {
+            const escaped = slicerFindQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(escaped, "gi");
+            resultText = resultText.replace(regex, slicerReplaceQuery || "");
+          }
+        }
+      } catch (err: any) {
+        showToast(`Regex Error: ${err.message}`, "error");
+        return;
+      }
+    }
+
+    setSlicerOutputText(resultText);
+    showToast(
+      lang === "vi"
+        ? `Đã cắt ${len} ký tự (${slicePosition === "start" ? "đầu" : "cuối"}) ${enableSlicerSearchReplace ? "kèm thay thế chuỗi!" : "thành công!"}`
+        : `Sliced ${len} chars from ${slicePosition} ${enableSlicerSearchReplace ? "with replacement!" : "successfully!"}`,
+      "success"
+    );
   };
 
   const handleSlicerSearchReplace = () => {
@@ -572,13 +722,13 @@ export default function TextUtilities({ state, onChange, subSlug, hideInnerHeade
       {activeSubTab === "case-converter" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in animate-duration-150">
           {/* Input Pane - Left */}
-          <div className="lg:col-span-5 flex flex-col space-y-4">
+          <div className="lg:col-span-4 flex flex-col space-y-4">
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col flex-1 min-h-[460px]">
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
                 <span className="text-xs font-mono font-bold uppercase text-indigo-600 dark:text-indigo-400">
                   {t("textUtils.originalText")}
                 </span>
-                <button 
+                <button
                   onClick={() => {
                     setCaseInputText("");
                     setCaseOutputText("");
@@ -592,7 +742,7 @@ export default function TextUtilities({ state, onChange, subSlug, hideInnerHeade
                   <span>{lang === "vi" ? "Xóa" : "Clear"}</span>
                 </button>
               </div>
-              
+
               <textarea
                 className="w-full flex-1 p-4 bg-transparent text-slate-800 dark:text-slate-200 font-mono text-sm leading-relaxed resize-none focus:outline-none"
                 placeholder={t("textUtils.placeholderInput")}
@@ -623,93 +773,95 @@ export default function TextUtilities({ state, onChange, subSlug, hideInnerHeade
           </div>
 
           {/* Action Pane - Middle */}
-          <div className="lg:col-span-2 flex flex-col space-y-4 justify-center">
-            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
-              <h3 className="text-xs font-mono font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1.5">
-                <Type className="h-3.5 w-3.5" /> {t("textUtils.caseModifiers")}
+          <div className="lg:col-span-4 flex flex-col space-y-4">
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 md:p-5 shadow-xs space-y-3.5">
+              <h3 className="text-xs font-mono font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800/60 pb-2">
+                <Type className="h-3.5 w-3.5 text-indigo-500" /> {t("textUtils.caseModifiers")}
               </h3>
 
-              <button
-                onClick={() => handleCaseConvert("UPPERCASE")}
-                className={`w-full text-xs font-semibold py-2.5 px-3 rounded-xl transition-all text-center cursor-pointer ${
-                  activeCaseFormat === "UPPERCASE"
-                    ? "bg-indigo-600 text-white shadow-xs font-bold border-indigo-600"
-                    : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                }`}
-              >
-                UPPERCASE
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => handleCaseConvert("UPPERCASE")}
+                  className={`w-full text-xs font-semibold py-2.5 px-3 rounded-xl transition-all text-center cursor-pointer ${
+                    activeCaseFormat === "UPPERCASE"
+                      ? "bg-indigo-600 text-white shadow-xs font-bold border-indigo-600"
+                      : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  UPPERCASE
+                </button>
 
-              <button
-                onClick={() => handleCaseConvert("lowercase")}
-                className={`w-full text-xs font-semibold py-2.5 px-3 rounded-xl transition-all text-center cursor-pointer ${
-                  activeCaseFormat === "lowercase"
-                    ? "bg-indigo-600 text-white shadow-xs font-bold border-indigo-600"
-                    : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                }`}
-              >
-                lowercase
-              </button>
+                <button
+                  onClick={() => handleCaseConvert("lowercase")}
+                  className={`w-full text-xs font-semibold py-2.5 px-3 rounded-xl transition-all text-center cursor-pointer ${
+                    activeCaseFormat === "lowercase"
+                      ? "bg-indigo-600 text-white shadow-xs font-bold border-indigo-600"
+                      : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  lowercase
+                </button>
 
-              <button
-                onClick={() => handleCaseConvert("Capitalize")}
-                className={`w-full text-xs font-semibold py-2.5 px-3 rounded-xl transition-all text-center cursor-pointer ${
-                  activeCaseFormat === "Capitalize"
-                    ? "bg-indigo-600 text-white shadow-xs font-bold border-indigo-600"
-                    : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                }`}
-              >
-                Capitalize
-              </button>
+                <button
+                  onClick={() => handleCaseConvert("Capitalize")}
+                  className={`w-full text-xs font-semibold py-2.5 px-3 rounded-xl transition-all text-center cursor-pointer ${
+                    activeCaseFormat === "Capitalize"
+                      ? "bg-indigo-600 text-white shadow-xs font-bold border-indigo-600"
+                      : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  Capitalize Words
+                </button>
 
-              <button
-                onClick={() => handleCaseConvert("camelCase")}
-                className={`w-full text-xs font-semibold py-2.5 px-3 rounded-xl transition-all text-center cursor-pointer ${
-                  activeCaseFormat === "camelCase"
-                    ? "bg-indigo-600 text-white shadow-xs font-bold border-indigo-600"
-                    : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                }`}
-              >
-                camelCase
-              </button>
+                <button
+                  onClick={() => handleCaseConvert("camelCase")}
+                  className={`w-full text-xs font-semibold py-2.5 px-3 rounded-xl transition-all text-center cursor-pointer ${
+                    activeCaseFormat === "camelCase"
+                      ? "bg-indigo-600 text-white shadow-xs font-bold border-indigo-600"
+                      : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  camelCase
+                </button>
 
-              <button
-                onClick={() => handleCaseConvert("snake_case")}
-                className={`w-full text-xs font-semibold py-2.5 px-3 rounded-xl transition-all text-center cursor-pointer ${
-                  activeCaseFormat === "snake_case"
-                    ? "bg-indigo-600 text-white shadow-xs font-bold border-indigo-600"
-                    : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                }`}
-              >
-                snake_case
-              </button>
+                <button
+                  onClick={() => handleCaseConvert("PascalCase")}
+                  className={`w-full text-xs font-semibold py-2.5 px-3 rounded-xl transition-all text-center cursor-pointer ${
+                    activeCaseFormat === "PascalCase"
+                      ? "bg-indigo-600 text-white shadow-xs font-bold border-indigo-600"
+                      : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  PascalCase
+                </button>
 
-              <button
-                onClick={() => handleCaseConvert("PascalCase")}
-                className={`w-full text-xs font-semibold py-2.5 px-3 rounded-xl transition-all text-center cursor-pointer ${
-                  activeCaseFormat === "PascalCase"
-                    ? "bg-indigo-600 text-white shadow-xs font-bold border-indigo-600"
-                    : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                }`}
-              >
-                PascalCase
-              </button>
+                <button
+                  onClick={() => handleCaseConvert("snake_case")}
+                  className={`w-full text-xs font-semibold py-2.5 px-3 rounded-xl transition-all text-center cursor-pointer ${
+                    activeCaseFormat === "snake_case"
+                      ? "bg-indigo-600 text-white shadow-xs font-bold border-indigo-600"
+                      : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  snake_case
+                </button>
 
-              <button
-                onClick={() => handleCaseConvert("kebab-case")}
-                className={`w-full text-xs font-semibold py-2.5 px-3 rounded-xl transition-all text-center cursor-pointer ${
-                  activeCaseFormat === "kebab-case"
-                    ? "bg-indigo-600 text-white shadow-xs font-bold border-indigo-600"
-                    : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                }`}
-              >
-                kebab-case
-              </button>
+                <button
+                  onClick={() => handleCaseConvert("kebab-case")}
+                  className={`col-span-2 w-full text-xs font-semibold py-2.5 px-3 rounded-xl transition-all text-center cursor-pointer ${
+                    activeCaseFormat === "kebab-case"
+                      ? "bg-indigo-600 text-white shadow-xs font-bold border-indigo-600"
+                      : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  kebab-case
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Output Pane - Right */}
-          <div className="lg:col-span-5 flex flex-col space-y-4">
+          <div className="lg:col-span-4 flex flex-col space-y-4">
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col flex-1 min-h-[460px]">
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
                 <span className="text-xs font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400">
@@ -757,8 +909,8 @@ export default function TextUtilities({ state, onChange, subSlug, hideInnerHeade
       {activeSubTab === "text-utilities" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in animate-duration-150">
           {/* Input Pane - Left */}
-          <div className="lg:col-span-5 flex flex-col space-y-4">
-            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col flex-1 min-h-[450px]">
+          <div className="lg:col-span-4 flex flex-col space-y-4">
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col flex-1 min-h-[460px]">
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
                 <span className="text-xs font-mono font-bold uppercase text-indigo-600 dark:text-indigo-400">
                   {t("textUtils.originalText")}
@@ -840,237 +992,315 @@ export default function TextUtilities({ state, onChange, subSlug, hideInnerHeade
             </div>
           </div>
 
-          {/* Action Pane - Middle */}
-          <div className="lg:col-span-2 flex flex-col space-y-4">
-            {/* Duplicate Filters Card */}
+          {/* Action Pane - Middle (1. Primary Filter + 2. Pipeline Options + Execute) */}
+          <div className="lg:col-span-4 flex flex-col space-y-4">
+            {/* Primary Filter Mode Card */}
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
-              <h3 className="text-xs font-mono font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1.5">
-                <Filter className="h-3.5 w-3.5" /> {t("textUtils.textUtilitiesTab")}
-              </h3>
-              <button
-                onClick={handleRemoveDuplicates}
-                title="Remove duplicate lines while preserving first occurrences"
-                className={`w-full text-xs font-semibold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  activeFilter === "remove"
-                    ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs font-bold border-indigo-600"
-                    : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                }`}
-              >
-                {t("textUtils.removeDuplicates")}
-              </button>
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-2.5">
+                <span className="text-xs font-mono font-bold uppercase text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                  <Filter className="h-3.5 w-3.5" /> {lang === "vi" ? "1. Chế Độ Lọc Chính" : "1. Primary Filter Mode"}
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-800/50">
+                  {primaryFilterMode === "remove"
+                    ? (lang === "vi" ? "Lọc bỏ trùng" : "Deduplicate")
+                    : primaryFilterMode === "uniques"
+                    ? (lang === "vi" ? "Duy nhất" : "Unique")
+                    : primaryFilterMode === "duplicates"
+                    ? (lang === "vi" ? "Trùng lặp" : "Duplicates")
+                    : (lang === "vi" ? "Đếm tần suất" : "Frequency")}
+                </span>
+              </div>
 
-              {/* Count Line Frequency + Sub-filters */}
-              <div className="space-y-1.5">
+              <div className="grid grid-cols-2 gap-2">
                 <button
-                  onClick={() => handleCountFrequency(freqFilterMode)}
-                  title="Count occurrences of each line and prepend [xN] frequency count"
-                  className={`w-full text-xs font-semibold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                    activeFilter === "frequency"
-                      ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs font-bold border-indigo-600"
-                      : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  type="button"
+                  onClick={() => {
+                    setPrimaryFilterMode("remove");
+                    handleExecuteFilterPipeline("remove");
+                  }}
+                  className={`text-xs font-semibold p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    primaryFilterMode === "remove"
+                      ? "bg-indigo-600 border-indigo-600 text-white shadow-xs font-bold"
+                      : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                   }`}
                 >
-                  {t("textUtils.countFrequency")}
+                  <div className="font-bold flex items-center gap-1.5">
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    <span>{t("textUtils.removeDuplicates")}</span>
+                  </div>
+                  <div className="text-[10px] opacity-75 font-normal mt-0.5">
+                    {lang === "vi" ? "Bỏ dòng lặp, giữ bản đầu" : "Keep first, drop dups"}
+                  </div>
                 </button>
 
-                {activeFilter === "frequency" && (
-                  <div className="flex rounded-lg bg-slate-100 dark:bg-slate-900 p-1 border border-slate-200/60 dark:border-slate-800 text-[10px] gap-1 transition-all">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrimaryFilterMode("uniques");
+                    handleExecuteFilterPipeline("uniques");
+                  }}
+                  className={`text-xs font-semibold p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    primaryFilterMode === "uniques"
+                      ? "bg-indigo-600 border-indigo-600 text-white shadow-xs font-bold"
+                      : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  <div className="font-bold flex items-center gap-1.5">
+                    <Type className="h-3.5 w-3.5" />
+                    <span>{t("textUtils.filterUniques")}</span>
+                  </div>
+                  <div className="text-[10px] opacity-75 font-normal mt-0.5">
+                    {lang === "vi" ? "Chỉ lấy dòng xuất hiện 1 lần" : "Count strictly = 1"}
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrimaryFilterMode("duplicates");
+                    handleExecuteFilterPipeline("duplicates");
+                  }}
+                  className={`text-xs font-semibold p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    primaryFilterMode === "duplicates"
+                      ? "bg-indigo-600 border-indigo-600 text-white shadow-xs font-bold"
+                      : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  <div className="font-bold flex items-center gap-1.5">
+                    <Filter className="h-3.5 w-3.5" />
+                    <span>{t("textUtils.filterDuplicates")}</span>
+                  </div>
+                  <div className="text-[10px] opacity-75 font-normal mt-0.5">
+                    {lang === "vi" ? "Chỉ lấy dòng bị lặp > 1" : "Count strictly > 1"}
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrimaryFilterMode("frequency");
+                    handleExecuteFilterPipeline("frequency");
+                  }}
+                  className={`text-xs font-semibold p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    primaryFilterMode === "frequency"
+                      ? "bg-indigo-600 border-indigo-600 text-white shadow-xs font-bold"
+                      : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  <div className="font-bold flex items-center gap-1.5">
+                    <ArrowUpDown className="h-3.5 w-3.5" />
+                    <span>{t("textUtils.countFrequency")}</span>
+                  </div>
+                  <div className="text-[10px] opacity-75 font-normal mt-0.5">
+                    {lang === "vi" ? "Đếm số lần xuất hiện [xN]" : "Prepend frequency [xN]"}
+                  </div>
+                </button>
+              </div>
+
+              {primaryFilterMode === "frequency" && (
+                <div className="flex rounded-lg bg-slate-100 dark:bg-slate-900 p-1 border border-slate-200/60 dark:border-slate-800 text-[10px] gap-1 transition-all mt-2">
+                  <button
+                    onClick={() => {
+                      setFreqFilterMode("all");
+                      handleExecuteFilterPipeline("frequency");
+                    }}
+                    className={`flex-1 py-1 px-1 rounded-md text-center font-semibold transition-all cursor-pointer ${
+                      freqFilterMode === "all"
+                        ? "bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
+                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    {t("textUtils.freqAll")}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setFreqFilterMode("unique");
+                      handleExecuteFilterPipeline("frequency");
+                    }}
+                    className={`flex-1 py-1 px-1 rounded-md text-center font-semibold transition-all cursor-pointer ${
+                      freqFilterMode === "unique"
+                        ? "bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
+                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    {t("textUtils.freqUnique")}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setFreqFilterMode("duplicates");
+                      handleExecuteFilterPipeline("frequency");
+                    }}
+                    className={`flex-1 py-1 px-1 rounded-md text-center font-semibold transition-all cursor-pointer ${
+                      freqFilterMode === "duplicates"
+                        ? "bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
+                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    {t("textUtils.freqDuplicates")}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Pipeline Options Card */}
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3.5">
+              <span className="text-xs font-mono font-bold uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800/60 pb-2">
+                <Sliders className="h-3.5 w-3.5 text-amber-500" /> {lang === "vi" ? "2. Tùy Chọn Bổ Trợ (Pipeline Options)" : "2. Pipeline Options"}
+              </span>
+
+              {/* Option 1: Sắp xếp (Sort Option) */}
+              <div className="space-y-2 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 bg-slate-50/50 dark:bg-[#0B0F1A]/40">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={enableSort}
+                      onChange={(e) => setEnableSort(e.target.checked)}
+                      className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <ArrowUpDown className="h-3.5 w-3.5 text-indigo-500" />
+                    <span>{lang === "vi" ? "Tùy chọn: Sắp xếp kết quả" : "Option: Sort Results"}</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {enableSort ? "Bật" : "Tắt"}
+                  </span>
+                </label>
+
+                {enableSort && (
+                  <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-slate-200/60 dark:border-slate-800/60 animate-fade-in">
                     <button
-                      onClick={() => handleCountFrequency("all")}
-                      className={`flex-1 py-1 px-1 rounded-md text-center font-semibold transition-all cursor-pointer ${
-                        freqFilterMode === "all"
-                          ? "bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
-                          : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                      type="button"
+                      onClick={() => setSortType("ascending")}
+                      className={`text-[11px] font-semibold py-1.5 px-2 rounded-lg border transition-all cursor-pointer ${
+                        sortType === "ascending"
+                          ? "bg-indigo-600 border-indigo-600 text-white shadow-2xs font-bold"
+                          : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                       }`}
                     >
-                      {t("textUtils.freqAll")}
+                      A → Z
                     </button>
                     <button
-                      onClick={() => handleCountFrequency("unique")}
-                      className={`flex-1 py-1 px-1 rounded-md text-center font-semibold transition-all cursor-pointer ${
-                        freqFilterMode === "unique"
-                          ? "bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
-                          : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                      type="button"
+                      onClick={() => setSortType("descending")}
+                      className={`text-[11px] font-semibold py-1.5 px-2 rounded-lg border transition-all cursor-pointer ${
+                        sortType === "descending"
+                          ? "bg-indigo-600 border-indigo-600 text-white shadow-2xs font-bold"
+                          : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                       }`}
                     >
-                      {t("textUtils.freqUnique")}
+                      Z → A
                     </button>
                     <button
-                      onClick={() => handleCountFrequency("duplicates")}
-                      className={`flex-1 py-1 px-1 rounded-md text-center font-semibold transition-all cursor-pointer ${
-                        freqFilterMode === "duplicates"
-                          ? "bg-white dark:bg-[#111827] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
-                          : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                      type="button"
+                      onClick={() => setSortType("shuffle")}
+                      className={`text-[11px] font-semibold py-1.5 px-2 rounded-lg border transition-all cursor-pointer ${
+                        sortType === "shuffle"
+                          ? "bg-indigo-600 border-indigo-600 text-white shadow-2xs font-bold"
+                          : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                       }`}
                     >
-                      {t("textUtils.freqDuplicates")}
+                      {lang === "vi" ? "Ngẫu nhiên" : "Shuffle"}
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* Filter Unique Lines (Count = 1) */}
-              <button
-                onClick={handleFilterUniques}
-                title="Filter lines that appear strictly once in the dataset, discarding all duplicates"
-                className={`w-full text-xs font-semibold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  activeFilter === "uniques"
-                    ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs font-bold border-indigo-600"
-                    : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                }`}
-              >
-                {t("textUtils.filterUniques")}
-              </button>
-
-              {/* Filter Duplicate Records (Count > 1) */}
-              <button
-                onClick={handleFilterDuplicates}
-                title="Filter lines that appear more than once in the dataset"
-                className={`w-full text-xs font-semibold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  activeFilter === "duplicates"
-                    ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs font-bold border-indigo-600"
-                    : "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                }`}
-              >
-                {t("textUtils.filterDuplicates")}
-              </button>
-            </div>
-
-            {/* Sorter Card */}
-            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-2.5">
-              <h3 className="text-xs font-mono font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1.5">
-                <ArrowUpDown className="h-3.5 w-3.5" /> Sort Options
-              </h3>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => handleSort("ascending")}
-                  title="Sort lines alphabetically from A to Z"
-                  className={`text-xs font-medium py-2 px-2.5 rounded-lg border transition-colors cursor-pointer ${
-                    activeSort === "ascending"
-                      ? "bg-indigo-600 border-indigo-600 text-white shadow-xs font-bold"
-                      : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  {t("textUtils.sortAscending")}
-                </button>
-                <button
-                  onClick={() => handleSort("descending")}
-                  title="Sort lines reverse-alphabetically from Z to A"
-                  className={`text-xs font-medium py-2 px-2.5 rounded-lg border transition-colors cursor-pointer ${
-                    activeSort === "descending"
-                      ? "bg-indigo-600 border-indigo-600 text-white shadow-xs font-bold"
-                      : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  {t("textUtils.sortDescending")}
-                </button>
-                <button
-                  onClick={() => handleSort("shuffle")}
-                  title="Randomly shuffle the line order"
-                  className={`text-xs font-medium py-2 px-2.5 rounded-lg border transition-colors cursor-pointer ${
-                    activeSort === "shuffle"
-                      ? "bg-indigo-600 border-indigo-600 text-white shadow-xs font-bold"
-                      : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  {t("textUtils.shuffleLines")}
-                </button>
-                <button
-                  onClick={() => handleSort("original")}
-                  title="Restore input lines back to their original sequence order"
-                  className={`text-xs font-medium py-2 px-2.5 rounded-lg border transition-colors cursor-pointer ${
-                    activeSort === "original"
-                      ? "bg-indigo-600 border-indigo-600 text-white shadow-xs font-bold"
-                      : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  {t("textUtils.resetOriginal")}
-                </button>
-              </div>
-            </div>
-
-            {/* Search and Replace Card */}
-            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
-              <h3 className="text-xs font-mono font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1.5">
-                <Search className="h-3.5 w-3.5" /> {t("textUtils.findAndReplace")}
-              </h3>
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">{t("textUtils.findWhat")}</label>
-                  <input
-                    type="text"
-                    placeholder="Find pattern..."
-                    value={state.findQuery ?? ""}
-                    onChange={(e) => onChange({ findQuery: e.target.value })}
-                    className="w-full p-2 text-xs border border-slate-200 dark:border-slate-800 bg-transparent rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">{t("textUtils.replaceWith")}</label>
-                  <input
-                    type="text"
-                    placeholder="Replacement text..."
-                    value={state.replaceQuery ?? ""}
-                    onChange={(e) => onChange({ replaceQuery: e.target.value })}
-                    className="w-full p-2 text-xs border border-slate-200 dark:border-slate-800 bg-transparent rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
-                  />
-                </div>
-                {/* Checkbox controls for Match Case & Regex Search */}
-                <div className="space-y-2 pt-1">
-                  <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-600 dark:text-slate-300 font-medium">
+              {/* Option 2: Tìm kiếm & Thay thế (Search & Replace Option) */}
+              <div className="space-y-2 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 bg-slate-50/50 dark:bg-[#0B0F1A]/40">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
                     <input
                       type="checkbox"
-                      checked={state.matchCase ?? false}
-                      onChange={(e) => onChange({ matchCase: e.target.checked })}
+                      checked={enableSearchReplace}
+                      onChange={(e) => setEnableSearchReplace(e.target.checked)}
                       className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
                     />
-                    <span>{t("textUtils.matchCase")}</span>
-                  </label>
+                    <Search className="h-3.5 w-3.5 text-indigo-500" />
+                    <span>{lang === "vi" ? "Tùy chọn: Tìm kiếm & thay thế" : "Option: Find & Replace"}</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {enableSearchReplace ? "Bật" : "Tắt"}
+                  </span>
+                </label>
 
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-600 dark:text-slate-300 font-medium">
-                      <input
-                        type="checkbox"
-                        checked={state.isRegex}
-                        onChange={(e) => onChange({ isRegex: e.target.checked })}
-                        className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span>{t("textUtils.useRegex")}</span>
-                    </label>
-
-                    {/* Info Icon with Tooltip */}
-                    <div className="relative group cursor-help">
-                      <HelpCircle className="h-4 w-4 text-indigo-500 hover:text-indigo-600 transition-colors" />
-                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block w-72 p-3.5 bg-slate-900 text-slate-100 text-[11px] rounded-2xl shadow-2xl z-50 pointer-events-none border border-slate-700 font-sans leading-relaxed">
-                        <p className="font-bold text-indigo-300 mb-1 flex items-center gap-1">
-                          <Info className="h-3.5 w-3.5" /> What is Regex Search?
-                        </p>
-                        <p className="text-slate-300 mb-2 text-[10px]">
-                          Advanced pattern search using regular expression syntax:
-                        </p>
-                        <ul className="space-y-1 text-slate-300 font-mono text-[10px]">
-                          <li>• <span className="text-amber-300 font-bold">\d+</span> : Matches digit sequences (e.g., 123)</li>
-                          <li>• <span className="text-amber-300 font-bold">[a-z]+</span> : Matches lowercase words</li>
-                          <li>• <span className="text-amber-300 font-bold">^Line</span> : Lines starting with 'Line'</li>
-                          <li>• <span className="text-amber-300 font-bold">End$</span> : Lines ending with 'End'</li>
-                        </ul>
+                {enableSearchReplace && (
+                  <div className="space-y-2 pt-2 border-t border-slate-200/60 dark:border-slate-800/60 animate-fade-in">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                          {t("textUtils.findWhat")}
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Find text..."
+                          value={state.findQuery ?? ""}
+                          onChange={(e) => onChange({ findQuery: e.target.value })}
+                          className="w-full p-1.5 text-xs border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111827] rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                          {t("textUtils.replaceWith")}
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Replace with..."
+                          value={state.replaceQuery ?? ""}
+                          onChange={(e) => onChange({ replaceQuery: e.target.value })}
+                          className="w-full p-1.5 text-xs border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111827] rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
+                        />
                       </div>
                     </div>
+                    <div className="flex items-center justify-between text-[11px] pt-1">
+                      <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 dark:text-slate-300">
+                        <input
+                          type="checkbox"
+                          checked={state.matchCase ?? false}
+                          onChange={(e) => onChange({ matchCase: e.target.checked })}
+                          className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span>{t("textUtils.matchCase")}</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 dark:text-slate-300">
+                        <input
+                          type="checkbox"
+                          checked={state.isRegex}
+                          onChange={(e) => onChange({ isRegex: e.target.checked })}
+                          className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span>{t("textUtils.useRegex")}</span>
+                      </label>
+                    </div>
                   </div>
-                </div>
-                <button
-                  onClick={handleSearchReplace}
-                  className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-slate-100 transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  {t("textUtils.replaceBtn")}
-                </button>
+                )}
               </div>
+
+              {/* Option 3: Loại bỏ dòng trống */}
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 px-1">
+                <input
+                  type="checkbox"
+                  checked={enableRemoveEmpty}
+                  onChange={(e) => setEnableRemoveEmpty(e.target.checked)}
+                  className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span>{lang === "vi" ? "Tự động loại bỏ các dòng trống" : "Automatically remove blank lines"}</span>
+              </label>
             </div>
+
+            {/* Execute Button */}
+            <button
+              type="button"
+              onClick={() => handleExecuteFilterPipeline()}
+              className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span>{lang === "vi" ? "⚡ Thực Hiện Lọc & Xử Lý" : "⚡ Execute Filter & Process"}</span>
+            </button>
           </div>
 
           {/* Output Pane - Right */}
-          <div className="lg:col-span-5 flex flex-col space-y-4">
-            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col flex-1 min-h-[450px]">
+          <div className="lg:col-span-4 flex flex-col space-y-4">
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col flex-1 min-h-[460px]">
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
                 <span className="text-xs font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400">
                   {t("textUtils.transformedOutput")}
@@ -1117,7 +1347,7 @@ export default function TextUtilities({ state, onChange, subSlug, hideInnerHeade
       {activeSubTab === "string-cutter" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in animate-duration-150">
           {/* Input Pane - Left */}
-          <div className="lg:col-span-5 flex flex-col space-y-4">
+          <div className="lg:col-span-4 flex flex-col space-y-4">
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col flex-1 min-h-[460px]">
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
                 <span className="text-xs font-mono font-bold uppercase text-indigo-600 dark:text-indigo-400">
@@ -1163,13 +1393,13 @@ export default function TextUtilities({ state, onChange, subSlug, hideInnerHeade
             </div>
           </div>
 
-          {/* Action Pane - Middle */}
-          <div className="lg:col-span-2 flex flex-col space-y-4">
+          {/* Action Pane - Middle (1. Slice Config + 2. Search & Replace Option + Execute) */}
+          <div className="lg:col-span-4 flex flex-col space-y-4">
             {/* Slice Options Card */}
-            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
-              <h3 className="text-xs font-mono font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1.5">
-                <Scissors className="h-3.5 w-3.5" /> {t("textUtils.sliceOptions")}
-              </h3>
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 md:p-5 shadow-xs space-y-3.5">
+              <span className="text-xs font-mono font-bold uppercase text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800/60 pb-2">
+                <Scissors className="h-3.5 w-3.5" /> {lang === "vi" ? "1. Cấu Hình Cắt Chuỗi" : "1. Slice Configuration"}
+              </span>
 
               <div className="space-y-1">
                 <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">{t("textUtils.sliceLength")}</label>
@@ -1187,75 +1417,82 @@ export default function TextUtilities({ state, onChange, subSlug, hideInnerHeade
                 <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">{t("textUtils.position")}</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
+                    type="button"
                     onClick={() => setSlicePosition("start")}
-                    className={`text-xs py-1.5 px-2.5 rounded-lg border transition-colors cursor-pointer ${
+                    className={`text-xs py-2 px-2.5 rounded-lg border transition-all cursor-pointer ${
                       slicePosition === "start"
                         ? "bg-indigo-600 border-indigo-600 text-white shadow-xs font-bold"
                         : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                     }`}
                   >
-                    {t("textUtils.start")}
+                    {t("textUtils.start")} ({lang === "vi" ? "Đầu dòng" : "Prefix"})
                   </button>
                   <button
+                    type="button"
                     onClick={() => setSlicePosition("end")}
-                    className={`text-xs py-1.5 px-2.5 rounded-lg border transition-colors cursor-pointer ${
+                    className={`text-xs py-2 px-2.5 rounded-lg border transition-all cursor-pointer ${
                       slicePosition === "end"
                         ? "bg-indigo-600 border-indigo-600 text-white shadow-xs font-bold"
                         : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                     }`}
                   >
-                    {t("textUtils.end")}
+                    {t("textUtils.end")} ({lang === "vi" ? "Cuối dòng" : "Suffix"})
                   </button>
                 </div>
               </div>
-
-              <button
-                onClick={handleSliceText}
-                className="w-full text-xs font-semibold py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs flex items-center justify-center gap-1.5 cursor-pointer mt-2"
-              >
-                <Scissors className="h-3.5 w-3.5" /> {t("textUtils.sliceChars")}
-              </button>
             </div>
 
-            {/* Slicer Search and Replace Card */}
+            {/* Slicer Search and Replace Option Card */}
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
-              <h3 className="text-xs font-mono font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1.5">
-                <Search className="h-3.5 w-3.5" /> {t("textUtils.findAndReplace")}
-              </h3>
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">{t("textUtils.findWhat")}</label>
+              <label className="flex items-center justify-between cursor-pointer border-b border-slate-100 dark:border-slate-800/60 pb-2">
+                <span className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
                   <input
-                    type="text"
-                    placeholder="Find pattern..."
-                    value={slicerFindQuery}
-                    onChange={(e) => setSlicerFindQuery(e.target.value)}
-                    className="w-full p-2 text-xs border border-slate-200 dark:border-slate-800 bg-transparent rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
+                    type="checkbox"
+                    checked={enableSlicerSearchReplace}
+                    onChange={(e) => setEnableSlicerSearchReplace(e.target.checked)}
+                    className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
                   />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">{t("textUtils.replaceWith")}</label>
-                  <input
-                    type="text"
-                    placeholder="Replacement text..."
-                    value={slicerReplaceQuery}
-                    onChange={(e) => setSlicerReplaceQuery(e.target.value)}
-                    className="w-full p-2 text-xs border border-slate-200 dark:border-slate-800 bg-transparent rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
-                  />
-                </div>
-                {/* Checkbox controls for Match Case & Regex Search */}
-                <div className="space-y-2 pt-1">
-                  <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-600 dark:text-slate-300 font-medium">
-                    <input
-                      type="checkbox"
-                      checked={slicerMatchCase}
-                      onChange={(e) => setSlicerMatchCase(e.target.checked)}
-                      className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span>{t("textUtils.matchCase")}</span>
-                  </label>
+                  <Search className="h-3.5 w-3.5 text-amber-500" />
+                  <span>{lang === "vi" ? "2. Tùy chọn: Tìm kiếm & thay thế" : "2. Option: Find & Replace"}</span>
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {enableSlicerSearchReplace ? "Bật" : "Tắt"}
+                </span>
+              </label>
 
-                  <div className="flex items-center justify-between">
+              {enableSlicerSearchReplace && (
+                <div className="space-y-3 pt-1 animate-fade-in">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">{t("textUtils.findWhat")}</label>
+                    <input
+                      type="text"
+                      placeholder="Find pattern..."
+                      value={slicerFindQuery}
+                      onChange={(e) => setSlicerFindQuery(e.target.value)}
+                      className="w-full p-2 text-xs border border-slate-200 dark:border-slate-800 bg-transparent rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">{t("textUtils.replaceWith")}</label>
+                    <input
+                      type="text"
+                      placeholder="Replacement text..."
+                      value={slicerReplaceQuery}
+                      onChange={(e) => setSlicerReplaceQuery(e.target.value)}
+                      className="w-full p-2 text-xs border border-slate-200 dark:border-slate-800 bg-transparent rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-600 dark:text-slate-300 font-medium">
+                      <input
+                        type="checkbox"
+                        checked={slicerMatchCase}
+                        onChange={(e) => setSlicerMatchCase(e.target.checked)}
+                        className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>{t("textUtils.matchCase")}</span>
+                    </label>
+
                     <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-600 dark:text-slate-300 font-medium">
                       <input
                         type="checkbox"
@@ -1265,38 +1502,24 @@ export default function TextUtilities({ state, onChange, subSlug, hideInnerHeade
                       />
                       <span>{t("textUtils.useRegex")}</span>
                     </label>
-
-                    {/* Info Icon with Tooltip */}
-                    <div className="relative group cursor-help">
-                      <HelpCircle className="h-4 w-4 text-indigo-500 hover:text-indigo-600 transition-colors" />
-                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block w-72 p-3.5 bg-slate-900 text-slate-100 text-[11px] rounded-2xl shadow-2xl z-50 pointer-events-none border border-slate-700 font-sans leading-relaxed">
-                        <p className="font-bold text-indigo-300 mb-1 flex items-center gap-1">
-                          <Info className="h-3.5 w-3.5" /> What is Regex Search?
-                        </p>
-                        <p className="text-slate-300 mb-2 text-[10px]">
-                          Advanced pattern search using regular expression syntax:
-                        </p>
-                        <ul className="space-y-1 text-slate-300 font-mono text-[10px]">
-                          <li>• <span className="text-amber-300 font-bold">\d+</span> : Matches digit sequences</li>
-                          <li>• <span className="text-amber-300 font-bold">[a-z]+</span> : Matches lowercase words</li>
-                          <li>• <span className="text-amber-300 font-bold">@.*</span> : Matches from @ to end of line</li>
-                        </ul>
-                      </div>
-                    </div>
                   </div>
                 </div>
-                <button
-                  onClick={handleSlicerSearchReplace}
-                  className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-slate-100 transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  {t("textUtils.replaceBtn")}
-                </button>
-              </div>
+              )}
             </div>
+
+            {/* Execute Button */}
+            <button
+              type="button"
+              onClick={handleExecuteSlicePipeline}
+              className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Scissors className="h-4 w-4" />
+              <span>{lang === "vi" ? "✂️ Thực Hiện Cắt Chuỗi & Xử Lý" : "✂️ Slice & Process Text"}</span>
+            </button>
           </div>
 
           {/* Output Pane - Right */}
-          <div className="lg:col-span-5 flex flex-col space-y-4">
+          <div className="lg:col-span-4 flex flex-col space-y-4">
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col flex-1 min-h-[460px]">
               <div className="p-4 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
                 <span className="text-xs font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400">

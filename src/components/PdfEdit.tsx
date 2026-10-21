@@ -24,6 +24,7 @@ import {
   Image as ImageIcon 
 } from "lucide-react";
 import { toast } from "react-toastify";
+import { useFilePaste, useDropzone } from "../utils/filePasteHelper";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Point, 
@@ -109,6 +110,23 @@ export default function PdfEdit() {
       pdfMargin,
     });
   }, [pages, exportName, paperSize, pdfOrientation, pdfMargin]);
+
+  // Paste & Dropzone Integration
+  useFilePaste({
+    acceptedExtensions: [".pdf", ".png", ".jpg", ".jpeg", ".webp", ".bmp"],
+    onFilesPasted: (files) => {
+      processUploadedFiles(files);
+    },
+    lang,
+  });
+
+  const { isDragging: isDropzoneDragging, dropzoneProps } = useDropzone({
+    acceptedExtensions: [".pdf", ".png", ".jpg", ".jpeg", ".webp", ".bmp"],
+    onFilesDropped: (files) => {
+      processUploadedFiles(files);
+    },
+    lang,
+  });
 
   // Crop Modal state
   const [cropIdx, setCropIdx] = useState<number | null>(null);
@@ -491,16 +509,16 @@ export default function PdfEdit() {
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 dark:bg-[#0B0F1A]" id="pdf-edit-container">
       {/* Upper Action Bar / Header */}
-      <div className="bg-white dark:bg-[#111827] border-b border-slate-200 dark:border-slate-800/80 px-[25px] py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0">
-        <div className="flex items-start gap-3.5">
-          <div className="h-11 w-11 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-600/20 flex-shrink-0 mt-0.5">
+      <div className="bg-white dark:bg-[#111827] border-b border-slate-200 dark:border-slate-800/80 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0 h-10 w-10 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-600/20">
             <Sliders className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-              {lang === "vi" ? "Chỉnh Sửa PDF Nâng Cao" : "Advanced PDF Editor"}
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <span>{lang === "vi" ? "Chỉnh Sửa PDF Nâng Cao" : "Advanced PDF Editor"}</span>
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {lang === "vi" 
                 ? "Trình chỉnh sửa PDF toàn diện: Ghép các trang từ ảnh hoặc các file PDF khác vào dự án, sau đó nắn góc 4 điểm, chỉnh bộ lọc CamScanner (màu nhiệm, trắng đen), xoay/sắp xếp lại trang."
                 : "All-in-one PDF compiler: Import pages from images or other PDFs, then crop with 4-point perspective warping, apply CamScanner filters, and arrange."}
@@ -521,21 +539,10 @@ export default function PdfEdit() {
         ) : !loading && pages.length === 0 ? (
           <div className="w-full">
             <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setZoneDragOver(true);
-              }}
-              onDragLeave={() => setZoneDragOver(false)}
-              onDrop={async (e) => {
-                e.preventDefault();
-                setZoneDragOver(false);
-                if (e.dataTransfer.files) {
-                  await processUploadedFiles(Array.from(e.dataTransfer.files));
-                }
-              }}
-              className={`relative border-2 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center min-h-[320px] transition-all cursor-pointer ${
-                zoneDragOver 
-                  ? "border-purple-500 bg-purple-50/20 dark:bg-purple-950/10 scale-[0.99]" 
+              {...dropzoneProps}
+              className={`relative border-2 border-dashed rounded-2xl p-8 md:p-12 text-center flex flex-col items-center justify-center min-h-[320px] transition-all cursor-pointer shadow-xs ${
+                isDropzoneDragging 
+                  ? "border-purple-500 bg-purple-100/50 dark:bg-purple-950/40 scale-[0.99]" 
                   : "border-purple-300 dark:border-purple-800/60 bg-purple-50/10 dark:bg-purple-950/5 hover:border-purple-500"
               }`}
             >
@@ -546,17 +553,20 @@ export default function PdfEdit() {
                 onChange={handleFileUpload}
                 className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
               />
-              <div className="p-4 rounded-2xl bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 mb-4">
+              <div className="h-16 w-16 rounded-2xl bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-4 shadow-inner group-hover:scale-110 transition-transform">
                 <Upload className="h-8 w-8" />
               </div>
-              <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
+              <h3 className="text-base md:text-lg font-bold text-slate-800 dark:text-slate-200 mb-1">
                 {lang === "vi" ? "Kéo & thả ảnh hoặc file PDF vào đây hoặc nhấp để tải lên" : "Drag & drop images or PDFs here or click to choose"}
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md">
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
                 {lang === "vi" 
                   ? "Hỗ trợ tệp ảnh (JPEG/PNG) hoặc tài liệu PDF để cắt nắn góc 4 điểm, chỉnh bộ lọc màu và sắp xếp trang" 
                   : "Supports image files (JPEG/PNG) or PDF documents for perspective warping, color filters and page sorting"}
               </p>
+              <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100/80 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 text-[11px] font-medium border border-purple-200 dark:border-purple-800/60">
+                <span>📋 {lang === "vi" ? "Hỗ trợ Kéo thả & Dán file từ clipboard (Ctrl+V)" : "Drag & Drop or Paste file from clipboard (Ctrl+V) supported"}</span>
+              </div>
             </div>
           </div>
         ) : (

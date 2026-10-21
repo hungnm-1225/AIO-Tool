@@ -37,6 +37,7 @@ import {
   Star
 } from "lucide-react";
 import { toast } from "react-toastify";
+import { useFilePaste, useDropzone } from "../utils/filePasteHelper";
 import * as pdfjsLib from "pdfjs-dist";
 
 // Initialize pdfjs-dist worker
@@ -148,17 +149,17 @@ export default function DirectoryAggregator({
     return raw.replace(/[^a-zA-Z0-9]/g, ""); // Strip non-alphanumeric and spaces
   };
 
-  // Directory upload handler
-  const handleDirectoryUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  // Directory upload handler helper
+  const addUploadedFiles = (files: FileList | File[] | null) => {
     if (!files || files.length === 0) return;
 
     const wrappedFiles: UploadedFileWrapper[] = [];
     const allowedExtensions = [".xlsx", ".xls", ".csv"];
+    const fileArr = Array.from(files);
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const relativePath = file.webkitRelativePath || file.name;
+    for (let i = 0; i < fileArr.length; i++) {
+      const file = fileArr[i];
+      const relativePath = (file as any).webkitRelativePath || file.name;
       const lowerName = file.name.toLowerCase();
       const extMatch = lowerName.match(/\.[a-z0-9]+$/);
       const ext = extMatch ? extMatch[0] : "";
@@ -188,10 +189,32 @@ export default function DirectoryAggregator({
     setFileList((prev) => [...prev, ...wrappedFiles]);
     toast.success(
       lang === "vi"
-        ? `Đã nạp ${wrappedFiles.length} tệp tin!`
-        : `Loaded ${wrappedFiles.length} files!`
+        ? `Đã thêm ${wrappedFiles.length} tệp vào danh sách hợp nhất!`
+        : `Added ${wrappedFiles.length} files to merge queue!`
     );
   };
+
+  const handleDirectoryUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    addUploadedFiles(e.target.files);
+    e.target.value = "";
+  };
+
+  // Paste & Dropzone Integration
+  useFilePaste({
+    acceptedExtensions: [".xlsx", ".xls", ".csv"],
+    onFilesPasted: (files) => {
+      addUploadedFiles(files);
+    },
+    lang,
+  });
+
+  const { isDragging: isDropzoneDragging, dropzoneProps } = useDropzone({
+    acceptedExtensions: [".xlsx", ".xls", ".csv"],
+    onFilesDropped: (files) => {
+      addUploadedFiles(files);
+    },
+    lang,
+  });
 
   // Check file match search queries (Support multiple comma or semicolon separated file names)
   const doesFileMatch = (fileName: string) => {
@@ -1348,8 +1371,12 @@ export default function DirectoryAggregator({
             </h3>
 
             {/* Custom Webkit directory & file uploader */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 border-2 border-dashed border-slate-200 dark:border-white/10 hover:border-teal-500/50 dark:hover:border-teal-500/40 rounded-xl p-6 text-center transition-all cursor-pointer relative bg-slate-100/50 dark:bg-slate-950/20 group">
+            <div className="flex flex-col sm:flex-row gap-4" {...dropzoneProps}>
+              <div className={`flex-1 border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer relative group shadow-xs ${
+                isDropzoneDragging
+                  ? "border-teal-500 bg-teal-100/50 dark:bg-teal-950/40 scale-[0.99]"
+                  : "border-teal-300 dark:border-teal-800/80 bg-teal-50/30 dark:bg-teal-950/10 hover:border-teal-500 hover:bg-teal-50/60"
+              }`}>
                 <input
                   type="file"
                   // @ts-ignore
@@ -1362,39 +1389,47 @@ export default function DirectoryAggregator({
                   title=""
                 />
                 <div className="flex flex-col items-center">
-                  <div className="h-10 w-10 rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 mb-2 group-hover:scale-105 transition-transform">
-                    <Folder className="h-5 w-5 text-teal-500 dark:text-teal-400" />
+                  <div className="h-12 w-12 rounded-xl bg-teal-100 dark:bg-teal-900/50 border border-teal-200 dark:border-teal-800/40 flex items-center justify-center text-teal-600 dark:text-teal-400 mb-2 group-hover:scale-105 transition-transform shadow-inner">
+                    <Folder className="h-6 w-6 text-teal-600 dark:text-teal-400" />
                   </div>
                   <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                    {lang === "vi" ? "Chọn Thư Mục" : "Select Folder"}
+                    {lang === "vi" ? "Chọn Cả Thư Mục" : "Select Folder"}
+                  </span>
+                  <span className="text-[11px] text-slate-400 mt-0.5">
+                    {lang === "vi" ? "Quét đệ quy cây thư mục" : "Recursive directory scan"}
                   </span>
                 </div>
               </div>
-              <div className="flex-1 border-2 border-dashed border-slate-200 dark:border-white/10 hover:border-teal-500/50 dark:hover:border-teal-500/40 rounded-xl p-6 text-center transition-all cursor-pointer relative bg-slate-100/50 dark:bg-slate-950/20 group">
+              <div className={`flex-1 border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer relative group shadow-xs ${
+                isDropzoneDragging
+                  ? "border-teal-500 bg-teal-100/50 dark:bg-teal-950/40 scale-[0.99]"
+                  : "border-teal-300 dark:border-teal-800/80 bg-teal-50/30 dark:bg-teal-950/10 hover:border-teal-500 hover:bg-teal-50/60"
+              }`}>
                 <input
                   type="file"
                   multiple
-                  accept=".xlsx,.xls,.csv,.docx,.pdf"
+                  accept=".xlsx,.xls,.csv"
                   onChange={handleDirectoryUpload}
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
                   id="file-uploader-agg"
                   title=""
                 />
                 <div className="flex flex-col items-center">
-                  <div className="h-10 w-10 rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 mb-2 group-hover:scale-105 transition-transform">
-                    <FileIcon className="h-5 w-5 text-teal-500 dark:text-teal-400" />
+                  <div className="h-12 w-12 rounded-xl bg-teal-100 dark:bg-teal-900/50 border border-teal-200 dark:border-teal-800/40 flex items-center justify-center text-teal-600 dark:text-teal-400 mb-2 group-hover:scale-105 transition-transform shadow-inner">
+                    <FileIcon className="h-6 w-6 text-teal-600 dark:text-teal-400" />
                   </div>
                   <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                    {lang === "vi" ? "Chọn Nhiều Tệp" : "Select Files"}
+                    {lang === "vi" ? "Chọn Nhiều Tệp Excel/CSV" : "Select Files"}
+                  </span>
+                  <span className="text-[11px] text-slate-400 mt-0.5">
+                    {lang === "vi" ? "Kéo thả hoặc dán file (Ctrl+V)" : "Drag & drop or paste (Ctrl+V)"}
                   </span>
                 </div>
               </div>
             </div>
             <div className="text-center mt-3">
-              <span className="text-xs text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">
-                {lang === "vi"
-                  ? "Hỗ trợ định dạng .xlsx, .xls, .csv, .docx, .pdf"
-                  : "Supports Excel, CSV, Word docs, and PDF tables"}
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-100/80 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 text-[11px] font-medium border border-teal-200 dark:border-teal-800/60">
+                📋 {lang === "vi" ? "Hỗ trợ Kéo thả & Dán file từ clipboard (Ctrl+V) định dạng .xlsx, .xls, .csv" : "Drag & Drop or Paste file (Ctrl+V) supported for .xlsx, .xls, .csv"}
               </span>
             </div>
 

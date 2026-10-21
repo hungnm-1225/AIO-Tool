@@ -8,6 +8,7 @@ import { marked } from "marked";
 import { toast } from "react-toastify";
 import { useI18n } from "../utils/i18n";
 import { addUnicodeFont } from "../utils/unicodeFont";
+import { useFilePaste, useDropzone } from "../utils/filePasteHelper";
 import {
   RefreshCw,
   Upload,
@@ -152,31 +153,15 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
     }
   }, [fileList]);
 
-  useEffect(() => {
-    if (subSlug) {
-      setActiveCategory(getCategoryFromSlug(subSlug));
-    }
-  }, [subSlug]);
-
-  // Helper to detect category from file extension
-  const getCategoryFromExt = (ext: string): CategoryType => {
-    const e = ext.toLowerCase();
-    if (["pdf", "docx", "doc", "txt", "epub", "md"].includes(e)) return "document";
-    if (["png", "jpg", "jpeg", "webp", "bmp", "heic", "gif"].includes(e)) return "image";
-    if (["mp3", "wav", "aac", "mp4", "avi", "mkv", "webm", "flac"].includes(e)) return "audio_video";
-    if (["xlsx", "xls", "csv", "json", "xml"].includes(e)) return "data";
-    return "document";
-  };
-
-  // Upload Handler
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  // Paste & Dropzone Integration
+  const handleFilesAdded = (files: FileList | File[] | null) => {
     if (!files || files.length === 0) return;
 
     const newItems: ConvertedFileItem[] = [];
+    const filesArray = Array.from(files);
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+    for (let i = 0; i < filesArray.length; i++) {
+      const file = filesArray[i];
       const match = file.name.toLowerCase().match(/\.([a-z0-9]+)$/);
       const ext = match ? match[1] : "";
       const allowedTargets = SUPPORTED_CONVERSIONS[ext] || ["txt"];
@@ -203,6 +188,42 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
         ? `Đã thêm ${newItems.length} tệp vào danh sách chuyển đổi!`
         : `Added ${newItems.length} files to conversion queue!`
     );
+  };
+
+  useFilePaste({
+    onFilesPasted: (pastedFiles) => {
+      handleFilesAdded(pastedFiles);
+    },
+    lang,
+  });
+
+  const { isDragging: isDropzoneDragging, dropzoneProps } = useDropzone({
+    onFilesDropped: (droppedFiles) => {
+      handleFilesAdded(droppedFiles);
+    },
+    lang,
+  });
+
+  useEffect(() => {
+    if (subSlug) {
+      setActiveCategory(getCategoryFromSlug(subSlug));
+    }
+  }, [subSlug]);
+
+  // Helper to detect category from file extension
+  const getCategoryFromExt = (ext: string): CategoryType => {
+    const e = ext.toLowerCase();
+    if (["pdf", "docx", "doc", "txt", "epub", "md"].includes(e)) return "document";
+    if (["png", "jpg", "jpeg", "webp", "bmp", "heic", "gif"].includes(e)) return "image";
+    if (["mp3", "wav", "aac", "mp4", "avi", "mkv", "webm", "flac"].includes(e)) return "audio_video";
+    if (["xlsx", "xls", "csv", "json", "xml"].includes(e)) return "data";
+    return "document";
+  };
+
+  // Upload Handler
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleFilesAdded(e.target.files);
+    e.target.value = "";
   };
 
   // Filtered files list
@@ -847,7 +868,14 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
       </div>
 
       {/* Upload Dropzone */}
-      <div className="relative border-2 border-dashed border-amber-300 dark:border-amber-700/60 rounded-2xl p-8 bg-amber-50/30 dark:bg-amber-950/10 hover:bg-amber-50/60 dark:hover:bg-amber-950/20 transition-all text-center flex flex-col items-center justify-center cursor-pointer group mb-6">
+      <div
+        {...dropzoneProps}
+        className={`relative border-2 border-dashed rounded-2xl p-8 md:p-10 transition-all text-center flex flex-col items-center justify-center cursor-pointer group mb-6 shadow-xs ${
+          isDropzoneDragging
+            ? "border-amber-500 bg-amber-100/50 dark:bg-amber-950/40 scale-[0.99]"
+            : "border-amber-300 dark:border-amber-700/60 bg-amber-50/30 dark:bg-amber-950/10 hover:bg-amber-50/60 dark:hover:bg-amber-950/20"
+        }`}
+      >
         <input
           type="file"
           multiple
@@ -855,19 +883,22 @@ export default function FileConverter({ subSlug, hideInnerHeader = false }: File
           className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
           id="universal-converter-upload"
         />
-        <div className="flex flex-col items-center justify-center space-y-3 pointer-events-none">
-          <div className="h-12 w-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Upload className="h-6 w-6" />
+        <div className="flex flex-col items-center justify-center pointer-events-none">
+          <div className="h-14 w-14 rounded-2xl bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-inner">
+            <Upload className="h-7 w-7" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+            <h3 className="text-base md:text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">
               {lang === "vi" ? "Kéo & Thả hoặc Bấm Để Chọn Tệp Cần Chuyển Đổi" : "Drag & Drop or Click to Select Files"}
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg mx-auto leading-relaxed">
               {lang === "vi"
                 ? "Hỗ trợ tệp PDF, DOCX, TXT, MD, PNG, JPG, WEBP, MP3, WAV, MP4, XLSX, CSV, JSON, XML..."
                 : "Supports PDF, DOCX, TXT, MD, PNG, JPG, WEBP, MP3, WAV, MP4, XLSX, CSV, JSON, XML..."}
             </p>
+            <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/80 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 text-[11px] font-medium border border-amber-200 dark:border-amber-800/60">
+              <span>📋 {lang === "vi" ? "Hỗ trợ Kéo thả & Dán file từ clipboard (Ctrl+V)" : "Drag & Drop or Paste file from clipboard (Ctrl+V) supported"}</span>
+            </div>
           </div>
         </div>
       </div>

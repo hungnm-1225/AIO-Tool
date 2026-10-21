@@ -22,6 +22,7 @@ import {
   Tag
 } from "lucide-react";
 import { toast } from "react-toastify";
+import { useFilePaste, useDropzone } from "../utils/filePasteHelper";
 
 export interface FileItem {
   id: string;
@@ -125,6 +126,21 @@ export default function FileMetadataEditor({
   const [isZipping, setIsZipping] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Paste & Dropzone Integration
+  useFilePaste({
+    onFilesPasted: (pastedFiles) => {
+      handleFilesAdded(pastedFiles);
+    },
+    lang,
+  });
+
+  const { isDragging: isDropzoneDragging, dropzoneProps } = useDropzone({
+    onFilesDropped: (droppedFiles) => {
+      handleFilesAdded(droppedFiles);
+    },
+    lang,
+  });
+
   // Edit Mode Switcher: "quick" (default) or "manual"
   const [editMode, setEditMode] = useState<"quick" | "manual">("quick");
 
@@ -145,7 +161,7 @@ export default function FileMetadataEditor({
   const [batchSuffix, setBatchSuffix] = useState<string>("");
 
   // Upload handler
-  const handleFilesAdded = (files: FileList | null) => {
+  const handleFilesAdded = (files: FileList | File[] | null) => {
     if (!files || files.length === 0) return;
 
     const newItems: FileItem[] = [];
@@ -371,8 +387,13 @@ export default function FileMetadataEditor({
 
       {/* Upload Dropzone Area */}
       <div
+        {...dropzoneProps}
         onClick={() => fileInputRef.current?.click()}
-        className="relative border-2 border-dashed border-amber-300 dark:border-amber-700/60 rounded-2xl p-8 bg-amber-50/30 dark:bg-amber-950/10 hover:bg-amber-50/60 dark:hover:bg-amber-950/20 transition-all text-center flex flex-col items-center justify-center cursor-pointer group"
+        className={`relative border-2 border-dashed rounded-2xl p-8 md:p-10 transition-all text-center flex flex-col items-center justify-center cursor-pointer group shadow-xs ${
+          isDropzoneDragging
+            ? "border-amber-500 bg-amber-100/50 dark:bg-amber-950/40 scale-[0.99]"
+            : "border-amber-300 dark:border-amber-700/60 bg-amber-50/30 dark:bg-amber-950/10 hover:bg-amber-50/60 dark:hover:bg-amber-950/20"
+        }`}
       >
         <input
           ref={fileInputRef}
@@ -381,15 +402,18 @@ export default function FileMetadataEditor({
           onChange={(e) => handleFilesAdded(e.target.files)}
           className="hidden"
         />
-        <div className="h-14 w-14 rounded-2xl bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+        <div className="h-14 w-14 rounded-2xl bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-inner">
           <Upload className="h-7 w-7" />
         </div>
-        <h3 className="text-sm md:text-base font-bold text-slate-800 dark:text-slate-200">
+        <h3 className="text-base md:text-lg font-bold text-slate-800 dark:text-slate-200 mb-1">
           {lang === "vi" ? "Kéo thả bất kỳ tệp nào vào đây, hoặc click để chọn tệp" : "Drag & drop any files here, or click to upload"}
         </h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg mx-auto leading-relaxed">
           {lang === "vi" ? "Hỗ trợ mọi định dạng tệp (PDF, DOCX, XLSX, PNG, ZIP, MP4, TXT, code, ...)" : "Supports all file formats (PDF, DOCX, XLSX, PNG, ZIP, MP4, TXT, code, ...)"}
         </p>
+        <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/80 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 text-[11px] font-medium border border-amber-200 dark:border-amber-800/60">
+          <span>📋 {lang === "vi" ? "Hỗ trợ Kéo thả & Dán file từ clipboard (Ctrl+V)" : "Drag & Drop or Paste file from clipboard (Ctrl+V) supported"}</span>
+        </div>
       </div>
 
       {/* Main Editing Workspace with Mode Accordion Switcher */}

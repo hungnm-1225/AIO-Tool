@@ -46,6 +46,7 @@ import {
   Moon
 } from "lucide-react";
 import { toast } from "react-toastify";
+import { useFilePaste, useDropzone } from "../utils/filePasteHelper";
 
 export type PaperSize = "a4" | "a3" | "a5" | "letter" | "legal";
 
@@ -323,12 +324,28 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
   // Filter Modal Temporary Settings
   const [tempFilters, setTempFilters] = useState<FilterSettings>(DEFAULT_FILTERS);
   const filterPreviewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Paste & Dropzone Integration
+  useFilePaste({
+    acceptedExtensions: [".png", ".jpg", ".jpeg", ".webp", ".bmp"],
+    onFilesPasted: (files) => {
+      handleFileUpload(files);
+    },
+    lang,
+  });
+
+  const { isDragging: isDropzoneDragging, dropzoneProps } = useDropzone({
+    acceptedExtensions: [".png", ".jpg", ".jpeg", ".webp", ".bmp"],
+    onFilesDropped: (files) => {
+      handleFileUpload(files);
+    },
+    lang,
+  });
 
   // File Upload Handler
-  const handleFileUpload = (files: FileList | null) => {
+  const handleFileUpload = (files: FileList | File[] | null) => {
     if (!files || files.length === 0) return;
 
-    const fileArray = Array.from(files).filter(f => f.type.startsWith("image/"));
+    const fileArray = Array.from(files).filter(f => f.type.startsWith("image/") || f.name.match(/\.(png|jpe?g|webp|bmp|gif)$/i));
     if (fileArray.length === 0) {
       toast.error(t("docScanner.noImagesSub"));
       return;
@@ -895,16 +912,16 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 dark:bg-[#0B0F1A]" id="doc-scanner-container">
       {/* Top Header */}
-      <div className="bg-white dark:bg-[#111827] border-b border-slate-200 dark:border-slate-800/80 px-[25px] py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 flex-shrink-0">
-        <div className="flex items-start gap-3.5">
-          <div className="h-11 w-11 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-600/20 flex-shrink-0 mt-0.5">
+      <div className="bg-white dark:bg-[#111827] border-b border-slate-200 dark:border-slate-800/80 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0 h-10 w-10 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-600/20">
             <SubIcon className="h-5 w-5" />
           </div>
           <div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <span>{subTitle}</span>
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {subDesc}
             </p>
           </div>
@@ -1116,7 +1133,14 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
 
       {/* Bulk Dropzone Area */}
       {pages.length === 0 && (
-        <div className="relative border-2 border-dashed border-purple-300 dark:border-purple-700/60 rounded-2xl p-8 bg-purple-50/30 dark:bg-purple-950/10 hover:bg-purple-50/60 dark:hover:bg-purple-950/20 transition-all text-center flex flex-col items-center justify-center cursor-pointer group min-h-[280px]">
+        <div
+          {...dropzoneProps}
+          className={`relative border-2 border-dashed rounded-2xl p-8 md:p-10 transition-all text-center flex flex-col items-center justify-center cursor-pointer group min-h-[280px] shadow-xs ${
+            isDropzoneDragging
+              ? "border-purple-500 bg-purple-100/50 dark:bg-purple-950/40 scale-[0.99]"
+              : "border-purple-300 dark:border-purple-700/60 bg-purple-50/30 dark:bg-purple-950/10 hover:bg-purple-50/60 dark:hover:bg-purple-950/20"
+          }`}
+        >
           <input
             type="file"
             multiple
@@ -1124,15 +1148,18 @@ export default function DocScannerPdf({ subSlug }: DocScannerPdfProps) {
             onChange={(e) => handleFileUpload(e.target.files)}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
           />
-          <div className="h-14 w-14 rounded-2xl bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+          <div className="h-14 w-14 rounded-2xl bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-inner">
             <Upload className="h-7 w-7" />
           </div>
-          <h3 className="text-sm md:text-base font-bold text-slate-800 dark:text-slate-200">
+          <h3 className="text-base md:text-lg font-bold text-slate-800 dark:text-slate-200 mb-1">
             {lang === "vi" ? "Kéo & thả file ảnh vào đây hoặc nhấp để chọn tệp tải lên" : "Drag & drop image files here or click to choose from computer"}
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg mx-auto leading-relaxed">
             {lang === "vi" ? "Hỗ trợ các định dạng ảnh phổ biến (PNG, JPEG, WEBP)" : "Supports common image formats (PNG, JPEG, WEBP)"}
           </p>
+          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100/80 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 text-[11px] font-medium border border-purple-200 dark:border-purple-800/60">
+            <span>📋 {lang === "vi" ? "Hỗ trợ Kéo thả & Dán file từ clipboard (Ctrl+V)" : "Drag & Drop or Paste file from clipboard (Ctrl+V) supported"}</span>
+          </div>
         </div>
       )}
 

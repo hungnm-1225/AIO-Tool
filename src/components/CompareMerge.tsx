@@ -203,7 +203,30 @@ export default function CompareMerge({ state, onChange, subSlug, hideInnerHeader
 
     const start = state.autoIncStart ?? 1;
     const step = state.autoIncStep ?? 1;
-    const count = state.autoIncCount ?? 10;
+    const mode = state.autoIncMode ?? "count";
+
+    let count: number;
+    if (mode === "end") {
+      const end = state.autoIncEnd ?? 100;
+      if (step === 0) {
+        showToast(lang === "vi" ? "Bước nhảy không được bằng 0!" : "Step size cannot be 0!", true);
+        return;
+      }
+      // Tính số phần tử: từ start đến end (bao gồm end) với bước nhảy step
+      count = Math.floor((end - start) / step) + 1;
+      if (count <= 0) {
+        showToast(
+          lang === "vi"
+            ? "Giá trị kết thúc không hợp lệ với bước nhảy hiện tại!"
+            : "End value is invalid with the current step size!",
+          true
+        );
+        return;
+      }
+      count = Math.min(count, 10000);
+    } else {
+      count = state.autoIncCount ?? 10;
+    }
 
     const list: string[] = [];
     for (let i = 0; i < count; i++) {
@@ -781,17 +804,64 @@ export default function CompareMerge({ state, onChange, subSlug, hideInnerHeader
               </div>
 
               <div>
+                {/* Switch mode: Số lượng tạo vs Giá trị kết thúc */}
                 <label className="block text-xs font-bold uppercase text-slate-400 dark:text-slate-500 mb-2">
-                  {t("compareMerge.countVal")}
+                  {(state.autoIncMode ?? "count") === "count" ? t("compareMerge.countVal") : t("compareMerge.endVal")}
                 </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="5000"
-                  value={state.autoIncCount ?? ""}
-                  onChange={(e) => onChange({ autoIncCount: Math.min(5000, Math.max(1, parseInt(e.target.value) || 1)) })}
-                  className="w-full p-2.5 border border-slate-200 dark:border-slate-800 bg-transparent rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono text-sm"
-                />
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700/60 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => onChange({ autoIncMode: "count" })}
+                    className={`flex-1 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer text-center ${
+                      (state.autoIncMode ?? "count") === "count"
+                        ? "bg-white dark:bg-indigo-600 text-slate-800 dark:text-white shadow-xs"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    {t("compareMerge.modeCount")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onChange({ autoIncMode: "end" })}
+                    className={`flex-1 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer text-center ${
+                      (state.autoIncMode ?? "count") === "end"
+                        ? "bg-white dark:bg-indigo-600 text-slate-800 dark:text-white shadow-xs"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    {t("compareMerge.modeEnd")}
+                  </button>
+                </div>
+
+                {(state.autoIncMode ?? "count") === "count" ? (
+                  <input
+                    type="number"
+                    min="1"
+                    max="5000"
+                    value={state.autoIncCount ?? ""}
+                    onChange={(e) => onChange({ autoIncCount: Math.min(5000, Math.max(1, parseInt(e.target.value) || 1)) })}
+                    className="w-full p-2.5 border border-slate-200 dark:border-slate-800 bg-transparent rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono text-sm"
+                  />
+                ) : (
+                  <input
+                    type="number"
+                    value={state.autoIncEnd ?? ""}
+                    onChange={(e) => onChange({ autoIncEnd: parseInt(e.target.value) || 0 })}
+                    className="w-full p-2.5 border border-slate-200 dark:border-slate-800 bg-transparent rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-mono text-sm"
+                    placeholder={lang === "vi" ? "Ví dụ: 100" : "e.g. 100"}
+                  />
+                )}
+
+                {/* Hint nhỏ giải thích mode hiện tại */}
+                <span className="text-[10px] text-slate-400 mt-1.5 block leading-normal">
+                  {(state.autoIncMode ?? "count") === "count"
+                    ? (lang === "vi"
+                        ? `Tạo đúng ${state.autoIncCount ?? 10} phần tử bắt đầu từ ${state.autoIncStart ?? 1}`
+                        : `Generate exactly ${state.autoIncCount ?? 10} items starting from ${state.autoIncStart ?? 1}`)
+                    : (lang === "vi"
+                        ? `Tạo dãy từ ${state.autoIncStart ?? 1} đến ${state.autoIncEnd ?? 100} (bước ${state.autoIncStep ?? 1})`
+                        : `Generate sequence from ${state.autoIncStart ?? 1} to ${state.autoIncEnd ?? 100} (step ${state.autoIncStep ?? 1})`)}
+                </span>
               </div>
 
               <div>

@@ -38,6 +38,8 @@ export interface CompareMergeState {
   autoIncStart: number;
   autoIncStep: number;
   autoIncCount: number;
+  autoIncMode?: "count" | "end";
+  autoIncEnd?: number;
 }
 
 export interface DataConverterState {

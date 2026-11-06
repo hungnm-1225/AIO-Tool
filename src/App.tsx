@@ -40,6 +40,8 @@ const DEFAULT_STATE: AppState = {
     autoIncStart: 1,
     autoIncStep: 1,
     autoIncCount: 10,
+    autoIncMode: "count",
+    autoIncEnd: 100,
   },
   dataConverter: {
     rawJson: JSON.stringify([

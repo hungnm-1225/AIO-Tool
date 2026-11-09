@@ -52,6 +52,7 @@ export default function TextUtilities({ state, onChange, subSlug, hideInnerHeade
   const [slicerOutputText, setSlicerOutputText] = useState("");
   const [sliceLength, setSliceLength] = useState<number>(19);
   const [slicePosition, setSlicePosition] = useState<"start" | "end">("start");
+  const [sliceCutMode, setSliceCutMode] = useState<"keep" | "remove">("remove");
   const [slicerFindQuery, setSlicerFindQuery] = useState("@");
   const [slicerReplaceQuery, setSlicerReplaceQuery] = useState(" [at] ");
   const [slicerIsRegex, setSlicerIsRegex] = useState(false);
@@ -326,11 +327,22 @@ export default function TextUtilities({ state, onChange, subSlug, hideInnerHeade
 
     // Step 1: Slice characters
     const slicedLines = lines.map((line) => {
-      if (slicePosition === "start") {
-        return line.slice(0, len);
+      if (sliceCutMode === "keep") {
+        // Cắt lấy: giữ lại N ký tự
+        if (slicePosition === "start") {
+          return line.slice(0, len);
+        } else {
+          if (line.length <= len) return line;
+          return line.slice(-len);
+        }
       } else {
-        if (line.length <= len) return line;
-        return line.slice(-len);
+        // Cắt bỏ: loại bỏ N ký tự
+        if (slicePosition === "start") {
+          return line.slice(len);
+        } else {
+          if (line.length <= len) return "";
+          return line.slice(0, -len);
+        }
       }
     });
 
@@ -359,10 +371,13 @@ export default function TextUtilities({ state, onChange, subSlug, hideInnerHeade
     }
 
     setSlicerOutputText(resultText);
+    const modeLabel = sliceCutMode === "keep"
+      ? (lang === "vi" ? "lấy" : "kept")
+      : (lang === "vi" ? "bỏ" : "removed");
     showToast(
       lang === "vi"
-        ? `Đã cắt ${len} ký tự (${slicePosition === "start" ? "đầu" : "cuối"}) ${enableSlicerSearchReplace ? "kèm thay thế chuỗi!" : "thành công!"}`
-        : `Sliced ${len} chars from ${slicePosition} ${enableSlicerSearchReplace ? "with replacement!" : "successfully!"}`,
+        ? `Đã cắt ${modeLabel} ${len} ký tự (${slicePosition === "start" ? "đầu" : "cuối"}) ${enableSlicerSearchReplace ? "kèm thay thế chuỗi!" : "thành công!"}`
+        : `${sliceCutMode === "keep" ? "Kept" : "Removed"} ${len} chars from ${slicePosition} ${enableSlicerSearchReplace ? "with replacement!" : "successfully!"}`,
       "success"
     );
   };
@@ -1414,6 +1429,34 @@ export default function TextUtilities({ state, onChange, subSlug, hideInnerHeade
               </div>
 
               <div className="space-y-1">
+                <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">{t("textUtils.cutModeLabel")}</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSliceCutMode("keep")}
+                    className={`text-xs py-2 px-2.5 rounded-lg border transition-all cursor-pointer ${
+                      sliceCutMode === "keep"
+                        ? "bg-emerald-600 border-emerald-600 text-white shadow-xs font-bold"
+                        : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    {t("textUtils.cutModeKeep")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSliceCutMode("remove")}
+                    className={`text-xs py-2 px-2.5 rounded-lg border transition-all cursor-pointer ${
+                      sliceCutMode === "remove"
+                        ? "bg-rose-600 border-rose-600 text-white shadow-xs font-bold"
+                        : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    {t("textUtils.cutModeRemove")}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1">
                 <label className="text-[10px] font-sans font-bold uppercase text-slate-400 block">{t("textUtils.position")}</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -1440,9 +1483,36 @@ export default function TextUtilities({ state, onChange, subSlug, hideInnerHeade
                   </button>
                 </div>
               </div>
-            </div>
 
-            {/* Slicer Search and Replace Option Card */}
+              {/* Hint giải thích kết quả cắt */}
+              <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#0B0F1A]/60 border border-slate-200/60 dark:border-slate-800/60">
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  <span className="font-bold text-slate-600 dark:text-slate-300">
+                    {sliceCutMode === "keep" ? (lang === "vi" ? "Cắt lấy" : "Keep") : (lang === "vi" ? "Cắt bỏ" : "Remove")}
+                  </span>
+                  {" "}
+                  <code className="px-1 py-0.5 bg-slate-200/60 dark:bg-slate-800 rounded font-bold font-mono text-indigo-600 dark:text-indigo-400">{sliceLength}</code>
+                  {" "}
+                  {lang === "vi" ? "ký tự" : "chars"}
+                  {" "}
+                  {slicePosition === "start" ? (lang === "vi" ? "từ đầu dòng" : "from start") : (lang === "vi" ? "từ cuối dòng" : "from end")}
+                  {" → "}
+                  <span className="font-mono text-emerald-600 dark:text-emerald-400">
+                    {(() => {
+                      const ex = "123ABC";
+                      const len = sliceLength;
+                      if (sliceCutMode === "keep") {
+                        return slicePosition === "start" ? ex.slice(0, len) : ex.slice(-Math.min(len, ex.length));
+                      } else {
+                        if (slicePosition === "start") return ex.slice(len);
+                        return len >= ex.length ? "" : ex.slice(0, -len);
+                      }
+                    })()}
+                  </span>
+                  <span className="text-slate-400 ml-1">("123ABC")</span>
+                </div>
+              </div>
+            </div>
             <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
               <label className="flex items-center justify-between cursor-pointer border-b border-slate-100 dark:border-slate-800/60 pb-2">
                 <span className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">

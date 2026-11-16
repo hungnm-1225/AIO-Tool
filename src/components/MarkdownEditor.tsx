@@ -110,7 +110,7 @@ export default function MarkdownEditor() {
   const previewRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const skipPreviewUpdateRef = useRef(false);
-  const scrollSourceRef = useRef<"editor" | "preview" | null>(null);
+  const hoveredPanelRef = useRef<"editor" | "preview" | null>(null);
   const rafRef = useRef<number>(0);
   const mdFileInputRef = useRef<HTMLInputElement>(null);
   const docxFileInputRef = useRef<HTMLInputElement>(null);
@@ -150,34 +150,32 @@ export default function MarkdownEditor() {
     return () => document.removeEventListener("mousedown", handler);
   }, [showExportMenu]);
 
-  // ─── Cuộn đồng bộ (rAF + source-lock — mượt, không giật, không vòng lặp) ───
-  const syncScroll = useCallback((source: "editor" | "preview") => {
-    // Chỉ cho phép nguồn đang active đồng bộ, chặn chiều ngược
-    if (scrollSourceRef.current && scrollSourceRef.current !== source) return;
-    scrollSourceRef.current = source;
+  // ─── Cuộn đồng bộ (hover-lock: chỉ panel đang hover mới drive, triệt tiêu feedback loop) ───
+  const handleEditorScroll = useCallback(() => {
+    if (hoveredPanelRef.current !== "editor") return;
     cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       const editor = mdEditorRef.current;
       const preview = previewContainerRef.current;
       if (!editor || !preview) return;
-      if (source === "editor") {
-        const max = editor.scrollHeight - editor.clientHeight;
-        const pct = max > 0 ? editor.scrollTop / max : 0;
-        const targetMax = preview.scrollHeight - preview.clientHeight;
-        preview.scrollTop = pct * targetMax;
-      } else {
-        const max = preview.scrollHeight - preview.clientHeight;
-        const pct = max > 0 ? preview.scrollTop / max : 0;
-        const targetMax = editor.scrollHeight - editor.clientHeight;
-        editor.scrollTop = pct * targetMax;
-      }
-      // Mở khóa sau 1 frame để bên kia không trigger ngược
-      requestAnimationFrame(() => { scrollSourceRef.current = null; });
+      const max = editor.scrollHeight - editor.clientHeight;
+      const pct = max > 0 ? editor.scrollTop / max : 0;
+      preview.scrollTop = pct * (preview.scrollHeight - preview.clientHeight);
     });
   }, []);
 
-  const handleEditorScroll = useCallback(() => syncScroll("editor"), [syncScroll]);
-  const handlePreviewScroll = useCallback(() => syncScroll("preview"), [syncScroll]);
+  const handlePreviewScroll = useCallback(() => {
+    if (hoveredPanelRef.current !== "preview") return;
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      const editor = mdEditorRef.current;
+      const preview = previewContainerRef.current;
+      if (!editor || !preview) return;
+      const max = preview.scrollHeight - preview.clientHeight;
+      const pct = max > 0 ? preview.scrollTop / max : 0;
+      editor.scrollTop = pct * (editor.scrollHeight - editor.clientHeight);
+    });
+  }, []);
 
   // ─── Upload .md ───
   const handleUploadMd = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -494,7 +492,11 @@ export default function MarkdownEditor() {
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
 
         {/* ═══ Trái: Markdown Source Editor ═══ */}
-        <div className="flex-1 flex flex-col border-r border-slate-200 dark:border-slate-800/80 min-w-0">
+        <div
+          className="flex-1 flex flex-col border-r border-slate-200 dark:border-slate-800/80 min-w-0"
+          onPointerEnter={() => { hoveredPanelRef.current = "editor"; }}
+          onPointerLeave={() => { if (hoveredPanelRef.current === "editor") hoveredPanelRef.current = null; }}
+        >
           {/* Sub-header: label + Upload .md + Copy */}
           <div className="flex-shrink-0 px-4 py-2 bg-white dark:bg-[#111827] border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -554,7 +556,11 @@ export default function MarkdownEditor() {
         </div>
 
         {/* ═══ Phải: WYSIWYG / Word Editor ═══ */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div
+          className="flex-1 flex flex-col min-w-0"
+          onPointerEnter={() => { hoveredPanelRef.current = "preview"; }}
+          onPointerLeave={() => { if (hoveredPanelRef.current === "preview") hoveredPanelRef.current = null; }}
+        >
           {/* Sub-header: label + Upload .docx + Copy */}
           <div className="flex-shrink-0 px-4 py-2 bg-white dark:bg-[#111827] border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">

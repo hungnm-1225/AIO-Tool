@@ -26,6 +26,7 @@ import {
   FileDown,
   ChevronDown,
   BookOpen,
+  Table,
 } from "lucide-react";
 
 const DEFAULT_MARKDOWN = `# Chào mừng đến với Markdown Editor 📝
@@ -109,7 +110,8 @@ export default function MarkdownEditor() {
   const previewRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const skipPreviewUpdateRef = useRef(false);
-  const isScrollingRef = useRef(false);
+  const scrollSourceRef = useRef<"editor" | "preview" | null>(null);
+  const rafRef = useRef<number>(0);
   const mdFileInputRef = useRef<HTMLInputElement>(null);
   const docxFileInputRef = useRef<HTMLInputElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
@@ -148,34 +150,34 @@ export default function MarkdownEditor() {
     return () => document.removeEventListener("mousedown", handler);
   }, [showExportMenu]);
 
-  // ─── Cuộn đồng bộ (percentage-based, chống vòng lặp vô hạn) ───
-  const handleEditorScroll = () => {
-    if (isScrollingRef.current) return;
-    isScrollingRef.current = true;
-    const editor = mdEditorRef.current;
-    const preview = previewContainerRef.current;
-    if (editor && preview) {
-      const maxScroll = editor.scrollHeight - editor.clientHeight;
-      const pct = maxScroll > 0 ? editor.scrollTop / maxScroll : 0;
-      const previewMax = preview.scrollHeight - preview.clientHeight;
-      preview.scrollTop = pct * previewMax;
-    }
-    setTimeout(() => { isScrollingRef.current = false; }, 30);
-  };
+  // ─── Cuộn đồng bộ (rAF + source-lock — mượt, không giật, không vòng lặp) ───
+  const syncScroll = useCallback((source: "editor" | "preview") => {
+    // Chỉ cho phép nguồn đang active đồng bộ, chặn chiều ngược
+    if (scrollSourceRef.current && scrollSourceRef.current !== source) return;
+    scrollSourceRef.current = source;
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      const editor = mdEditorRef.current;
+      const preview = previewContainerRef.current;
+      if (!editor || !preview) return;
+      if (source === "editor") {
+        const max = editor.scrollHeight - editor.clientHeight;
+        const pct = max > 0 ? editor.scrollTop / max : 0;
+        const targetMax = preview.scrollHeight - preview.clientHeight;
+        preview.scrollTop = pct * targetMax;
+      } else {
+        const max = preview.scrollHeight - preview.clientHeight;
+        const pct = max > 0 ? preview.scrollTop / max : 0;
+        const targetMax = editor.scrollHeight - editor.clientHeight;
+        editor.scrollTop = pct * targetMax;
+      }
+      // Mở khóa sau 1 frame để bên kia không trigger ngược
+      requestAnimationFrame(() => { scrollSourceRef.current = null; });
+    });
+  }, []);
 
-  const handlePreviewScroll = () => {
-    if (isScrollingRef.current) return;
-    isScrollingRef.current = true;
-    const editor = mdEditorRef.current;
-    const preview = previewContainerRef.current;
-    if (editor && preview) {
-      const maxScroll = preview.scrollHeight - preview.clientHeight;
-      const pct = maxScroll > 0 ? preview.scrollTop / maxScroll : 0;
-      const editorMax = editor.scrollHeight - editor.clientHeight;
-      editor.scrollTop = pct * editorMax;
-    }
-    setTimeout(() => { isScrollingRef.current = false; }, 30);
-  };
+  const handleEditorScroll = useCallback(() => syncScroll("editor"), [syncScroll]);
+  const handlePreviewScroll = useCallback(() => syncScroll("preview"), [syncScroll]);
 
   // ─── Upload .md ───
   const handleUploadMd = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -322,6 +324,76 @@ export default function MarkdownEditor() {
     }
   };
 
+  // ─── Markdown toolbar: chèn cú pháp MD vào textarea tại vị trí con trỏ ───
+  const mdInsert = useCallback((before: string, after: string, placeholder?: string) => {
+    const ta = mdEditorRef.current;
+    if (!ta) return;
+    ta.focus();
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const text = ta.value;
+    const selected = text.slice(start, end);
+    const inner = selected || placeholder || "";
+    const newText = text.slice(0, start) + before + inner + after + text.slice(end);
+    setMarkdown(newText);
+    // Đặt lại cursor để bôi đen phần vừa chèn (hoặc placeholder)
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.selectionStart = start + before.length;
+      ta.selectionEnd = start + before.length + inner.length;
+    });
+  }, []);
+
+  const mdInsertLine = useCallback((prefix: string, placeholder?: string) => {
+    const ta = mdEditorRef.current;
+    if (!ta) return;
+    ta.focus();
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const text = ta.value;
+    const selected = text.slice(start, end);
+    // Tìm đầu dòng hiện tại
+    const lineStart = text.lastIndexOf("\n", start - 1) + 1;
+    const inner = selected || placeholder || "";
+    const needNewline = lineStart > 0 && text[lineStart - 1] !== "\n" ? "" : "";
+    const newText = text.slice(0, lineStart) + needNewline + prefix + inner + text.slice(end);
+    setMarkdown(newText);
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.selectionStart = lineStart + needNewline.length + prefix.length;
+      ta.selectionEnd = lineStart + needNewline.length + prefix.length + inner.length;
+    });
+  }, []);
+
+  const mdInsertLink = useCallback(() => {
+    const url = prompt(lang === "vi" ? "Nhập URL:" : "Enter URL:");
+    if (!url) return;
+    const ta = mdEditorRef.current;
+    if (!ta) return;
+    ta.focus();
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const text = ta.value;
+    const label = text.slice(start, end) || (lang === "vi" ? "liên kết" : "link");
+    const insert = `[${label}](${url})`;
+    const newText = text.slice(0, start) + insert + text.slice(end);
+    setMarkdown(newText);
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.selectionStart = start + 1;
+      ta.selectionEnd = start + 1 + label.length;
+    });
+  }, [lang]);
+
+  const mdInsertTable = useCallback(() => {
+    const table = "\n| Col 1 | Col 2 | Col 3 |\n| --- | --- | --- |\n| A | B | C |\n";
+    mdInsert(table, "");
+  }, [mdInsert]);
+
+  const mdInsertHr = useCallback(() => {
+    mdInsert("\n---\n", "");
+  }, [mdInsert]);
+
   // ─── WYSIWYG formatting (document.execCommand) ───
   const execFormat = (command: string, value?: string) => {
     previewRef.current?.focus();
@@ -442,6 +514,26 @@ export default function MarkdownEditor() {
                 <span>{copied === "md" ? (lang === "vi" ? "Đã chép" : "Copied") : (lang === "vi" ? "Sao chép" : "Copy")}</span>
               </button>
             </div>
+          </div>
+
+          {/* Markdown toolbar — chèn cú pháp MD vào textarea */}
+          <div className="flex-shrink-0 px-3 py-1.5 bg-white dark:bg-[#111827] border-b border-slate-100 dark:border-slate-800/60 flex items-center gap-0.5 flex-wrap overflow-x-auto">
+            <button onClick={() => mdInsert("**", "**", lang === "vi" ? "chữ đậm" : "bold")} className={tbBtn} title="Bold **text**"><Bold className="h-3.5 w-3.5" /></button>
+            <button onClick={() => mdInsert("*", "*", lang === "vi" ? "chữ nghiêng" : "italic")} className={tbBtn} title="Italic *text*"><Italic className="h-3.5 w-3.5" /></button>
+            <button onClick={() => mdInsert("~~", "~~", lang === "vi" ? "gạch ngang" : "strikethrough")} className={tbBtn} title="Strikethrough ~~text~~"><Strikethrough className="h-3.5 w-3.5" /></button>
+            <div className={tbSep} />
+            <button onClick={() => mdInsertLine("# ", "Heading 1")} className={tbBtn} title="# Heading 1"><Heading1 className="h-3.5 w-3.5" /></button>
+            <button onClick={() => mdInsertLine("## ", "Heading 2")} className={tbBtn} title="## Heading 2"><Heading2 className="h-3.5 w-3.5" /></button>
+            <button onClick={() => mdInsertLine("### ", "Heading 3")} className={tbBtn} title="### Heading 3"><Heading3 className="h-3.5 w-3.5" /></button>
+            <div className={tbSep} />
+            <button onClick={() => mdInsertLine("- ", lang === "vi" ? "mục" : "item")} className={tbBtn} title="- Bullet list"><List className="h-3.5 w-3.5" /></button>
+            <button onClick={() => mdInsertLine("1. ", lang === "vi" ? "mục" : "item")} className={tbBtn} title="1. Numbered list"><ListOrdered className="h-3.5 w-3.5" /></button>
+            <div className={tbSep} />
+            <button onClick={() => mdInsert("`", "`", "code")} className={tbBtn} title="`inline code`"><Code2 className="h-3.5 w-3.5" /></button>
+            <button onClick={mdInsertLink} className={tbBtn} title="[text](url)"><Link className="h-3.5 w-3.5" /></button>
+            <button onClick={() => mdInsertLine("> ", lang === "vi" ? "trích dẫn" : "quote")} className={tbBtn} title="> Blockquote"><Quote className="h-3.5 w-3.5" /></button>
+            <button onClick={mdInsertTable} className={tbBtn} title="Insert table"><Table className="h-3.5 w-3.5" /></button>
+            <button onClick={mdInsertHr} className={tbBtn} title="--- Horizontal rule"><Minus className="h-3.5 w-3.5" /></button>
           </div>
 
           <textarea

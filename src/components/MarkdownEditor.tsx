@@ -4,7 +4,6 @@ import { useI18n } from "../utils/i18n";
 import { marked } from "marked";
 import { htmlToMarkdown } from "../utils/htmlToMarkdown";
 import {
-  FileText,
   Upload,
   Download,
   Copy,
@@ -25,6 +24,8 @@ import {
   Eye,
   Edit3,
   FileDown,
+  ChevronDown,
+  BookOpen,
 } from "lucide-react";
 
 const DEFAULT_MARKDOWN = `# Chào mừng đến với Markdown Editor 📝
@@ -35,8 +36,8 @@ const DEFAULT_MARKDOWN = `# Chào mừng đến với Markdown Editor 📝
 
 - **Chỉnh sửa hai chiều** — Viết Markdown hoặc chỉnh sửa văn bản trực quan
 - **Cuộn đồng bộ** — Cả hai bên cuộn cùng nhau
-- **Tải file** — Import file \`.md\` từ máy tính
-- **Xuất file** — Tải về file \`.md\`
+- **Tải file** — Import file \`.md\` hoặc \`.docx\` từ máy tính
+- **Xuất file** — Tải về file \`.md\` hoặc Word \`.doc\`
 - **Thanh công cụ** — Định dạng nhanh: Bold, Italic, Heading, List…
 
 ## Ví Dụ Định Dạng
@@ -47,7 +48,7 @@ Kết hợp: ***in đậm và nghiêng***, **chữ đậm với \`code inline\`*
 
 ### Liên Kết & Hình Ảnh
 
-[Trang chủ Google](https://google.com) — Click để mở liên kết
+[Trang chủ Google](https://google.com) — Ctrl + Click để mở liên kết
 
 ### Khối Mã (Code Block)
 
@@ -88,20 +89,32 @@ console.log(greet("Việt Nam"));
 Chúc bạn soạn thảo vui vẻ! 🎉
 `;
 
+// Hàm đếm ký tự / từ / dòng
+function getCounts(text: string) {
+  const chars = text.length;
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const lines = text ? text.split(/\r?\n/).length : 0;
+  return { chars, words, lines };
+}
+
 export default function MarkdownEditor() {
   const { t, lang } = useI18n();
   const [markdown, setMarkdown] = useState(DEFAULT_MARKDOWN);
+  const [previewText, setPreviewText] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
   const [fileName, setFileName] = useState("document.md");
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   const mdEditorRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const skipPreviewUpdateRef = useRef(false);
   const isScrollingRef = useRef(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const mdFileInputRef = useRef<HTMLInputElement>(null);
+  const docxFileInputRef = useRef<HTMLInputElement>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
-  // Markdown → HTML: cập nhật preview khi markdown thay đổi từ phía textarea
+  // ─── Markdown → HTML: cập nhật preview khi markdown thay đổi ───
   useEffect(() => {
     if (skipPreviewUpdateRef.current) {
       skipPreviewUpdateRef.current = false;
@@ -110,18 +123,32 @@ export default function MarkdownEditor() {
     if (previewRef.current) {
       const html = marked.parse(markdown) as string;
       previewRef.current.innerHTML = html;
+      setPreviewText(previewRef.current.innerText || "");
     }
   }, [markdown]);
 
-  // WYSIWYG → Markdown: đồng bộ ngược khi người dùng edit bên Word Editor
+  // ─── WYSIWYG → Markdown: đồng bộ ngược khi edit bên Word Editor ───
   const syncFromPreview = useCallback(() => {
     skipPreviewUpdateRef.current = true;
     const html = previewRef.current?.innerHTML || "";
     const md = htmlToMarkdown(html);
     setMarkdown(md);
+    setPreviewText(previewRef.current?.innerText || "");
   }, []);
 
-  // --- Scroll đồng bộ (percentage-based, chống vòng lặp vô hạn) ---
+  // ─── Click outside đóng dropdown export ───
+  useEffect(() => {
+    if (!showExportMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showExportMenu]);
+
+  // ─── Cuộn đồng bộ (percentage-based, chống vòng lặp vô hạn) ───
   const handleEditorScroll = () => {
     if (isScrollingRef.current) return;
     isScrollingRef.current = true;
@@ -150,8 +177,8 @@ export default function MarkdownEditor() {
     setTimeout(() => { isScrollingRef.current = false; }, 30);
   };
 
-  // --- File upload ---
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ─── Upload .md ───
+  const handleUploadMd = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
@@ -159,18 +186,38 @@ export default function MarkdownEditor() {
     reader.onload = (ev) => {
       const text = (ev.target?.result as string) || "";
       setMarkdown(text);
-      toast.success(
-        lang === "vi"
-          ? `Đã tải file "${file.name}" thành công!`
-          : `Loaded "${file.name}" successfully!`
-      );
+      toast.success(lang === "vi" ? `Đã tải "${file.name}" thành công!` : `Loaded "${file.name}" successfully!`);
     };
     reader.readAsText(file);
     e.target.value = "";
   };
 
-  // --- Download .md ---
-  const handleDownload = () => {
+  // ─── Upload .docx → mammoth → HTML → Markdown ───
+  const handleUploadDocx = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const mammothModule = await import("mammoth");
+      const mammoth = mammothModule.default || mammothModule;
+      const result = await (mammoth as any).convertToHtml({ arrayBuffer });
+      const html: string = result.value;
+      if (previewRef.current) {
+        previewRef.current.innerHTML = html;
+        setPreviewText(previewRef.current.innerText || "");
+      }
+      const md = htmlToMarkdown(html);
+      setMarkdown(md);
+      setFileName(file.name.replace(/\.docx?$/i, ".md"));
+      toast.success(lang === "vi" ? `Đã import "${file.name}" thành công!` : `Imported "${file.name}" successfully!`);
+    } catch (err: any) {
+      toast.error(lang === "vi" ? `Lỗi đọc file: ${err.message}` : `Error reading file: ${err.message}`);
+    }
+    e.target.value = "";
+  };
+
+  // ─── Download .md ───
+  const handleDownloadMd = () => {
     const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -178,19 +225,16 @@ export default function MarkdownEditor() {
     a.download = fileName;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success(
-      lang === "vi" ? `Đã tải xuống "${fileName}"!` : `Downloaded "${fileName}"!`
-    );
+    toast.success(lang === "vi" ? `Đã tải xuống "${fileName}"!` : `Downloaded "${fileName}"!`);
   };
 
-  // --- Download Word (.doc) từ rendered HTML ---
+  // ─── Download Word (.doc) từ rendered HTML ───
   const handleDownloadWord = () => {
     const html = previewRef.current?.innerHTML || "";
     if (!html.trim()) {
       toast.warning(lang === "vi" ? "Không có nội dung để xuất!" : "No content to export!");
       return;
     }
-    // HTML với Word XML namespaces — Word/LibreOffice/Google Docs mở native
     const docHtml = [
       '<html xmlns:o="urn:schemas-microsoft-com:office:office"',
       '      xmlns:w="urn:schemas-microsoft-com:office:word"',
@@ -225,7 +269,6 @@ export default function MarkdownEditor() {
       `<body>${html}</body>`,
       '</html>',
     ].join('\n');
-
     const docName = fileName.replace(/\.(md|markdown|mdx|txt)$/i, "") + ".doc";
     const blob = new Blob(['\ufeff', docHtml], { type: 'application/msword' });
     const url = URL.createObjectURL(blob);
@@ -234,24 +277,52 @@ export default function MarkdownEditor() {
     a.download = docName;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success(
-      lang === "vi" ? `Đã xuất Word "${docName}"!` : `Exported "${docName}"!`
-    );
+    toast.success(lang === "vi" ? `Đã xuất Word "${docName}"!` : `Exported "${docName}"!`);
   };
 
-  // --- Copy ---
-  const handleCopy = async (text: string, id: string) => {
+  // ─── Copy Markdown source ───
+  const handleCopyMd = async () => {
+    if (!markdown) return;
     try {
-      await navigator.clipboard.writeText(text);
-      setCopied(id);
-      toast.success(lang === "vi" ? "Đã sao chép!" : "Copied!");
+      await navigator.clipboard.writeText(markdown);
+      setCopied("md");
+      toast.success(lang === "vi" ? "Đã sao chép Markdown!" : "Markdown copied!");
       setTimeout(() => setCopied(null), 2000);
-    } catch (err) {
-      console.error("Copy failed", err);
+    } catch (err) { console.error("Copy failed", err); }
+  };
+
+  // ─── Copy Word content (HTML rich-text → clipboard) ───
+  const handleCopyWord = async () => {
+    const html = previewRef.current?.innerHTML || "";
+    const text = previewRef.current?.innerText || "";
+    if (!text) return;
+    try {
+      // Paste vào Word/Docs giữ format, paste notepad là plain-text
+      const item = new ClipboardItem({
+        "text/html": new Blob([html], { type: "text/html" }),
+        "text/plain": new Blob([text], { type: "text/plain" }),
+      });
+      await navigator.clipboard.write([item]);
+    } catch {
+      await navigator.clipboard.writeText(text);
+    }
+    setCopied("word");
+    toast.success(lang === "vi" ? "Đã sao chép nội dung!" : "Content copied!");
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  // ─── Ctrl+Click mở link trong Word Editor ───
+  const handlePreviewClick = (e: React.MouseEvent) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    const target = e.target as HTMLElement;
+    const anchor = target.closest("a");
+    if (anchor?.getAttribute("href")) {
+      e.preventDefault();
+      window.open(anchor.getAttribute("href")!, "_blank", "noopener,noreferrer");
     }
   };
 
-  // --- WYSIWYG formatting (document.execCommand) ---
+  // ─── WYSIWYG formatting (document.execCommand) ───
   const execFormat = (command: string, value?: string) => {
     previewRef.current?.focus();
     document.execCommand(command, false, value);
@@ -278,78 +349,70 @@ export default function MarkdownEditor() {
     syncFromPreview();
   };
 
-  // --- Toolbar button style ---
-  const tbBtn =
-    "p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 cursor-pointer transition-colors";
+  // ─── Bộ đếm ký tự cho mỗi panel ───
+  const mdCounts = getCounts(markdown);
+  const wordCounts = getCounts(previewText);
+
+  // ─── Style constants ───
+  const tbBtn = "p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 cursor-pointer transition-colors";
   const tbSep = "h-5 w-px bg-slate-200 dark:bg-slate-700 mx-1 flex-shrink-0";
+  const subBtn = "px-2 py-1 rounded-lg border border-slate-200/80 dark:border-slate-800/80 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition-all";
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 dark:bg-[#0B0F1A]">
-      {/* ─── Header ─── */}
-      <div className="flex-shrink-0 p-4 md:p-5 border-b border-slate-200 dark:border-slate-800/80">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+      {/* ─── Header (đồng bộ design với các trang khác) ─── */}
+      <div className="flex-shrink-0 p-6 border-b border-slate-200 dark:border-slate-800/80">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2.5 mb-1">
               <div className="h-9 w-9 rounded-xl bg-sky-600 flex items-center justify-center text-white shadow-md shadow-sky-600/20">
-                <FileText className="h-5 w-5" />
+                <BookOpen className="h-5 w-5" />
               </div>
-              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                {t("markdownEditor.title")}
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <span>{t("markdownEditor.title")}</span>
               </h2>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               {t("markdownEditor.subtitle")}
             </p>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Hidden file input */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".md,.markdown,.mdx,.txt"
-              onChange={handleUpload}
-              className="hidden"
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
-            >
-              <Upload className="h-3.5 w-3.5" /> {t("markdownEditor.upload")}
-            </button>
-            <button
-              onClick={handleDownload}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
-            >
-              <Download className="h-3.5 w-3.5" /> {t("markdownEditor.download")}
-            </button>
-            <button
-              onClick={handleDownloadWord}
-              className="px-3 py-2 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
-            >
-              <FileDown className="h-3.5 w-3.5" /> {t("markdownEditor.exportWord")}
-            </button>
-            <button
-              onClick={() => handleCopy(markdown, "md")}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
-            >
-              {copied === "md" ? (
-                <Check className="h-3.5 w-3.5 text-emerald-500" />
-              ) : (
-                <Copy className="h-3.5 w-3.5" />
+          {/* Phải: Export dropdown + Clear */}
+          <div className="flex items-center gap-2 self-start md:self-center">
+            <div className="relative" ref={exportMenuRef}>
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-md shadow-indigo-600/20"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>{t("markdownEditor.export")}</span>
+                <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${showExportMenu ? "rotate-180" : ""}`} />
+              </button>
+              {showExportMenu && (
+                <div className="absolute right-0 top-full mt-1.5 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg z-20 min-w-[200px] overflow-hidden animate-fade-in">
+                  <button
+                    onClick={() => { handleDownloadMd(); setShowExportMenu(false); }}
+                    className="w-full px-4 py-2.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer transition-colors"
+                  >
+                    <Edit3 className="h-3.5 w-3.5 text-emerald-500" />
+                    {t("markdownEditor.exportMd")}
+                  </button>
+                  <button
+                    onClick={() => { handleDownloadWord(); setShowExportMenu(false); }}
+                    className="w-full px-4 py-2.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer transition-colors border-t border-slate-100 dark:border-slate-800/60"
+                  >
+                    <FileDown className="h-3.5 w-3.5 text-sky-500" />
+                    {t("markdownEditor.exportWord")}
+                  </button>
+                </div>
               )}
-              {copied === "md"
-                ? lang === "vi" ? "Đã chép" : "Copied"
-                : "Copy MD"}
-            </button>
+            </div>
             <button
-              onClick={() => {
-                setMarkdown("");
-                toast.success(lang === "vi" ? "Đã xóa nội dung!" : "Content cleared!");
-              }}
+              onClick={() => { setMarkdown(""); toast.success(lang === "vi" ? "Đã xóa nội dung!" : "Content cleared!"); }}
               className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/50 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
             >
-              <Trash2 className="h-3.5 w-3.5" /> {t("common.clear")}
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>{t("common.clear")}</span>
             </button>
           </div>
         </div>
@@ -357,19 +420,30 @@ export default function MarkdownEditor() {
 
       {/* ─── Editor Body — Split View ─── */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        {/* === Left: Markdown Source Editor === */}
+
+        {/* ═══ Trái: Markdown Source Editor ═══ */}
         <div className="flex-1 flex flex-col border-r border-slate-200 dark:border-slate-800/80 min-w-0">
-          <div className="flex-shrink-0 px-4 py-2.5 bg-white dark:bg-[#111827] border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+          {/* Sub-header: label + Upload .md + Copy */}
+          <div className="flex-shrink-0 px-4 py-2 bg-white dark:bg-[#111827] border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Edit3 className="h-3.5 w-3.5 text-indigo-500" />
               <span className="text-[11px] font-mono font-bold uppercase text-slate-500 dark:text-slate-400">
                 {t("markdownEditor.markdownSource")}
               </span>
             </div>
-            <span className="text-[10px] font-mono text-slate-400">
-              {markdown.split("\n").length} {lang === "vi" ? "dòng" : "lines"}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <input ref={mdFileInputRef} type="file" accept=".md,.markdown,.mdx,.txt" onChange={handleUploadMd} className="hidden" />
+              <button onClick={() => mdFileInputRef.current?.click()} className={subBtn}>
+                <Upload className="h-3 w-3" />
+                <span>{t("markdownEditor.upload")}</span>
+              </button>
+              <button onClick={handleCopyMd} className={subBtn}>
+                {copied === "md" ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+                <span>{copied === "md" ? (lang === "vi" ? "Đã chép" : "Copied") : (lang === "vi" ? "Sao chép" : "Copy")}</span>
+              </button>
+            </div>
           </div>
+
           <textarea
             ref={mdEditorRef}
             value={markdown}
@@ -379,69 +453,57 @@ export default function MarkdownEditor() {
             placeholder={lang === "vi" ? "Nhập hoặc dán nội dung Markdown tại đây..." : "Type or paste Markdown here..."}
             spellCheck={false}
           />
+
+          {/* Footer: bộ đếm Markdown */}
+          <div className="flex-shrink-0 px-4 py-1.5 bg-slate-50/80 dark:bg-[#0B0F1A]/60 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+            <span>{mdCounts.chars.toLocaleString()} {lang === "vi" ? "ký tự" : "chars"} · {mdCounts.words.toLocaleString()} {lang === "vi" ? "từ" : "words"}</span>
+            <span>{mdCounts.lines.toLocaleString()} {lang === "vi" ? "dòng" : "lines"}</span>
+          </div>
         </div>
 
-        {/* === Right: WYSIWYG / Word Editor === */}
+        {/* ═══ Phải: WYSIWYG / Word Editor ═══ */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Toolbar */}
-          <div className="flex-shrink-0 px-3 py-1.5 bg-white dark:bg-[#111827] border-b border-slate-100 dark:border-slate-800/60 flex items-center gap-0.5 flex-wrap overflow-x-auto">
-            <div className="flex items-center gap-1.5 mr-2">
+          {/* Sub-header: label + Upload .docx + Copy */}
+          <div className="flex-shrink-0 px-4 py-2 bg-white dark:bg-[#111827] border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
               <Eye className="h-3.5 w-3.5 text-emerald-500" />
               <span className="text-[11px] font-mono font-bold uppercase text-slate-500 dark:text-slate-400">
                 {t("markdownEditor.wordEditor")}
               </span>
             </div>
-
-            <div className={tbSep} />
-
-            <button onClick={() => execFormat("bold")} className={tbBtn} title="Bold (Ctrl+B)">
-              <Bold className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={() => execFormat("italic")} className={tbBtn} title="Italic (Ctrl+I)">
-              <Italic className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={() => execFormat("strikeThrough")} className={tbBtn} title="Strikethrough">
-              <Strikethrough className="h-3.5 w-3.5" />
-            </button>
-
-            <div className={tbSep} />
-
-            <button onClick={() => execFormat("formatBlock", "h1")} className={tbBtn} title="Heading 1">
-              <Heading1 className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={() => execFormat("formatBlock", "h2")} className={tbBtn} title="Heading 2">
-              <Heading2 className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={() => execFormat("formatBlock", "h3")} className={tbBtn} title="Heading 3">
-              <Heading3 className="h-3.5 w-3.5" />
-            </button>
-
-            <div className={tbSep} />
-
-            <button onClick={() => execFormat("insertUnorderedList")} className={tbBtn} title="Bullet List">
-              <List className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={() => execFormat("insertOrderedList")} className={tbBtn} title="Numbered List">
-              <ListOrdered className="h-3.5 w-3.5" />
-            </button>
-
-            <div className={tbSep} />
-
-            <button onClick={insertCode} className={tbBtn} title="Inline Code">
-              <Code2 className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={insertLink} className={tbBtn} title="Insert Link">
-              <Link className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={() => execFormat("formatBlock", "blockquote")} className={tbBtn} title="Blockquote">
-              <Quote className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={() => execFormat("insertHorizontalRule")} className={tbBtn} title="Horizontal Rule">
-              <Minus className="h-3.5 w-3.5" />
-            </button>
+            <div className="flex items-center gap-1.5">
+              <input ref={docxFileInputRef} type="file" accept=".docx,.doc" onChange={handleUploadDocx} className="hidden" />
+              <button onClick={() => docxFileInputRef.current?.click()} className={subBtn}>
+                <Upload className="h-3 w-3" />
+                <span>{t("markdownEditor.uploadDocx")}</span>
+              </button>
+              <button onClick={handleCopyWord} className={subBtn}>
+                {copied === "word" ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+                <span>{copied === "word" ? (lang === "vi" ? "Đã chép" : "Copied") : (lang === "vi" ? "Sao chép" : "Copy")}</span>
+              </button>
+            </div>
           </div>
 
-          {/* WYSIWYG Content Area (scrollable container + contentEditable) */}
+          {/* Toolbar */}
+          <div className="flex-shrink-0 px-3 py-1.5 bg-white dark:bg-[#111827] border-b border-slate-100 dark:border-slate-800/60 flex items-center gap-0.5 flex-wrap overflow-x-auto">
+            <button onClick={() => execFormat("bold")} className={tbBtn} title="Bold (Ctrl+B)"><Bold className="h-3.5 w-3.5" /></button>
+            <button onClick={() => execFormat("italic")} className={tbBtn} title="Italic (Ctrl+I)"><Italic className="h-3.5 w-3.5" /></button>
+            <button onClick={() => execFormat("strikeThrough")} className={tbBtn} title="Strikethrough"><Strikethrough className="h-3.5 w-3.5" /></button>
+            <div className={tbSep} />
+            <button onClick={() => execFormat("formatBlock", "h1")} className={tbBtn} title="Heading 1"><Heading1 className="h-3.5 w-3.5" /></button>
+            <button onClick={() => execFormat("formatBlock", "h2")} className={tbBtn} title="Heading 2"><Heading2 className="h-3.5 w-3.5" /></button>
+            <button onClick={() => execFormat("formatBlock", "h3")} className={tbBtn} title="Heading 3"><Heading3 className="h-3.5 w-3.5" /></button>
+            <div className={tbSep} />
+            <button onClick={() => execFormat("insertUnorderedList")} className={tbBtn} title="Bullet List"><List className="h-3.5 w-3.5" /></button>
+            <button onClick={() => execFormat("insertOrderedList")} className={tbBtn} title="Numbered List"><ListOrdered className="h-3.5 w-3.5" /></button>
+            <div className={tbSep} />
+            <button onClick={insertCode} className={tbBtn} title="Inline Code"><Code2 className="h-3.5 w-3.5" /></button>
+            <button onClick={insertLink} className={tbBtn} title="Insert Link"><Link className="h-3.5 w-3.5" /></button>
+            <button onClick={() => execFormat("formatBlock", "blockquote")} className={tbBtn} title="Blockquote"><Quote className="h-3.5 w-3.5" /></button>
+            <button onClick={() => execFormat("insertHorizontalRule")} className={tbBtn} title="Horizontal Rule"><Minus className="h-3.5 w-3.5" /></button>
+          </div>
+
+          {/* WYSIWYG Content Area */}
           <div
             ref={previewContainerRef}
             className="flex-1 overflow-auto bg-white dark:bg-[#0d1117]"
@@ -451,9 +513,19 @@ export default function MarkdownEditor() {
               ref={previewRef}
               contentEditable
               onInput={syncFromPreview}
+              onClick={handlePreviewClick}
               className="markdown-preview outline-none min-h-full p-6 text-slate-800 dark:text-slate-200 text-[15px] leading-relaxed"
               suppressContentEditableWarning
             />
+          </div>
+
+          {/* Footer: bộ đếm Word + hint Ctrl+Click */}
+          <div className="flex-shrink-0 px-4 py-1.5 bg-slate-50/80 dark:bg-[#0B0F1A]/60 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+            <span>{wordCounts.chars.toLocaleString()} {lang === "vi" ? "ký tự" : "chars"} · {wordCounts.words.toLocaleString()} {lang === "vi" ? "từ" : "words"}</span>
+            <span className="text-[9px] text-slate-400/70 dark:text-slate-500/70 hidden md:inline">
+              {t("markdownEditor.ctrlClickHint")}
+            </span>
+            <span>{wordCounts.lines.toLocaleString()} {lang === "vi" ? "dòng" : "lines"}</span>
           </div>
         </div>
       </div>

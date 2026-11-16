@@ -226,11 +226,14 @@ export const translations = {
     markdownEditor: {
       title: "Soạn Thảo Markdown",
       subtitle: "Trình soạn thảo Markdown song song với xem trước trực quan kiểu Word. Chỉnh sửa hai chiều, cuộn đồng bộ.",
-      upload: "Tải file .md",
-      download: "Xuất .md",
-      exportWord: "Xuất Word",
+      upload: "Tải .md",
+      uploadDocx: "Tải .docx",
+      export: "Xuất file",
+      exportMd: "Markdown (.md)",
+      exportWord: "Word (.doc)",
       markdownSource: "Markdown",
       wordEditor: "Word Editor",
+      ctrlClickHint: "Ctrl + Click để mở liên kết",
     },
 
     // Data Converter & HTML Runner
@@ -646,10 +649,13 @@ export const translations = {
       title: "Markdown Editor",
       subtitle: "Split-view Markdown editor with live rich-text WYSIWYG preview. Bidirectional editing with synchronized scroll.",
       upload: "Upload .md",
-      download: "Export .md",
-      exportWord: "Export Word",
+      uploadDocx: "Upload .docx",
+      export: "Export",
+      exportMd: "Markdown (.md)",
+      exportWord: "Word (.doc)",
       markdownSource: "Markdown",
       wordEditor: "Word Editor",
+      ctrlClickHint: "Ctrl + Click to open links",
     },
 
     // Data Converter & HTML Runner

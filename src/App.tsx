@@ -10,6 +10,7 @@ import PdfSplit from "./components/PdfSplit";
 import PdfEdit from "./components/PdfEdit";
 import FileManagerSuite from "./components/FileManagerSuite";
 import FileConverter from "./components/FileConverter";
+import MarkdownEditor from "./components/MarkdownEditor";
 import { I18nProvider, useI18n } from "./utils/i18n";
 import { parseRoute } from "./utils/navigation";
 import { Menu, Sun, Moon, Sliders } from "lucide-react";
@@ -257,11 +258,15 @@ function MainApp() {
           />
         )}
         {state.activeModule === ActiveModule.DATA_CONVERTER && (
-          <DataConverterHtml
-            state={state.dataConverter}
-            onChange={(subState) => handleModuleStateChange("dataConverter", subState)}
-            subSlug={currentSubSlug}
-          />
+          currentSubSlug === "markdown-editor" ? (
+            <MarkdownEditor />
+          ) : (
+            <DataConverterHtml
+              state={state.dataConverter}
+              onChange={(subState) => handleModuleStateChange("dataConverter", subState)}
+              subSlug={currentSubSlug}
+            />
+          )
         )}
         {state.activeModule === ActiveModule.EXCEL_SUITE && (
           <ExcelSuite

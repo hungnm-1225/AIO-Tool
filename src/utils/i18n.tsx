@@ -222,6 +222,17 @@ export const translations = {
       identicalMessage: "Hai văn bản hoàn toàn giống nhau!",
     },
 
+    // Markdown Editor
+    markdownEditor: {
+      title: "Soạn Thảo Markdown",
+      subtitle: "Trình soạn thảo Markdown song song với xem trước trực quan kiểu Word. Chỉnh sửa hai chiều, cuộn đồng bộ.",
+      upload: "Tải file .md",
+      download: "Xuất .md",
+      exportWord: "Xuất Word",
+      markdownSource: "Markdown",
+      wordEditor: "Word Editor",
+    },
+
     // Data Converter & HTML Runner
     dataConverter: {
       title: "Công Cụ Xử Lý Dữ Liệu & Chạy HTML Live",
@@ -628,6 +639,17 @@ export const translations = {
       identicalResult: "100% Identical",
       differencesFound: "Differences Found",
       identicalMessage: "The original and modified texts are completely identical!",
+    },
+
+    // Markdown Editor
+    markdownEditor: {
+      title: "Markdown Editor",
+      subtitle: "Split-view Markdown editor with live rich-text WYSIWYG preview. Bidirectional editing with synchronized scroll.",
+      upload: "Upload .md",
+      download: "Export .md",
+      exportWord: "Export Word",
+      markdownSource: "Markdown",
+      wordEditor: "Word Editor",
     },
 
     // Data Converter & HTML Runner

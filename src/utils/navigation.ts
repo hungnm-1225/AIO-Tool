@@ -149,6 +149,15 @@ export const MAIN_MENU_ITEMS: MainMenuItem[] = [
         icon: Play,
         componentKey: "preview",
       },
+      {
+        subSlug: "markdown-editor",
+        labelVi: "Soạn Thảo Markdown",
+        labelEn: "Markdown Editor",
+        descriptionVi: "Soạn thảo Markdown song song với xem trước trực quan kiểu Word, cuộn đồng bộ",
+        descriptionEn: "Split-view Markdown editor with live WYSIWYG Word-style preview",
+        icon: BookOpen,
+        componentKey: "markdown-editor",
+      },
     ],
   },
   {
@@ -301,6 +310,8 @@ const LEGACY_HASH_MAP: Record<string, { mainSlug: string; subSlug: string }> = {
   "json-grid-viewer": { mainSlug: "web-data-html", subSlug: "json-grid-viewer" },
   "chay-html-truc-tiep": { mainSlug: "web-data-html", subSlug: "live-html-runner" },
   "live-html-runner": { mainSlug: "web-data-html", subSlug: "live-html-runner" },
+  "soan-thao-markdown": { mainSlug: "web-data-html", subSlug: "markdown-editor" },
+  "markdown-editor": { mainSlug: "web-data-html", subSlug: "markdown-editor" },
 
   // Excel suite
   "bo-cong-cu-excel": { mainSlug: "excel-suite", subSlug: "merge-table" },
